@@ -1,0 +1,5 @@
+jaxlib
+numpy
+tensorflow
+tensorflow-datasets
+matplotlib
