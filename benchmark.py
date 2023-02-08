@@ -1,10 +1,10 @@
 import jax
 import jax.numpy as jnp
-import numpy as onp
+import numpy as np
 import functools
 import tensorflow as tf
 import tensorflow_datasets as tfds
-import matplotlib.pyplot as plt
+import pickle
 
 
 class MLPTask:
@@ -195,23 +195,22 @@ if __name__ == "__main__":
 
     ds = tfds.load("fashion_mnist", split="train")
 
-
     def resize_and_scale(batch):
         batch["image"] = tf.image.resize(batch["image"], (8, 8)) / 255.0
         return batch
 
-
-    ds = ds.map(resize_and_scale).cache().repeat(-1).shuffle(64 * 10).batch(128).prefetch(5)
+    ds = (
+        ds.map(resize_and_scale)
+        .cache()
+        .repeat(-1)
+        .shuffle(64 * 10)
+        .batch(128)
+        .prefetch(5)
+    )
     data_iterator = ds.as_numpy_iterator()
     batch = next(data_iterator)
 
-    fig, axs = plt.subplots(4, 4, figsize=(10, 10))
-    for ai, a in enumerate(axs.ravel()):
-        a.imshow(batch["image"][ai][:, :, 0], cmap="gray")
-    plt.show()
-
-    input_size = onp.prod(batch["image"].shape[1:])
-
+    input_size = np.prod(batch["image"].shape[1:])
 
     """
     ### Learned Optimizer Baseline
@@ -224,7 +223,6 @@ if __name__ == "__main__":
     meta_params = lopt.init_meta_params(key)
     value_grad_fn = jax.jit(jax.value_and_grad(task.loss))
 
-
     def get_batch_seq(seq_len):
         batches = [next(data_iterator) for _ in range(seq_len)]
         # stack the data to add a leading dim.
@@ -232,7 +230,6 @@ if __name__ == "__main__":
             "image": jnp.asarray([b["image"] for b in batches]),
             "label": jnp.asarray([b["label"] for b in batches]),
         }
-
 
     @jax.jit
     def meta_loss(meta_params, key, sequence_of_batches):
@@ -252,7 +249,6 @@ if __name__ == "__main__":
         opt_state, losses = jax.lax.scan(step, opt_state, sequence_of_batches)
 
         return jnp.mean(losses)
-
 
     key = jax.random.PRNGKey(0)
     meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss))
@@ -294,17 +290,10 @@ if __name__ == "__main__":
 
         all_losses.append(losses)
 
-
-    losses_mean = onp.mean(all_losses, 0)
-    losses_std = onp.std(all_losses, 0)
-    plt.plot(losses_mean)
-    plt.fill_between(
-        onp.arange(10), losses_mean - losses_std, losses_mean + losses_std, alpha=0.2
-    )
-    plt.ylim(1.0, 2.3)
-    plt.xlabel("inner-iteration")
-    plt.ylabel("loss")
-    plt.show()
+    losses_mean = np.mean(all_losses, 0)
+    losses_std = np.std(all_losses, 0)
+    with open("LOpt.pickle", "wb") as f:
+        pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
 
     """
     ### Learned Optimizer with Learned Aggregation
@@ -318,7 +307,6 @@ if __name__ == "__main__":
     loss_fn = jax.jit(task.loss)
     grad_fn = jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0)))
 
-
     def get_batch_seq(seq_len):
         batches = [next(data_iterator) for _ in range(seq_len)]
         # stack the data to add a leading dim.
@@ -326,7 +314,6 @@ if __name__ == "__main__":
             "image": jnp.asarray([b["image"] for b in batches]),
             "label": jnp.asarray([b["label"] for b in batches]),
         }
-
 
     @jax.jit
     def meta_loss(meta_params, key, sequence_of_batches):
@@ -351,7 +338,6 @@ if __name__ == "__main__":
         opt_state, losses = jax.lax.scan(step, opt_state, sequence_of_batches)
 
         return jnp.mean(losses)
-
 
     key = jax.random.PRNGKey(0)
     meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss))
@@ -398,14 +384,7 @@ if __name__ == "__main__":
 
         all_losses.append(losses)
 
-
-    losses_mean = onp.mean(all_losses, 0)
-    losses_std = onp.std(all_losses, 0)
-    plt.plot(losses_mean)
-    plt.fill_between(
-        onp.arange(10), losses_mean - losses_std, losses_mean + losses_std, alpha=0.2
-    )
-    plt.ylim(1.0, 2.3)
-    plt.xlabel("inner-iteration")
-    plt.ylabel("loss")
-    plt.show()
+    losses_mean = np.mean(all_losses, 0)
+    losses_std = np.std(all_losses, 0)
+    with open("LAggOpt.pickle", "wb") as f:
+        pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
