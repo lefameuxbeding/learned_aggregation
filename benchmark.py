@@ -280,8 +280,8 @@ if __name__ == "__main__":
 
         for i in range(300):
             data = get_batch_seq(10)
-            key1, key = jax.random.split(key)
-            loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
+            key1, key = jax.random.split(key) # Are the starting weights random at each meta-training iteration?
+            loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data) # Are the inputs to the MLP dropped from the compute graph?
             meta_losses.append(meta_loss)
             meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
 
@@ -293,7 +293,7 @@ if __name__ == "__main__":
 
         for j in range(10):
             losses = []
-            key = jax.random.PRNGKey(j)
+            key = jax.random.PRNGKey(j + 1) # Make sure the problems are different than the one it was trained on
             params = task.init(key)
             opt_state = opt.initial_inner_opt_state(meta_params, params)
 
