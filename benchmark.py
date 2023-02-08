@@ -109,6 +109,7 @@ class LOpt:
 
         out_params = []
         for p, m, g in zip(params, momentum, inner_grads):
+
             features = jnp.asarray([p, m, g])
             # transpose to have features dim last. The MLP will operate on this,
             # and treat the leading dimensions as a batch dimension.
@@ -191,6 +192,39 @@ class LAggOpt:
         return tuple(out_params), tuple(momentum)
 
 
+def get_batch_seq(seq_len):
+    batches = [next(data_iterator) for _ in range(seq_len)]
+    # stack the data to add a leading dim.
+    return {
+        "image": jnp.asarray([b["image"] for b in batches]),
+        "label": jnp.asarray([b["label"] for b in batches]),
+    }
+
+
+def meta_loss_fn(meta_params, key, sequence_of_batches):
+    def step(opt_state, batch):
+        input = batch["image"]
+        loss = loss_fn(
+            opt_state[0],
+            jnp.reshape(input, [input.shape[0], -1]),
+            jax.nn.one_hot(batch["label"], 10),
+        )
+        grads = grad_fn(
+            opt_state[0],
+            jnp.reshape(input, [input.shape[0], -1]),
+            jax.nn.one_hot(batch["label"], 10),
+        )
+        opt_state = opt.update_inner_opt_state(meta_params, opt_state, grads)
+        return opt_state, loss
+
+    params = task.init(key)
+    opt_state = opt.initial_inner_opt_state(meta_params, params)
+    # Iterate N times where N is the number of batches in sequence_of_batches
+    opt_state, losses = jax.lax.scan(step, opt_state, sequence_of_batches)
+
+    return jnp.mean(losses)
+
+
 if __name__ == "__main__":
 
     ds = tfds.load("fashion_mnist", split="train")
@@ -212,179 +246,77 @@ if __name__ == "__main__":
 
     input_size = np.prod(batch["image"].shape[1:])
 
-    """
-    ### Learned Optimizer Baseline
-    """
-
     task = MLPTask()
-    key = jax.random.PRNGKey(0)
-    params = task.init(key)
-    lopt = LOpt()
-    meta_params = lopt.init_meta_params(key)
-    value_grad_fn = jax.jit(jax.value_and_grad(task.loss))
 
-    def get_batch_seq(seq_len):
-        batches = [next(data_iterator) for _ in range(seq_len)]
-        # stack the data to add a leading dim.
-        return {
-            "image": jnp.asarray([b["image"] for b in batches]),
-            "label": jnp.asarray([b["label"] for b in batches]),
-        }
+    optimizers = [
+        ("LOpt", LOpt, jax.jit(task.loss), jax.jit(jax.grad(task.loss))),
+        (
+            "LAggOpt",
+            LAggOpt,
+            jax.jit(task.loss),
+            jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
+        ),
+    ]
 
-    @jax.jit
-    def meta_loss(meta_params, key, sequence_of_batches):
-        def step(opt_state, batch):
-            input = batch["image"]
-            loss, grads = value_grad_fn(
-                opt_state[0],
-                jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
-            )
-            opt_state = lopt.update_inner_opt_state(meta_params, opt_state, grads)
-            return opt_state, loss
+    for optimizer, optimizer_class, loss_fn, grad_fn in optimizers:
 
+        """Training"""
+
+        key = jax.random.PRNGKey(0)
         params = task.init(key)
-        opt_state = lopt.initial_inner_opt_state(meta_params, params)
-        # Iterate N times where N is the number of batches in sequence_of_batches
-        opt_state, losses = jax.lax.scan(step, opt_state, sequence_of_batches)
+        opt = optimizer_class()
+        meta_params = opt.init_meta_params(key)
 
-        return jnp.mean(losses)
+        key = jax.random.PRNGKey(0)
+        meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss_fn))
+        meta_loss, meta_grad = meta_value_grad_fn(meta_params, key, get_batch_seq(10))
 
-    key = jax.random.PRNGKey(0)
-    meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss))
-    loss, meta_grad = meta_value_grad_fn(meta_params, key, get_batch_seq(10))
+        meta_opt = Adam(0.001)
+        key = jax.random.PRNGKey(0)
+        meta_params = opt.init_meta_params(key)
+        meta_opt_state = meta_opt.init(meta_params)
 
-    meta_opt = Adam(0.001)
-    key = jax.random.PRNGKey(0)
-    meta_params = lopt.init_meta_params(key)
-    meta_opt_state = meta_opt.init(meta_params)
-    meta_losses = []
+        meta_losses = []
 
-    for i in range(300):
-        data = get_batch_seq(10)
-        key1, key = jax.random.split(key)
-        loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
-        meta_losses.append(loss)
-        meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
+        for i in range(300):
+            data = get_batch_seq(10)
+            key1, key = jax.random.split(key)
+            loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
+            meta_losses.append(meta_loss)
+            meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
 
-    meta_params = meta_opt_state[0]
+        meta_params = meta_opt_state[0]
 
-    all_losses = []
+        """ Evaluation """
 
-    for j in range(10):
-        losses = []
-        key = jax.random.PRNGKey(j)
-        params = task.init(key)
-        opt_state = lopt.initial_inner_opt_state(meta_params, params)
+        all_losses = []
 
-        for i in range(10):
-            batch = next(data_iterator)
-            input = batch["image"]
-            loss, grads = value_grad_fn(
-                opt_state[0],
-                jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
-            )
-            opt_state = lopt.update_inner_opt_state(meta_params, opt_state, grads)
-            losses.append(loss)
+        for j in range(10):
+            losses = []
+            key = jax.random.PRNGKey(j)
+            params = task.init(key)
+            opt_state = opt.initial_inner_opt_state(meta_params, params)
 
-        all_losses.append(losses)
+            for i in range(10):
+                batch = next(data_iterator)
+                input = batch["image"]
+                loss = loss_fn(
+                    opt_state[0],
+                    jnp.reshape(input, [input.shape[0], -1]),
+                    jax.nn.one_hot(batch["label"], 10),
+                )
+                grads = grad_fn(
+                    opt_state[0],
+                    jnp.reshape(input, [input.shape[0], -1]),
+                    jax.nn.one_hot(batch["label"], 10),
+                )
+                opt_state = opt.update_inner_opt_state(meta_params, opt_state, grads)
+                losses.append(loss)
 
-    losses_mean = np.mean(all_losses, 0)
-    losses_std = np.std(all_losses, 0)
-    with open("LOpt.pickle", "wb") as f:
-        pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
+            all_losses.append(losses)
 
-    """
-    ### Learned Optimizer with Learned Aggregation
-    # """
+        losses_mean = np.mean(all_losses, 0)
+        losses_std = np.std(all_losses, 0)
 
-    task = MLPTask()
-    key = jax.random.PRNGKey(0)
-    params = task.init(key)
-    laggopt = LAggOpt()
-    meta_params = laggopt.init_meta_params(key)
-    loss_fn = jax.jit(task.loss)
-    grad_fn = jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0)))
-
-    def get_batch_seq(seq_len):
-        batches = [next(data_iterator) for _ in range(seq_len)]
-        # stack the data to add a leading dim.
-        return {
-            "image": jnp.asarray([b["image"] for b in batches]),
-            "label": jnp.asarray([b["label"] for b in batches]),
-        }
-
-    @jax.jit
-    def meta_loss(meta_params, key, sequence_of_batches):
-        def step(opt_state, batch):
-            input = batch["image"]
-            loss = loss_fn(
-                opt_state[0],
-                jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
-            )
-            grads = grad_fn(
-                opt_state[0],
-                jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
-            )
-            opt_state = laggopt.update_inner_opt_state(meta_params, opt_state, grads)
-            return opt_state, loss
-
-        params = task.init(key)
-        opt_state = laggopt.initial_inner_opt_state(meta_params, params)
-        # Iterate N times where N is the number of batches in sequence_of_batches
-        opt_state, losses = jax.lax.scan(step, opt_state, sequence_of_batches)
-
-        return jnp.mean(losses)
-
-    key = jax.random.PRNGKey(0)
-    meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss))
-    loss, meta_grad = meta_value_grad_fn(meta_params, key, get_batch_seq(10))
-
-    meta_opt = Adam(0.001)
-    key = jax.random.PRNGKey(0)
-    meta_params = laggopt.init_meta_params(key)
-    meta_opt_state = meta_opt.init(meta_params)
-    meta_losses = []
-
-    for i in range(300):
-        data = get_batch_seq(10)
-        key1, key = jax.random.split(key)
-        loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
-        meta_losses.append(loss)
-        meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
-
-    meta_params = meta_opt_state[0]
-
-    all_losses = []
-
-    for j in range(10):
-        losses = []
-        key = jax.random.PRNGKey(j)
-        params = task.init(key)
-        opt_state = laggopt.initial_inner_opt_state(meta_params, params)
-
-        for i in range(10):
-            batch = next(data_iterator)
-            input = batch["image"]
-            loss = loss_fn(
-                opt_state[0],
-                jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
-            )
-            grads = grad_fn(
-                opt_state[0],
-                jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
-            )
-            opt_state = laggopt.update_inner_opt_state(meta_params, opt_state, grads)
-            losses.append(loss)
-
-        all_losses.append(losses)
-
-    losses_mean = np.mean(all_losses, 0)
-    losses_std = np.std(all_losses, 0)
-    with open("LAggOpt.pickle", "wb") as f:
-        pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
+        with open(optimizer + ".pickle", "wb") as f:
+            pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
