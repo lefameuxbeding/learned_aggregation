@@ -122,7 +122,7 @@ class LOpt:
 
 
 class LAggOpt:
-    def __init__(self, num_samples=4,  decay=0.9):
+    def __init__(self, num_samples=4, decay=0.9):
         self.num_samples = num_samples
         self.decay = decay
         self.hidden_size = 64
@@ -164,7 +164,9 @@ class LAggOpt:
         def predict_step(features):
             """Predict the update for a single ndarray."""
             w0, b0, w1, b1 = meta_params
-            outs = jax.nn.relu(jax.lax.stop_gradient(features) @ w0 + b0) @ w1 + b1 # Make sure the inputs to the MLP are dropped from the compute graph
+            outs = (
+                jax.nn.relu(jax.lax.stop_gradient(features) @ w0 + b0) @ w1 + b1
+            )  # Make sure the inputs to the MLP are dropped from the compute graph
             # slice out the last 2 elements
             scale = outs[..., 0]
             mag = outs[..., 1]
@@ -178,9 +180,7 @@ class LAggOpt:
             def get_grads_mean(grads):
                 return jnp.mean(grads, axis=0)
 
-            sample_grads = get_grads_mean(
-                jnp.array(jnp.split(g, self.num_samples))
-            )
+            sample_grads = get_grads_mean(jnp.array(jnp.split(g, self.num_samples)))
             features = jnp.concatenate((jnp.asarray([p, m]), sample_grads))
             # transpose to have features dim last. The MLP will operate on this,
             # and treat the leading dimensions as a batch dimension.
@@ -248,6 +248,45 @@ if __name__ == "__main__":
 
     task = MLPTask()
 
+    """ Adam """
+
+    all_losses = []
+    optimizer = Adam(0.001)
+    loss_fn = jax.jit(task.loss)
+    grad_fn = jax.jit(jax.grad(task.loss))
+
+    for j in range(10):
+        losses = []
+        key = jax.random.PRNGKey(0)
+        params = task.init(key)
+        opt_state = optimizer.init(params)
+
+        for i in range(10):
+            batch = next(data_iterator)
+            input = batch["image"]
+            loss = loss_fn(
+                opt_state[0],
+                jnp.reshape(input, [input.shape[0], -1]),
+                jax.nn.one_hot(batch["label"], 10),
+            )
+            grads = grad_fn(
+                opt_state[0],
+                jnp.reshape(input, [input.shape[0], -1]),
+                jax.nn.one_hot(batch["label"], 10),
+            )
+            opt_state = optimizer.update(opt_state, grads)
+            losses.append(loss)
+
+        all_losses.append(losses)
+
+    losses_mean = np.mean(all_losses, 0)
+    losses_std = np.std(all_losses, 0)
+
+    with open("Adam.pickle", "wb") as f:
+        pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
+
+    """ Learned optimizers """
+
     optimizers = [
         ("LOpt", LOpt(), jax.jit(task.loss), jax.jit(jax.grad(task.loss))),
         (
@@ -268,13 +307,17 @@ if __name__ == "__main__":
             jax.jit(task.loss),
             jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
         ),
+        (
+            "LAggOpt-32",
+            LAggOpt(32),
+            jax.jit(task.loss),
+            jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
+        ),
     ]
-
-    """ Learned optimizers """
 
     for optimizer_name, optimizer, loss_fn, grad_fn in optimizers:
 
-        """ Training """
+        """Training"""
 
         key = jax.random.PRNGKey(0)
         params = task.init(key)
@@ -293,7 +336,9 @@ if __name__ == "__main__":
 
         for i in range(300):
             data = get_batch_seq(10)
-            key1, key = jax.random.split(key) # Are the starting weights random at each meta-training iteration?
+            key1, key = jax.random.split(
+                key
+            )  # Are the starting weights random at each meta-training iteration?
             loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
             meta_losses.append(meta_loss)
             meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
@@ -306,7 +351,9 @@ if __name__ == "__main__":
 
         for j in range(10):
             losses = []
-            key = jax.random.PRNGKey(j + 1) # Make sure the problems are different than the one it was trained on
+            key = jax.random.PRNGKey(
+                j + 1
+            )  # Make sure the problems are different than the one it was trained on
             params = task.init(key)
             opt_state = optimizer.initial_inner_opt_state(meta_params, params)
 
@@ -323,7 +370,9 @@ if __name__ == "__main__":
                     jnp.reshape(input, [input.shape[0], -1]),
                     jax.nn.one_hot(batch["label"], 10),
                 )
-                opt_state = optimizer.update_inner_opt_state(meta_params, opt_state, grads)
+                opt_state = optimizer.update_inner_opt_state(
+                    meta_params, opt_state, grads
+                )
                 losses.append(loss)
 
             all_losses.append(losses)

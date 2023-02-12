@@ -5,7 +5,7 @@ import numpy as np
 
 if __name__ == "__main__":
 
-    optimizers = [("LOpt", "green"), ("LAggOpt-4", "blue"), ("LAggOpt-8", "red"), ("LAggOpt-16", "orange")]
+    optimizers = [("Adam", "red"), ("LOpt", "orange"), ("LAggOpt-4", "gold"), ("LAggOpt-8", "green"), ("LAggOpt-16", "blue"), ("LAggOpt-32", "purple")]
 
     for optimizer_name, color in optimizers:
 
