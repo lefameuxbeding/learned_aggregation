@@ -8,9 +8,12 @@ import pickle
 
 
 class MLPTask:
+    def __init__(self, input_size):
+        self.input_size = input_size
+
     def init(self, key):
         key1, key2 = jax.random.split(key)
-        w0 = jax.random.normal(key1, [input_size, 128]) * 0.02
+        w0 = jax.random.normal(key1, [self.input_size, 128]) * 0.02
         w1 = jax.random.normal(key2, [128, 10]) * 0.02
         b0 = jnp.zeros([128])
         b1 = jnp.ones([10])
@@ -192,6 +195,11 @@ class LAggOpt:
         return tuple(out_params), tuple(momentum)
 
 
+def resize_and_scale(batch):
+    batch["image"] = tf.image.resize(batch["image"], (8, 8)) / 255.0
+    return batch
+
+
 def get_batch_seq(seq_len):
     batches = [next(data_iterator) for _ in range(seq_len)]
     # stack the data to add a leading dim.
@@ -228,11 +236,6 @@ def meta_loss_fn(meta_params, key, sequence_of_batches):
 if __name__ == "__main__":
 
     ds = tfds.load("fashion_mnist", split="train")
-
-    def resize_and_scale(batch):
-        batch["image"] = tf.image.resize(batch["image"], (8, 8)) / 255.0
-        return batch
-
     ds = (
         ds.map(resize_and_scale)
         .cache()
@@ -244,20 +247,18 @@ if __name__ == "__main__":
     data_iterator = ds.as_numpy_iterator()
     batch = next(data_iterator)
 
-    input_size = np.prod(batch["image"].shape[1:])
-
-    task = MLPTask()
+    task = MLPTask(np.prod(batch["image"].shape[1:]))
 
     """ Adam """
 
     all_losses = []
-    optimizer = Adam(0.001)
+    optimizer = Adam(0.01)
     loss_fn = jax.jit(task.loss)
     grad_fn = jax.jit(jax.grad(task.loss))
 
     for j in range(10):
         losses = []
-        key = jax.random.PRNGKey(0)
+        key = jax.random.PRNGKey(j)
         params = task.init(key)
         opt_state = optimizer.init(params)
 
