@@ -5,14 +5,14 @@ import numpy as np
 
 if __name__ == "__main__":
 
-    optimizers = [("LOpt", "green"), ("LAggOpt", "red")]
+    optimizers = [("LOpt", "green"), ("LAggOpt-4", "blue"), ("LAggOpt-8", "red"), ("LAggOpt-16", "orange")]
 
-    for optimizer, color in optimizers:
+    for optimizer_name, color in optimizers:
 
-        with open(optimizer + ".pickle", "rb") as f:
+        with open(optimizer_name + ".pickle", "rb") as f:
             results = pickle.load(f)
 
-        plt.plot(results["losses_mean"], label=optimizer, color=color)
+        plt.plot(results["losses_mean"], label=optimizer_name, color=color)
         plt.fill_between(
             np.arange(10),
             results["losses_mean"] - results["losses_std"],
