@@ -5,6 +5,7 @@ import functools
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import pickle
+import wandb
 
 
 class MLPTask:
@@ -249,17 +250,17 @@ if __name__ == "__main__":
 
     task = MLPTask(np.prod(batch["image"].shape[1:]))
 
-    num_inner_steps = 20
+    num_inner_steps = 10
 
     """ Adam """
 
-    all_losses = []
     optimizer = Adam(0.01)
     loss_fn = jax.jit(task.loss)
     grad_fn = jax.jit(jax.grad(task.loss))
 
     for j in range(10):
-        losses = []
+        run = wandb.init(project="learning-aggregation", group="Adam")
+
         key = jax.random.PRNGKey(j)
         params = task.init(key)
         opt_state = optimizer.init(params)
@@ -278,15 +279,10 @@ if __name__ == "__main__":
                 jax.nn.one_hot(batch["label"], 10),
             )
             opt_state = optimizer.update(opt_state, grads)
-            losses.append(loss)
 
-        all_losses.append(losses)
+            run.log({"loss": loss})
 
-    losses_mean = np.mean(all_losses, 0)
-    losses_std = np.std(all_losses, 0)
-
-    with open("Adam.pickle", "wb") as f:
-        pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
+        run.finish()
 
     """ Learned optimizers """
 
@@ -351,7 +347,8 @@ if __name__ == "__main__":
         all_losses = []
 
         for j in range(10):
-            losses = []
+            run = wandb.init(project="learning-aggregation", group=optimizer_name)
+
             key = jax.random.PRNGKey(
                 j + 1
             )  # Make sure the problems are different than the one it was trained on
@@ -374,12 +371,7 @@ if __name__ == "__main__":
                 opt_state = optimizer.update_inner_opt_state(
                     meta_params, opt_state, grads
                 )
-                losses.append(loss)
 
-            all_losses.append(losses)
+                run.log({"loss": loss})
 
-        losses_mean = np.mean(all_losses, 0)
-        losses_std = np.std(all_losses, 0)
-
-        with open(optimizer_name + ".pickle", "wb") as f:
-            pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
+            run.finish()

@@ -3,3 +3,4 @@ numpy
 tensorflow
 tensorflow-datasets
 matplotlib
+wandb
