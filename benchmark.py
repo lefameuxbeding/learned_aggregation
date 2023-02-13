@@ -249,6 +249,8 @@ if __name__ == "__main__":
 
     task = MLPTask(np.prod(batch["image"].shape[1:]))
 
+    num_inner_steps = 20
+
     """ Adam """
 
     all_losses = []
@@ -262,7 +264,7 @@ if __name__ == "__main__":
         params = task.init(key)
         opt_state = optimizer.init(params)
 
-        for i in range(10):
+        for i in range(num_inner_steps):
             batch = next(data_iterator)
             input = batch["image"]
             loss = loss_fn(
@@ -287,6 +289,8 @@ if __name__ == "__main__":
         pickle.dump({"losses_mean": losses_mean, "losses_std": losses_std}, f)
 
     """ Learned optimizers """
+
+    num_episodes = 300
 
     optimizers = [
         ("LOpt", LOpt(), jax.jit(task.loss), jax.jit(jax.grad(task.loss))),
@@ -326,22 +330,18 @@ if __name__ == "__main__":
 
         key = jax.random.PRNGKey(0)
         meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss_fn))
-        meta_loss, meta_grad = meta_value_grad_fn(meta_params, key, get_batch_seq(10))
         meta_opt = Adam(0.001)
 
         key = jax.random.PRNGKey(0)
         meta_params = optimizer.init_meta_params(key)
         meta_opt_state = meta_opt.init(meta_params)
 
-        meta_losses = []
-
-        for i in range(300):
-            data = get_batch_seq(10)
+        for i in range(num_episodes):
+            data = get_batch_seq(num_inner_steps)
             key1, key = jax.random.split(
                 key
             )  # Are the starting weights random at each meta-training iteration?
-            loss, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
-            meta_losses.append(meta_loss)
+            _, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
             meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
 
         meta_params = meta_opt_state[0]
@@ -358,7 +358,7 @@ if __name__ == "__main__":
             params = task.init(key)
             opt_state = optimizer.initial_inner_opt_state(meta_params, params)
 
-            for i in range(10):
+            for i in range(num_inner_steps):
                 batch = next(data_iterator)
                 input = batch["image"]
                 loss = loss_fn(
