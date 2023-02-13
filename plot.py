@@ -31,7 +31,7 @@ if __name__ == "__main__":
     plt.ylim(1.0, 2.4)
 
     plt.legend()
-    plt.xlabel("iteration")
-    plt.ylabel("loss")
+    plt.xlabel("inner iteration")
+    plt.ylabel("inner train loss")
 
     plt.show()
