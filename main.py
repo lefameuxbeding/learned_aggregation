@@ -112,7 +112,6 @@ class LOpt:
 
         out_params = []
         for p, m, g in zip(params, momentum, inner_grads):
-
             features = jnp.asarray([p, m, g])
             # transpose to have features dim last. The MLP will operate on this,
             # and treat the leading dimensions as a batch dimension.
@@ -315,7 +314,6 @@ if __name__ == "__main__":
     ]
 
     for optimizer_name, optimizer, loss_fn, grad_fn in optimizers:
-
         """Training"""
 
         key = jax.random.PRNGKey(0)
