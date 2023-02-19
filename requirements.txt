@@ -1,7 +1,8 @@
 --pre
 --find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-jax[cuda]
+jax[cuda11_cudnn82]
 jaxlib
+cuda-python
 numpy
 tensorflow
 tensorflow_datasets

@@ -1,3 +1,5 @@
 .vscode
-.venv
 wandb
+slurm*
+downloads
+fashion_mnist

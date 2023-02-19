@@ -1,9 +1,10 @@
 #!/bin/bash
 
-module load python/3.8
+module --quiet load anaconda/3
+conda activate venv
 
-python -m venv ./.venv
-source ./.venv/bin/activate
-
-pip install --upgrade pip
+conda install -y -c conda-forge cudnn
+conda install -y pip
 pip install -r requirements.txt --no-cache-dir
+
+python main.py
