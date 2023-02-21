@@ -7,6 +7,7 @@ import tensorflow_datasets as tfds
 import wandb
 import sys
 import os
+from adam import Adam
 
 
 class MLPTask:
@@ -27,42 +28,6 @@ class MLPTask:
         w0, b0, w1, b1 = params
         logits = jax.nn.log_softmax(jax.nn.relu(input @ w0 + b0) @ w1 + b1)
         return jnp.mean(-jnp.sum(labels * logits, axis=-1))
-
-
-class Adam:
-    def __init__(self, lr, beta1=0.9, beta2=0.999, epsilon=1e-8):
-        self.lr = lr
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon = epsilon
-
-    def init(self, params):
-        return (
-            tuple(params),
-            jnp.asarray(0),
-            tuple([jnp.zeros_like(p) for p in params]),
-            tuple([jnp.zeros_like(p) for p in params]),
-        )
-
-    @functools.partial(jax.jit, static_argnums=(0,))
-    def update(self, state, grads):
-        params, iteration, momentum, rms = state
-        iteration += 1
-        momentum = tuple(
-            [m * self.beta1 + (1 - self.beta1) * g for m, g in zip(momentum, grads)]
-        )
-        rms = tuple(
-            [v * self.beta2 + (1 - self.beta2) * (g**2) for v, g in zip(rms, grads)]
-        )
-        mhat = [m / (1 - self.beta1**iteration) for m in momentum]
-        vhat = [v / (1 - self.beta2**iteration) for v in rms]
-        params = tuple(
-            [
-                p - self.lr * m / (jnp.sqrt(v) + self.epsilon)
-                for p, m, v in zip(params, mhat, vhat)
-            ]
-        )
-        return (params, iteration, momentum, rms)
 
 
 class LOpt:
@@ -237,7 +202,7 @@ def meta_loss_fn(meta_params, key, sequence_of_batches):
 if __name__ == "__main__":
     sys.path.append(os.getcwd())
 
-    ds = tfds.load("fashion_mnist", split="train", data_dir=os.getenv("SLURM_TMPDIR")) # See if there is a way to not download the dataset each time
+    ds = tfds.load("fashion_mnist", split="train", data_dir=os.getenv("SLURM_TMPDIR"))
     ds = (
         ds.map(resize_and_scale)
         .cache()
@@ -251,7 +216,8 @@ if __name__ == "__main__":
 
     task = MLPTask(np.prod(batch["image"].shape[1:]))
 
-    num_inner_steps = 10
+    num_runs = 10
+    num_inner_steps = 30
 
     """ Adam """
 
@@ -259,7 +225,7 @@ if __name__ == "__main__":
     loss_fn = jax.jit(task.loss)
     grad_fn = jax.jit(jax.grad(task.loss))
 
-    for j in range(10):
+    for j in range(num_runs):
         run = wandb.init(project="learning-aggregation", group="Adam")
 
         key = jax.random.PRNGKey(j)
@@ -290,28 +256,9 @@ if __name__ == "__main__":
     num_episodes = 300
 
     optimizers = [
-        ("LOpt", LOpt(), jax.jit(task.loss), jax.jit(jax.grad(task.loss))),
-        (
-            "LAggOpt-4",
-            LAggOpt(4),
-            jax.jit(task.loss),
-            jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
-        ),
         (
             "LAggOpt-8",
             LAggOpt(8),
-            jax.jit(task.loss),
-            jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
-        ),
-        (
-            "LAggOpt-16",
-            LAggOpt(16),
-            jax.jit(task.loss),
-            jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
-        ),
-        (
-            "LAggOpt-32",
-            LAggOpt(32),
             jax.jit(task.loss),
             jax.jit(jax.vmap(jax.grad(task.loss), in_axes=(None, 0, 0))),
         ),
@@ -334,9 +281,7 @@ if __name__ == "__main__":
 
         for i in range(num_episodes):
             data = get_batch_seq(num_inner_steps)
-            key1, key = jax.random.split(
-                key
-            )  # Are the starting weights random at each meta-training iteration?
+            key1, key = jax.random.split(key)
             _, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
             meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
 
@@ -346,12 +291,10 @@ if __name__ == "__main__":
 
         all_losses = []
 
-        for j in range(10):
+        for j in range(num_runs):
             run = wandb.init(project="learning-aggregation", group=optimizer_name)
 
-            key = jax.random.PRNGKey(
-                j + 1
-            )  # Make sure the problems are different than the one it was trained on
+            key = jax.random.PRNGKey(j + 1)  # Different problems than trained on
             params = task.init(key)
             opt_state = optimizer.initial_inner_opt_state(meta_params, params)
 
