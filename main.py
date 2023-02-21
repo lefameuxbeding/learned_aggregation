@@ -5,6 +5,8 @@ import functools
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import wandb
+import sys
+import os
 
 
 class MLPTask:
@@ -233,7 +235,9 @@ def meta_loss_fn(meta_params, key, sequence_of_batches):
 
 
 if __name__ == "__main__":
-    ds = tfds.load("fashion_mnist", split="train", data_dir=".")
+    sys.path.append(os.getcwd())
+
+    ds = tfds.load("fashion_mnist", split="train", data_dir=os.getenv("SLURM_TMPDIR")) # See if there is a way to not download the dataset each time
     ds = (
         ds.map(resize_and_scale)
         .cache()
