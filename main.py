@@ -257,6 +257,12 @@ if __name__ == "__main__":
 
     optimizers = [
         (
+            "LOpt",
+            LOpt(),
+            jax.jit(task.loss),
+            jax.jit(jax.grad(task.loss)),
+        ),
+        (
             "LAggOpt-8",
             LAggOpt(8),
             jax.jit(task.loss),
