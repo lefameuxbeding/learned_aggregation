@@ -195,8 +195,11 @@ if __name__ == "__main__":
     data_iterator = ds.as_numpy_iterator()
     batch = next(data_iterator)
 
-    ds_test = tfds.load("fashion_mnist", split="test", data_dir=os.getenv("SLURM_TMPDIR"))
-    ds_test = ds_test.map(resize_and_scale).repeat(-1).batch(len(ds_test))
+    ds_test = tfds.load(
+        "fashion_mnist", split="test", data_dir=os.getenv("SLURM_TMPDIR")
+    )
+    test_size = len(ds_test)
+    ds_test = ds_test.map(resize_and_scale).repeat(-1).batch(test_size)
     test_iterator = ds_test.as_numpy_iterator()
 
     input_size = np.prod(batch["image"].shape[1:])
@@ -204,7 +207,22 @@ if __name__ == "__main__":
     task = MLP(input_size, output_size)
 
     num_runs = 10
-    num_inner_steps = 10
+    num_inner_steps = 30
+
+    """ Random """
+
+    for j in range(num_runs):
+        run = wandb.init(project="learning-aggregation", group="Random")
+
+        test = next(test_iterator)
+        input = jnp.reshape(test["image"], [test["image"].shape[0], -1])
+        labels = test["label"]
+        predictions = np.random.randint(0, output_size - 1, test_size)
+        accuracy = jnp.sum((predictions == labels) * 1) / labels.size
+
+        run.log({"test_accuracy": accuracy})
+
+        run.finish()
 
     """ Adam """
 
