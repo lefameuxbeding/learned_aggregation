@@ -8,26 +8,7 @@ import wandb
 import sys
 import os
 from adam import Adam
-
-
-class MLPTask:
-    def __init__(self, input_size):
-        self.input_size = input_size
-
-    def init(self, key):
-        key1, key2 = jax.random.split(key)
-        w0 = jax.random.normal(key1, [self.input_size, 128]) * 0.02
-        w1 = jax.random.normal(key2, [128, 10]) * 0.02
-        b0 = jnp.zeros([128])
-        b1 = jnp.ones([10])
-        return (w0, b0, w1, b1)
-
-    def loss(self, params, input, labels):
-        # input = jnp.reshape(batch["image"], [data.shape[0], -1])
-        # labels = jax.nn.one_hot(batch["label"], 10)
-        w0, b0, w1, b1 = params
-        logits = jax.nn.log_softmax(jax.nn.relu(input @ w0 + b0) @ w1 + b1)
-        return jnp.mean(-jnp.sum(labels * logits, axis=-1))
+from mlp import MLP
 
 
 class LOpt:
@@ -214,10 +195,16 @@ if __name__ == "__main__":
     data_iterator = ds.as_numpy_iterator()
     batch = next(data_iterator)
 
-    task = MLPTask(np.prod(batch["image"].shape[1:]))
+    ds_test = tfds.load("fashion_mnist", split="test", data_dir=os.getenv("SLURM_TMPDIR"))
+    ds_test = ds_test.map(resize_and_scale).repeat(-1).batch(len(ds_test))
+    test_iterator = ds_test.as_numpy_iterator()
+
+    input_size = np.prod(batch["image"].shape[1:])
+    output_size = 10
+    task = MLP(input_size, output_size)
 
     num_runs = 10
-    num_inner_steps = 30
+    num_inner_steps = 10
 
     """ Adam """
 
@@ -238,16 +225,25 @@ if __name__ == "__main__":
             loss = loss_fn(
                 opt_state[0],
                 jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
+                jax.nn.one_hot(batch["label"], output_size),
             )
             grads = grad_fn(
                 opt_state[0],
                 jnp.reshape(input, [input.shape[0], -1]),
-                jax.nn.one_hot(batch["label"], 10),
+                jax.nn.one_hot(batch["label"], output_size),
             )
             opt_state = optimizer.update(opt_state, grads)
 
-            run.log({"loss": loss})
+            run.log({"train_loss": loss})
+
+        test = next(test_iterator)
+        input = jnp.reshape(test["image"], [test["image"].shape[0], -1])
+        labels = test["label"]
+        logits = task.predict(opt_state[0], input)
+        predictions = jnp.argmax(logits, axis=-1)
+        accuracy = jnp.sum((predictions == labels) * 1) / labels.size
+
+        run.log({"test_accuracy": accuracy})
 
         run.finish()
 
@@ -310,17 +306,26 @@ if __name__ == "__main__":
                 loss = loss_fn(
                     opt_state[0],
                     jnp.reshape(input, [input.shape[0], -1]),
-                    jax.nn.one_hot(batch["label"], 10),
+                    jax.nn.one_hot(batch["label"], output_size),
                 )
                 grads = grad_fn(
                     opt_state[0],
                     jnp.reshape(input, [input.shape[0], -1]),
-                    jax.nn.one_hot(batch["label"], 10),
+                    jax.nn.one_hot(batch["label"], output_size),
                 )
                 opt_state = optimizer.update_inner_opt_state(
                     meta_params, opt_state, grads
                 )
 
-                run.log({"loss": loss})
+                run.log({"train_loss": loss})
+
+            test = next(test_iterator)
+            input = jnp.reshape(test["image"], [test["image"].shape[0], -1])
+            labels = test["label"]
+            logits = task.predict(opt_state[0], input)
+            predictions = jnp.argmax(logits, axis=-1)
+            accuracy = jnp.sum((predictions == labels) * 1) / labels.size
+
+            run.log({"test_accuracy": accuracy})
 
             run.finish()
