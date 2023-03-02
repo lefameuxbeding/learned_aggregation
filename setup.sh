@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module --quiet load anaconda/3
+module load anaconda/3
 
 conda create -y -f -n venv
 conda activate venv
