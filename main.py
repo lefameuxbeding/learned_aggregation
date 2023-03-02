@@ -8,6 +8,8 @@ import sys
 import os
 from adam import Adam
 from mlp import MLP
+from lopt import LOpt
+from laggopt import LAggOpt
 
 
 def resize_and_scale(batch):
@@ -15,7 +17,7 @@ def resize_and_scale(batch):
     return batch
 
 
-def get_batch_seq(seq_len):
+def get_batch_seq(data_iterator, seq_len):
     batches = [next(data_iterator) for _ in range(seq_len)]
     # stack the data to add a leading dim.
     return {
@@ -75,7 +77,9 @@ if __name__ == "__main__":
     task = MLP(input_size, output_size)
 
     num_runs = 10
-    num_inner_steps = 30
+    num_episodes = 300
+    num_inner_training_steps = 30
+    num_inner_steps = 50
 
     """ Random """
 
@@ -88,7 +92,7 @@ if __name__ == "__main__":
         predictions = np.random.randint(0, output_size - 1, test_size)
         accuracy = jnp.sum((predictions == labels) * 1) / labels.size
 
-        run.log({"test_accuracy": accuracy})
+        run.log({"test accuracy": accuracy})
 
         run.finish()
 
@@ -120,7 +124,7 @@ if __name__ == "__main__":
             )
             opt_state = optimizer.update(opt_state, grads)
 
-            run.log({"train_loss": loss})
+            run.log({"train loss": loss})
 
         test = next(test_iterator)
         input = jnp.reshape(test["image"], [test["image"].shape[0], -1])
@@ -129,13 +133,11 @@ if __name__ == "__main__":
         predictions = jnp.argmax(logits, axis=-1)
         accuracy = jnp.sum((predictions == labels) * 1) / labels.size
 
-        run.log({"test_accuracy": accuracy})
+        run.log({"test accuracy": accuracy})
 
         run.finish()
 
     """ Learned optimizers """
-
-    num_episodes = 300
 
     optimizers = [
         (
@@ -160,24 +162,30 @@ if __name__ == "__main__":
         meta_params = optimizer.init_meta_params(key)
 
         key = jax.random.PRNGKey(0)
-        meta_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss_fn))
+        meta_loss_value_grad_fn = jax.jit(jax.value_and_grad(meta_loss_fn))
         meta_opt = Adam(0.001)
 
         key = jax.random.PRNGKey(0)
         meta_params = optimizer.init_meta_params(key)
         meta_opt_state = meta_opt.init(meta_params)
 
+        run = wandb.init(project="learning-aggregation", group=optimizer_name)
+
         for i in range(num_episodes):
-            data = get_batch_seq(num_inner_steps)
+            data = get_batch_seq(data_iterator, num_inner_training_steps)
             key1, key = jax.random.split(key)
-            _, meta_grad = meta_value_grad_fn(meta_opt_state[0], key1, data)
+            meta_loss, meta_grad = meta_loss_value_grad_fn(
+                meta_opt_state[0], key1, data
+            )
             meta_opt_state = meta_opt.update(meta_opt_state, meta_grad)
+
+            run.log({"meta loss": meta_loss})
+
+        run.finish()
 
         meta_params = meta_opt_state[0]
 
         """ Benchmarking """
-
-        all_losses = []
 
         for j in range(num_runs):
             run = wandb.init(project="learning-aggregation", group=optimizer_name)
@@ -203,7 +211,7 @@ if __name__ == "__main__":
                     meta_params, opt_state, grads
                 )
 
-                run.log({"train_loss": loss})
+                run.log({"train loss": loss})
 
             test = next(test_iterator)
             input = jnp.reshape(test["image"], [test["image"].shape[0], -1])
@@ -212,6 +220,6 @@ if __name__ == "__main__":
             predictions = jnp.argmax(logits, axis=-1)
             accuracy = jnp.sum((predictions == labels) * 1) / labels.size
 
-            run.log({"test_accuracy": accuracy})
+            run.log({"test accuracy": accuracy})
 
             run.finish()
