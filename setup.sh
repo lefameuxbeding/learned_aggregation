@@ -1,10 +1,12 @@
 #!/bin/bash
 
-module load anaconda/3
+module load python/3.9
+module load cuda/11.0
 
-conda create -y -f -n venv
-conda activate venv
+python -m venv env
+source env/bin/activate
 
-conda install -y jaxlib=*=*cuda* jax cuda-nvcc -c conda-forge -c nvidia
-conda install -y pip
-pip install -r requirements.txt --no-cache-dir
+pip install --upgrade pip
+pip install wandb black
+pip install "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install git+https://github.com/google/learned_optimization.git

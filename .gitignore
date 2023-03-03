@@ -2,3 +2,4 @@
 wandb
 slurm*
 __pycache__
+env
