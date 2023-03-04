@@ -1,8 +1,7 @@
 #!/bin/bash
 
-module load python/3
-module load cuda/11.0
+module load anaconda/3
 
-source env/bin/activate
+conda activate env
 
 python main.py
