@@ -1,8 +1,9 @@
 import sys
 import os
 import jax
-from learned_optimization.tasks.fixed import image_mlp
 import wandb
+
+from learned_optimization.tasks.fixed import image_mlp
 
 
 if __name__ == "__main__":
