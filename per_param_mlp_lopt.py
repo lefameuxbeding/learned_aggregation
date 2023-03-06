@@ -1,4 +1,4 @@
-# https://colab.research.google.com/github/google/learned_optimization/blob/main/docs/notebooks/Part6_custom_learned_optimizers.ipynb
+# Adapted from https://colab.research.google.com/github/google/learned_optimization/blob/main/docs/notebooks/Part6_custom_learned_optimizers.ipynb
 
 import flax
 from typing import Any
@@ -28,7 +28,7 @@ class PerParamState:
     momentums: Any
 
 
-class PerParamMLP(lopt_base.LearnedOptimizer):
+class PerParamMLPLOpt(lopt_base.LearnedOptimizer):
     def __init__(self, decay=0.9, hidden_size=64):
         self.decay = decay
         self.hidden_size = hidden_size
