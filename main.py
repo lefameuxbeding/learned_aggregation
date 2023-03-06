@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     optimizers = [
         ("Adam", adam, adam_update),
-        ("PerParamMLPOpt", per_param_mlp_opt, per_param_mlp_opt_update),
+        ("PerParamMLPLOpt", per_param_mlp_opt, per_param_mlp_opt_update),
     ]
 
     for opt_str, opt, update in optimizers:
