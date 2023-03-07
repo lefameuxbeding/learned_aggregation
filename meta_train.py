@@ -10,7 +10,7 @@ from learned_optimization.tasks import base as tasks_base
 from learned_optimization.outer_trainers import gradient_learner
 
 
-def meta_train(lopt, lopt_str, key, inner_steps, outer_steps):
+def meta_train_lopt(lopt, lopt_str, key, inner_steps, outer_steps):
     meta_opt = opt_base.Adam(1e-4)
 
     trunc_sched = truncation_schedule.LogUniformLengthSchedule(
@@ -53,3 +53,7 @@ def meta_train(lopt, lopt_str, key, inner_steps, outer_steps):
     run.finish()
 
     return outer_trainer_state.gradient_learner_state.theta_opt_state.params
+
+
+def meta_train_lagg(lopt, lopt_str, key, inner_steps, outer_steps):
+    return lopt.init(key)

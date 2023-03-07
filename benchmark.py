@@ -10,7 +10,7 @@ from learned_optimization.tasks.fixed import image_mlp
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.learned_optimizers import mlp_lopt
 
-from meta_train import meta_train
+from meta_train import meta_train_lopt, meta_train_lagg
 from mlp_lagg import MLPLAgg
 
 
@@ -31,16 +31,16 @@ if __name__ == "__main__":
 
     """Adam"""
 
-    # adam = opt_base.Adam(1e-2)
+    adam = opt_base.Adam(1e-2)
 
-    # @jax.jit
-    # def adam_update(opt_state, key, batch):
-    #     key, key1 = jax.random.split(key)
-    #     params = adam.get_params(opt_state)
-    #     loss, grad = jax.value_and_grad(task.loss)(params, key1, batch)
-    #     opt_state = adam.update(opt_state, grad, loss=loss)
+    @jax.jit
+    def adam_update(opt_state, key, batch):
+        key, key1 = jax.random.split(key)
+        params = adam.get_params(opt_state)
+        loss, grad = jax.value_and_grad(task.loss)(params, key1, batch)
+        opt_state = adam.update(opt_state, grad, loss=loss)
 
-    #     return opt_state, key, loss
+        return opt_state, key, loss
 
     """Per Parameter MLP Optimizer"""
 
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     # per_param_mlp_opt_str = "PerParamMLPOpt"
 
     # key, key1 = jax.random.split(key)
-    # per_param_mlp_meta_params = meta_train(
+    # per_param_mlp_lopt_meta_params = meta_train_lopt(
     #     per_param_mlp_lopt,
     #     per_param_mlp_opt_str,
     #     key1,
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     #     num_outer_steps,
     # )
 
-    # per_param_mlp_opt = per_param_mlp_lopt.opt_fn(per_param_mlp_meta_params)
+    # per_param_mlp_opt = per_param_mlp_lopt.opt_fn(per_param_mlp_lopt_meta_params)
 
     # @jax.jit
     # def per_param_mlp_opt_update(opt_state, key, batch):
@@ -73,8 +73,15 @@ if __name__ == "__main__":
     per_param_mlp_agg_str = "PerParamMLPAgg"
 
     key, key1 = jax.random.split(key)
+    per_param_mlp_lagg_meta_params = meta_train_lagg(
+        per_param_mlp_lagg,
+        per_param_mlp_agg_str,
+        key1,
+        num_inner_steps,
+        num_outer_steps,
+    )
 
-    per_param_mlp_agg = per_param_mlp_lagg.opt_fn(per_param_mlp_lagg.init(key1))
+    per_param_mlp_agg = per_param_mlp_lagg.opt_fn(per_param_mlp_lagg_meta_params)
 
     @jax.jit
     def per_param_mlp_agg_update(opt_state, key, batch):
@@ -106,7 +113,7 @@ if __name__ == "__main__":
     optimizers = [
         # ("Adam", adam, adam_update),
         # (per_param_mlp_opt_str, per_param_mlp_opt, per_param_mlp_opt_update),
-        (per_param_mlp_agg_str, per_param_mlp_agg, per_param_mlp_agg_update)
+        (per_param_mlp_agg_str, per_param_mlp_agg, per_param_mlp_agg_update),
     ]
 
     for opt_str, opt, update in optimizers:
