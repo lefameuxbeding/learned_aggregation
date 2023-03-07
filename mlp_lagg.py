@@ -31,11 +31,13 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         hidden_size=32,
         hidden_layers=2,
         compute_summary=True,
+        num_grads=4, # TODO
     ):
         super().__init__()
         self._step_mult = step_mult
         self._exp_mult = exp_mult
         self._compute_summary = compute_summary
+        self.num_grads = num_grads # TODO
 
         def ff_mod(inp):
             return hk.nets.MLP([hidden_size] * hidden_layers + [2])(inp)

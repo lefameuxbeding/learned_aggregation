@@ -1,7 +1,10 @@
 import sys
 import os
 import jax
+import jax.numpy as jnp
 import wandb
+
+from haiku._src.data_structures import FlatMap
 
 from learned_optimization.tasks.fixed import image_mlp
 from learned_optimization.optimizers import base as opt_base
@@ -34,8 +37,8 @@ if __name__ == "__main__":
     # def adam_update(opt_state, key, batch):
     #     key, key1 = jax.random.split(key)
     #     params = adam.get_params(opt_state)
-    #     loss, grads = jax.value_and_grad(task.loss)(params, key1, batch)
-    #     opt_state = adam.update(opt_state, grads, loss=loss)
+    #     loss, grad = jax.value_and_grad(task.loss)(params, key1, batch)
+    #     opt_state = adam.update(opt_state, grad, loss=loss)
 
     #     return opt_state, key, loss
 
@@ -59,8 +62,8 @@ if __name__ == "__main__":
     # def per_param_mlp_opt_update(opt_state, key, batch):
     #     key, key1 = jax.random.split(key)
     #     params = per_param_mlp_opt.get_params(opt_state)
-    #     loss, grads = jax.value_and_grad(task.loss)(params, key1, batch)
-    #     opt_state = per_param_mlp_opt.update(opt_state, grads, loss=loss)
+    #     loss, grad = jax.value_and_grad(task.loss)(params, key1, batch)
+    #     opt_state = per_param_mlp_opt.update(opt_state, grad, loss=loss)
 
     #     return opt_state, key, loss
 
@@ -77,8 +80,21 @@ if __name__ == "__main__":
     def per_param_mlp_agg_update(opt_state, key, batch):
         key, key1 = jax.random.split(key)
         params = per_param_mlp_agg.get_params(opt_state)
-        loss, grads = jax.value_and_grad(task.loss)(params, key1, batch)
-        opt_state = per_param_mlp_agg.update(opt_state, grads, loss=loss)
+        loss = task.loss(params, key1, batch)
+
+        def sample_grad_fn(image, label):
+            sub_batch_dict = {}
+            sub_batch_dict["image"] = image
+            sub_batch_dict["label"] = label
+            sub_batch = FlatMap(sub_batch_dict)
+
+            return jax.grad(task.loss)(params, key1, sub_batch)
+        
+        split_image = jnp.split(batch["image"], per_param_mlp_lagg.num_grads)
+        split_label = jnp.split(batch["label"], per_param_mlp_lagg.num_grads)
+        grads = [sample_grad_fn(split_image[i], split_label[i]) for i in range(per_param_mlp_lagg.num_grads)]
+
+        opt_state = per_param_mlp_agg.update(opt_state, grads[0], loss=loss)
 
         return opt_state, key, loss
 
