@@ -31,13 +31,13 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         hidden_size=32,
         hidden_layers=2,
         compute_summary=True,
-        num_grads=4, # TODO
+        num_grads=4,  # TODO
     ):
         super().__init__()
         self._step_mult = step_mult
         self._exp_mult = exp_mult
         self._compute_summary = compute_summary
-        self.num_grads = num_grads # TODO
+        self.num_grads = num_grads  # TODO
 
         def ff_mod(inp):
             return hk.nets.MLP([hidden_size] * hidden_layers + [2])(inp)
@@ -46,7 +46,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
     def init(self, key: PRNGKey) -> lopt_base.MetaParams:
         # There are 19 features used as input. For now, hard code this.
-        return self._mod.init(key, jnp.zeros([0, 19]))
+        return self._mod.init(key, jnp.zeros([0, 19 - 1 + self.num_grads]))  # TODO
 
     def opt_fn(
         self, theta: lopt_base.MetaParams, is_training: bool = False
@@ -80,23 +80,26 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
             def update(
                 self,
                 opt_state: MLPLOptState,
-                grad: Any,
+                grads: Any,  # TODO
                 loss: float,
                 model_state: Any = None,
                 is_valid: bool = False,
                 key: Optional[PRNGKey] = None,
             ) -> MLPLOptState:
                 next_rolling_features = common.vec_rolling_mom(decays).update(
-                    opt_state.rolling_features, grad
+                    opt_state.rolling_features, grads[0]  # TODO
                 )
 
                 training_step_feature = _tanh_embedding(opt_state.iteration)
 
-                def _update_tensor(p, g, m):
+                def _update_tensor(p, g0, g1, g2, g3, m):  # TODO
                     # this doesn't work with scalar parameters, so let's reshape.
                     if not p.shape:
                         p = jnp.expand_dims(p, 0)
-                        g = jnp.expand_dims(g, 0)
+                        g0 = jnp.expand_dims(g0, 0)  # TODO
+                        g1 = jnp.expand_dims(g1, 0)
+                        g2 = jnp.expand_dims(g2, 0)
+                        g3 = jnp.expand_dims(g3, 0)
                         m = jnp.expand_dims(m, 0)
                         did_reshape = True
                     else:
@@ -105,8 +108,14 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                     inps = []
 
                     # feature consisting of raw gradient values
-                    batch_g = jnp.expand_dims(g, axis=-1)
-                    inps.append(batch_g)
+                    batch_g0 = jnp.expand_dims(g0, axis=-1)  # TODO
+                    inps.append(batch_g0)
+                    batch_g1 = jnp.expand_dims(g1, axis=-1)
+                    inps.append(batch_g1)
+                    batch_g2 = jnp.expand_dims(g2, axis=-1)
+                    inps.append(batch_g2)
+                    batch_g3 = jnp.expand_dims(g3, axis=-1)
+                    inps.append(batch_g3)
 
                     # feature consisting of raw parameter values
                     batch_p = jnp.expand_dims(p, axis=-1)
@@ -167,12 +176,23 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                         )
                         summary.summary("mlp_lopt/magnitude/mean", jnp.mean(magnitude))
 
-                        summary.summary("mlp_lopt/grad/mean_abs", jnp.mean(jnp.abs(g)))
+                        summary.summary(
+                            "mlp_lopt/grad/mean_abs", jnp.mean(jnp.abs(g0))
+                        )  # TODO
+                        summary.summary("mlp_lopt/grad/mean_abs", jnp.mean(jnp.abs(g1)))
+                        summary.summary("mlp_lopt/grad/mean_abs", jnp.mean(jnp.abs(g2)))
+                        summary.summary("mlp_lopt/grad/mean_abs", jnp.mean(jnp.abs(g3)))
 
                     return new_p
 
                 next_params = jax.tree_util.tree_map(
-                    _update_tensor, opt_state.params, grad, next_rolling_features.m
+                    _update_tensor,
+                    opt_state.params,
+                    grads[0],
+                    grads[1],
+                    grads[2],
+                    grads[3],
+                    next_rolling_features.m,  # TODO
                 )
                 next_opt_state = MLPLOptState(
                     params=tree_utils.match_type(next_params, opt_state.params),

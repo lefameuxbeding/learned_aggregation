@@ -89,12 +89,15 @@ if __name__ == "__main__":
             sub_batch = FlatMap(sub_batch_dict)
 
             return jax.grad(task.loss)(params, key1, sub_batch)
-        
+
         split_image = jnp.split(batch["image"], per_param_mlp_lagg.num_grads)
         split_label = jnp.split(batch["label"], per_param_mlp_lagg.num_grads)
-        grads = [sample_grad_fn(split_image[i], split_label[i]) for i in range(per_param_mlp_lagg.num_grads)]
+        grads = [
+            sample_grad_fn(split_image[i], split_label[i])
+            for i in range(per_param_mlp_lagg.num_grads)
+        ]
 
-        opt_state = per_param_mlp_agg.update(opt_state, grads[0], loss=loss)
+        opt_state = per_param_mlp_agg.update(opt_state, grads, loss=loss)
 
         return opt_state, key, loss
 
