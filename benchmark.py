@@ -23,8 +23,8 @@ if __name__ == "__main__":
     """Setup"""
 
     num_runs = 10
-    num_inner_steps = 100
-    num_outer_steps = 2000
+    num_inner_steps = 500
+    num_outer_steps = 10000
 
     key = jax.random.PRNGKey(0)
     task = image_mlp.ImageMLP_FashionMnist8_Relu32()
@@ -44,28 +44,28 @@ if __name__ == "__main__":
 
     """Per Parameter MLP Optimizer"""
 
-    # per_param_mlp_lopt = mlp_lopt.MLPLOpt()
-    # per_param_mlp_opt_str = "PerParamMLPOpt"
+    per_param_mlp_lopt = mlp_lopt.MLPLOpt()
+    per_param_mlp_opt_str = "PerParamMLPOpt"
 
-    # key, key1 = jax.random.split(key)
-    # per_param_mlp_lopt_meta_params = meta_train_lopt(
-    #     per_param_mlp_lopt,
-    #     per_param_mlp_opt_str,
-    #     key1,
-    #     num_inner_steps,
-    #     num_outer_steps,
-    # )
+    key, key1 = jax.random.split(key)
+    per_param_mlp_lopt_meta_params = meta_train_lopt(
+        per_param_mlp_lopt,
+        per_param_mlp_opt_str,
+        key1,
+        num_inner_steps,
+        num_outer_steps,
+    )
 
-    # per_param_mlp_opt = per_param_mlp_lopt.opt_fn(per_param_mlp_lopt_meta_params)
+    per_param_mlp_opt = per_param_mlp_lopt.opt_fn(per_param_mlp_lopt_meta_params)
 
-    # @jax.jit
-    # def per_param_mlp_opt_update(opt_state, key, batch):
-    #     key, key1 = jax.random.split(key)
-    #     params = per_param_mlp_opt.get_params(opt_state)
-    #     loss, grad = jax.value_and_grad(task.loss)(params, key1, batch)
-    #     opt_state = per_param_mlp_opt.update(opt_state, grad, loss=loss)
+    @jax.jit
+    def per_param_mlp_opt_update(opt_state, key, batch):
+        key, key1 = jax.random.split(key)
+        params = per_param_mlp_opt.get_params(opt_state)
+        loss, grad = jax.value_and_grad(task.loss)(params, key1, batch)
+        opt_state = per_param_mlp_opt.update(opt_state, grad, loss=loss)
 
-    #     return opt_state, key, loss
+        return opt_state, key, loss
 
     """Per Parameter MLP Aggregator"""
 
@@ -111,8 +111,8 @@ if __name__ == "__main__":
     """Benchmarking"""
 
     optimizers = [
-        # ("Adam", adam, adam_update),
-        # (per_param_mlp_opt_str, per_param_mlp_opt, per_param_mlp_opt_update),
+        ("Adam", adam, adam_update),
+        (per_param_mlp_opt_str, per_param_mlp_opt, per_param_mlp_opt_update),
         (per_param_mlp_agg_str, per_param_mlp_agg, per_param_mlp_agg_update),
     ]
 
