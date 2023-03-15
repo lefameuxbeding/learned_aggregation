@@ -29,7 +29,7 @@ if __name__ == "__main__":
     num_outer_steps = 2000
 
     lopt = mlp_lopt.MLPLOpt()
-    lopt_str = opt_str = "PerParamMLPOpt"
+    lopt_str = "PerParamMLPOpt"
 
     meta_opt = opt_base.Adam(1e-4)
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     run.finish()
 
-    with open(opt_str + ".pickle", "wb") as f:
+    with open(lopt_str + ".pickle", "wb") as f:
         pickle.dump(
             outer_trainer_state.gradient_learner_state.theta_opt_state.params, f
         )
