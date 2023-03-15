@@ -1,3 +1,5 @@
+# Adapted from https://github.com/google/learned_optimization/blob/main/learned_optimization/learned_optimizers/mlp_lopt.py
+
 from typing import Any, Optional
 import gin
 import haiku as hk

@@ -1,3 +1,5 @@
+# Adapted from https://github.com/google/learned_optimization/blob/main/learned_optimization/outer_trainers/lopt_truncated_step.py
+
 import functools
 from typing import Optional, Any, Tuple, Callable
 import gin

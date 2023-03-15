@@ -1,7 +1,6 @@
 import wandb
 
 from learned_optimization.tasks.fixed import image_mlp
-from learned_optimization.tasks import quadratics
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.outer_trainers import truncation_schedule
 from learned_optimization.outer_trainers import lopt_truncated_step
