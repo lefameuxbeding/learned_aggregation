@@ -27,7 +27,7 @@ if __name__ == "__main__":
     num_outer_steps = 10000
 
     key = jax.random.PRNGKey(0)
-    task = image_mlp.ImageMLP_FashionMnist8_Relu32()
+    task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
     """Adam"""
 

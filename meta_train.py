@@ -31,7 +31,7 @@ def meta_train_lopt(lopt, lopt_str, key, inner_steps, outer_steps):
         )
 
     mlp_task_family = tasks_base.single_task_to_family(
-        image_mlp.ImageMLP_FashionMnist8_Relu32()
+        image_mlp.ImageMLP_FashionMnist_Relu128x128()
     )
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
@@ -75,7 +75,7 @@ def meta_train_lagg(lopt, lopt_str, key, inner_steps, outer_steps):
         )
 
     mlp_task_family = tasks_base.single_task_to_family(
-        image_mlp.ImageMLP_FashionMnist8_Relu32()
+        image_mlp.ImageMLP_FashionMnist_Relu128x128()
     )
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
