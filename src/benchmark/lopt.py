@@ -24,7 +24,7 @@ if __name__ == "__main__":
     task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
     lopt = mlp_lopt.MLPLOpt()
-    opt_str = "PerParamMLPOpt"
+    opt_str = "PerParamMLPOpt_PES"
     with open(opt_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     opt = lopt.opt_fn(meta_params)
