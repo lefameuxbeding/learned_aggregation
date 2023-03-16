@@ -28,7 +28,7 @@ if __name__ == "__main__":
     task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
     lagg = mlp_lagg.MLPLAgg()
-    agg_str = "PerParamMLPAgg_" + str(lagg.num_grads)
+    agg_str = "PerParamMLPAgg_" + str(lagg.num_grads) + "_PES"
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
