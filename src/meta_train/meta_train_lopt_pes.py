@@ -25,13 +25,17 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
 
     num_runs = 10
-    num_inner_steps = 200
-    num_outer_steps = 2000
+    num_inner_steps = 500
+    num_outer_steps = 10000
+
+    meta_train_str = "PES"
 
     lopt = mlp_lopt.MLPLOpt()
-    lopt_str = "PerParamMLPOpt"
+    lopt_str = "PerParamMLPOpt_" + meta_train_str
 
     meta_opt = opt_base.Adam(1e-4)
+
+    """Meta-tasks"""
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
@@ -49,7 +53,7 @@ if __name__ == "__main__":
         )
 
     mlp_task_family = tasks_base.single_task_to_family(
-        image_mlp.ImageMLP_FashionMnist16_Relu32()
+        image_mlp.ImageMLP_FashionMnist_Relu128x128()
     )
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
@@ -70,7 +74,7 @@ if __name__ == "__main__":
         outer_trainer_state, meta_loss, _ = outer_trainer.update(
             outer_trainer_state, key, with_metrics=False
         )
-        run.log({"meta loss": meta_loss})
+        run.log({meta_train_str + " meta loss": meta_loss})
 
     run.finish()
 

@@ -23,12 +23,12 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
 
     num_runs = 10
-    num_inner_steps = 200
+    num_inner_steps = 500
 
-    task = image_mlp.ImageMLP_FashionMnist16_Relu32()
+    task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
     lagg = mlp_lagg.MLPLAgg()
-    agg_str = "PerParamMLPAgg" + str(lagg.num_grads)
+    agg_str = "PerParamMLPAgg_" + str(lagg.num_grads)
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
