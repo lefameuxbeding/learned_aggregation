@@ -5,6 +5,7 @@ import pickle
 import wandb
 
 from learned_optimization.tasks.fixed import image_mlp
+from learned_optimization.tasks.fixed import conv
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.learned_optimizers import mlp_lopt
 from learned_optimization.outer_trainers import truncation_schedule
@@ -55,8 +56,12 @@ if __name__ == "__main__":
     mlp_task_family = tasks_base.single_task_to_family(
         image_mlp.ImageMLP_FashionMnist_Relu128x128()
     )
+    conv_task_family = tasks_base.single_task_to_family(
+        conv.Conv_Cifar100_32x64x64()
+    )
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
+        grad_est_fn(conv_task_family),
     ]
 
     outer_trainer = gradient_learner.SingleMachineGradientLearner(
@@ -74,7 +79,7 @@ if __name__ == "__main__":
         outer_trainer_state, meta_loss, _ = outer_trainer.update(
             outer_trainer_state, key, with_metrics=False
         )
-        run.log({meta_train_str + " meta loss": meta_loss})
+        run.log({meta_train_str + " meta loss 2": meta_loss})
 
     run.finish()
 
