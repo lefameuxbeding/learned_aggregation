@@ -47,6 +47,6 @@ if __name__ == "__main__":
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            run.log({task.name + " train loss": loss})
+            run.log({task.name + " train loss 2": loss})
 
         run.finish()
