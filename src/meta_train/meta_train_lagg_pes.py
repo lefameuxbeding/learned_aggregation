@@ -4,7 +4,7 @@ import jax
 import pickle
 import wandb
 
-from learned_optimization.tasks.fixed import conv
+from learned_optimization.tasks.fixed import image_mlp
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.outer_trainers import truncation_schedule
 from learned_optimization.outer_trainers import truncated_pes
@@ -26,12 +26,12 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
 
     num_runs = 10
-    num_inner_steps = 2000
-    num_outer_steps = 40000
+    num_inner_steps = 500
+    num_outer_steps = 10000
 
     meta_train_str = "PES"
 
-    lagg = mlp_lagg.MLPLAgg()
+    lagg = mlp_lagg.MLPLAgg(num_grads=8)
     lagg_str = "PerParamMLPAgg_" + str(lagg.num_grads) + "_" + meta_train_str
 
     meta_opt = opt_base.Adam(1e-4)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         )
 
     conv_task_family = tasks_base.single_task_to_family(
-        conv.Conv_Cifar100_32x64x64()
+        image_mlp.ImageMLP_FashionMnist_Relu128x128()
     )
     gradient_estimators = [
         grad_est_fn(conv_task_family),
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         outer_trainer_state, meta_loss, _ = outer_trainer.update(
             outer_trainer_state, key, with_metrics=False
         )
-        run.log({meta_train_str + " meta loss 3": meta_loss})
+        run.log({meta_train_str + " meta loss 4": meta_loss})
 
     run.finish()
 

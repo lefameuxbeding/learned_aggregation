@@ -107,9 +107,9 @@ def progress_or_reset_inner_opt_state_agg(
                     p, s, key1, sub_batch
                 )[0]
 
-            split_image = jnp.split(data["image"], 4)
-            split_label = jnp.split(data["label"], 4)
-            g = [sample_grad_fn(split_image[i], split_label[i]) for i in range(4)]
+            split_image = jnp.split(data["image"], opt.num_grads)
+            split_label = jnp.split(data["label"], opt.num_grads)
+            g = [sample_grad_fn(split_image[i], split_label[i]) for i in range(opt.num_grads)]
 
             meta_loss = l
 

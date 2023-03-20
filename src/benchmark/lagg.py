@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
-    lagg = mlp_lagg.MLPLAgg()
+    lagg = mlp_lagg.MLPLAgg(num_grads=8)
     agg_str = "PerParamMLPAgg_" + str(lagg.num_grads) + "_PES"
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     @jax.jit
     def update(opt_state, key, batch):
         params = agg.get_params(opt_state)
-        loss = task.loss(params, key1, batch)
+        loss = task.loss(params, key, batch)
 
         def sample_grad_fn(image, label):
             sub_batch_dict = {}
@@ -44,7 +44,7 @@ if __name__ == "__main__":
             sub_batch_dict["label"] = label
             sub_batch = FlatMap(sub_batch_dict)
 
-            return jax.grad(task.loss)(params, key1, sub_batch)
+            return jax.grad(task.loss)(params, key, sub_batch)
 
         split_image = jnp.split(batch["image"], lagg.num_grads)
         split_label = jnp.split(batch["label"], lagg.num_grads)
@@ -71,6 +71,6 @@ if __name__ == "__main__":
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            run.log({task.name + " train loss 2": loss})
+            run.log({task.name + " train loss 4": loss})
 
         run.finish()
