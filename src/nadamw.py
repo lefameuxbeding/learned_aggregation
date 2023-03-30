@@ -4,7 +4,7 @@ import jax
 import wandb
 
 from learned_optimization.tasks.fixed import image_mlp
-from learned_optimization.optimizers import base as opt_base
+from learned_optimization.optimizers import nadamw
 
 
 if __name__ == "__main__":
@@ -22,8 +22,8 @@ if __name__ == "__main__":
 
     task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
-    opt = opt_base.Adam(1e-2)
-    opt_str = "Adam_1e-2"
+    opt = nadamw.NAdamW()
+    opt_str = "nadamw_" + str(opt.config["learning_rate"])
 
     @jax.jit
     def update(opt_state, key, batch):
@@ -40,13 +40,14 @@ if __name__ == "__main__":
 
         key, key1 = jax.random.split(key)
         params = task.init(key1)
-        opt_state = opt.init(params)
+        print(params)
+        opt_state = opt.init(params, num_steps=0)
 
         for i in range(num_inner_steps):
             batch = next(task.datasets.train)
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            run.log({task.name + " train loss 2": loss})
+            run.log({task.name + " train loss": loss})
 
         run.finish()

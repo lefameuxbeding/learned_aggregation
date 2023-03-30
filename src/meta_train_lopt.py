@@ -5,12 +5,11 @@ import pickle
 import wandb
 
 from learned_optimization.tasks.fixed import image_mlp
-from learned_optimization.tasks.fixed import conv
 from learned_optimization.optimizers import base as opt_base
-from learned_optimization.learned_optimizers import mlp_lopt
+from learned_optimization.learned_optimizers import adafac_mlp_lopt
 from learned_optimization.outer_trainers import truncation_schedule
 from learned_optimization.outer_trainers import lopt_truncated_step
-from learned_optimization.outer_trainers import full_es
+from learned_optimization.outer_trainers import truncated_pes
 from learned_optimization.tasks import base as tasks_base
 from learned_optimization.outer_trainers import gradient_learner
 
@@ -29,17 +28,17 @@ if __name__ == "__main__":
     num_inner_steps = 500
     num_outer_steps = 10000
 
-    meta_train_str = "FullES"
-
-    lopt = mlp_lopt.MLPLOpt()
-    lopt_str = "PerParamMLPOpt_" + meta_train_str
+    lopt = adafac_mlp_lopt.AdafacMLPLOpt()
+    lopt_str = "lopt"
 
     meta_opt = opt_base.Adam(1e-4)
 
     """Meta-tasks"""
 
     def grad_est_fn(task_family):
-        trunc_sched = truncation_schedule.NeverEndingTruncationSchedule()
+        trunc_sched = truncation_schedule.LogUniformLengthSchedule(
+            min_length=100, max_length=num_inner_steps
+        )
         truncated_step = lopt_truncated_step.VectorizedLOptTruncatedStep(
             task_family,
             lopt,
@@ -47,21 +46,15 @@ if __name__ == "__main__":
             num_tasks=16,
             random_initial_iteration_offset=num_inner_steps,
         )
-        trunc_sched = truncation_schedule.ConstantTruncationSchedule(num_inner_steps)
-        return full_es.FullES(
-            truncated_step,
-            truncation_schedule=trunc_sched
+        return truncated_pes.TruncatedPES(
+            truncated_step=truncated_step, trunc_length=50
         )
 
     mlp_task_family = tasks_base.single_task_to_family(
         image_mlp.ImageMLP_FashionMnist_Relu128x128()
     )
-    conv_task_family = tasks_base.single_task_to_family(
-        conv.Conv_Cifar100_32x64x64()
-    )
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
-        grad_est_fn(conv_task_family),
     ]
 
     outer_trainer = gradient_learner.SingleMachineGradientLearner(
@@ -79,7 +72,7 @@ if __name__ == "__main__":
         outer_trainer_state, meta_loss, _ = outer_trainer.update(
             outer_trainer_state, key, with_metrics=False
         )
-        run.log({meta_train_str + " meta loss 2": meta_loss})
+        run.log({"meta loss": meta_loss})
 
     run.finish()
 

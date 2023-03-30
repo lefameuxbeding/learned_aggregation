@@ -5,7 +5,7 @@ import pickle
 import wandb
 
 from learned_optimization.tasks.fixed import image_mlp
-from learned_optimization.learned_optimizers import mlp_lopt
+from learned_optimization.learned_optimizers import adafac_mlp_lopt
 
 
 if __name__ == "__main__":
@@ -23,8 +23,8 @@ if __name__ == "__main__":
 
     task = image_mlp.ImageMLP_FashionMnist_Relu128x128()
 
-    lopt = mlp_lopt.MLPLOpt()
-    opt_str = "PerParamMLPOpt_PES"
+    lopt = adafac_mlp_lopt.AdafacMLPLOpt()
+    opt_str = "lopt"
     with open(opt_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     opt = lopt.opt_fn(meta_params)
@@ -51,6 +51,6 @@ if __name__ == "__main__":
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            run.log({task.name + " train loss 2": loss})
+            run.log({task.name + " train loss": loss})
 
         run.finish()
