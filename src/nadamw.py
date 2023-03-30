@@ -1,10 +1,11 @@
-import sys
 import os
-import jax
-import wandb
+import sys
 
-from learned_optimization.tasks.fixed import image_mlp
+import jax
 from learned_optimization.optimizers import nadamw
+from learned_optimization.tasks.fixed import image_mlp
+
+import wandb
 
 
 if __name__ == "__main__":

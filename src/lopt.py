@@ -1,11 +1,12 @@
-import sys
 import os
-import jax
 import pickle
-import wandb
+import sys
 
-from learned_optimization.tasks.fixed import image_mlp
+import jax
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
+from learned_optimization.tasks.fixed import image_mlp
+
+import wandb
 
 
 if __name__ == "__main__":

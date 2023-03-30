@@ -1,17 +1,20 @@
-import sys
 import os
-import jax
 import pickle
-import wandb
+import sys
 
-from learned_optimization.tasks.fixed import image_mlp
-from learned_optimization.optimizers import base as opt_base
+import jax
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
-from learned_optimization.outer_trainers import truncation_schedule
-from learned_optimization.outer_trainers import lopt_truncated_step
-from learned_optimization.outer_trainers import truncated_pes
+from learned_optimization.optimizers import base as opt_base
+from learned_optimization.outer_trainers import (
+    gradient_learner,
+    lopt_truncated_step,
+    truncated_pes,
+    truncation_schedule,
+)
 from learned_optimization.tasks import base as tasks_base
-from learned_optimization.outer_trainers import gradient_learner
+from learned_optimization.tasks.fixed import image_mlp
+
+import wandb
 
 
 if __name__ == "__main__":
