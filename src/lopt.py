@@ -14,6 +14,7 @@ if __name__ == "__main__":
 
     sys.path.append(os.getcwd())
     os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     """Setup"""
 

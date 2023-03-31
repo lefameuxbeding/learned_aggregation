@@ -1,5 +1,4 @@
 .vscode
-wandb
 slurm-*
 __pycache__
 *.pickle

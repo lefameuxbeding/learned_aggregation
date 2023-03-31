@@ -13,6 +13,7 @@ if __name__ == "__main__":
 
     sys.path.append(os.getcwd())
     os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     """Setup"""
 
@@ -42,7 +43,7 @@ if __name__ == "__main__":
         key, key1 = jax.random.split(key)
         params = task.init(key1)
         print(params)
-        opt_state = opt.init(params, num_steps=0)
+        opt_state = opt.init(params)
 
         for i in range(num_inner_steps):
             batch = next(task.datasets.train)
