@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 from benchmark import benchmark
+from meta_train import meta_train
 
 
 def parse_args():
@@ -34,5 +35,6 @@ if __name__ == "__main__":
 
     run_types = {
         "benchmark" : benchmark,
+        "meta-train" : meta_train
     }
     run_types[args.run_type](args)

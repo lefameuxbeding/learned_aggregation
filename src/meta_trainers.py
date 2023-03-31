@@ -1,8 +1,3 @@
-import os
-import pickle
-import sys
-
-import jax
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.outer_trainers import (
@@ -12,26 +7,13 @@ from learned_optimization.outer_trainers import (
     truncation_schedule,
 )
 from learned_optimization.tasks import base as tasks_base
-from learned_optimization.tasks.fixed import image_mlp
-
-import wandb
+from tasks import get_task
 
 
-if __name__ == "__main__":
-    """Setup"""
-
-    key = jax.random.PRNGKey(0)
-
-    num_runs = 10
-    num_inner_steps = 500
-    num_outer_steps = 10000
-
+def _lopt_meta_trainer(task, num_inner_steps):
     lopt = adafac_mlp_lopt.AdafacMLPLOpt()
-    lopt_str = "lopt"
 
     meta_opt = opt_base.Adam(1e-4)
-
-    """Meta-tasks"""
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
@@ -49,32 +31,22 @@ if __name__ == "__main__":
         )
 
     mlp_task_family = tasks_base.single_task_to_family(
-        image_mlp.ImageMLP_FashionMnist_Relu128x128()
+        get_task(task)
     )
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
     ]
 
-    outer_trainer = gradient_learner.SingleMachineGradientLearner(
+    meta_trainer = gradient_learner.SingleMachineGradientLearner(
         lopt, gradient_estimators, meta_opt
     )
 
-    """Meta-train"""
+    return meta_trainer, "lopt"
 
-    run = wandb.init(project="learned_aggregation", group=lopt_str)
 
-    key, key1 = jax.random.split(key)
-    outer_trainer_state = outer_trainer.init(key1)
+def get_meta_trainer(optimizer, task, num_inner_steps):
+    meta_trainers = {
+        "lopt" : _lopt_meta_trainer,
+    }
 
-    for _ in range(num_outer_steps):
-        outer_trainer_state, meta_loss, _ = outer_trainer.update(
-            outer_trainer_state, key, with_metrics=False
-        )
-        run.log({"meta loss": meta_loss})
-
-    run.finish()
-
-    with open(lopt_str + ".pickle", "wb") as f:
-        pickle.dump(
-            outer_trainer_state.gradient_learner_state.theta_opt_state.params, f
-        )
+    return meta_trainers[optimizer](task, num_inner_steps)
