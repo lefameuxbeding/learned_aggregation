@@ -2,6 +2,6 @@
 
 module load anaconda/3
 
-conda activate env
+conda activate learned_aggregation
 
-python ./src/meta_train_lopt.py
+python ./src/nadamw.py
