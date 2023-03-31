@@ -18,12 +18,6 @@ import wandb
 
 
 if __name__ == "__main__":
-    """Environment"""
-
-    sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
-    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
-
     """Setup"""
 
     key = jax.random.PRNGKey(0)
