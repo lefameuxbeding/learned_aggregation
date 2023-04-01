@@ -15,7 +15,7 @@ def benchmark(args):
 
         key, key1 = jax.random.split(key)
         params = task.init(key1)
-        opt_state = opt.init(params)
+        opt_state = opt.init(params, num_steps=args.num_inner_steps)
 
         for _ in range(args.num_inner_steps):
             batch = next(task.datasets.train)
