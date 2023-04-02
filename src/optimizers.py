@@ -1,7 +1,8 @@
 import pickle
+
 import jax
-from learned_optimization.optimizers import nadamw
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
+from learned_optimization.optimizers import nadamw
 
 
 def _lopt(task):
@@ -18,7 +19,7 @@ def _lopt(task):
         opt_state = opt.update(opt_state, grad, loss=loss)
 
         return opt_state, loss
-    
+
     return (opt, opt_str, update)
 
 
@@ -33,14 +34,14 @@ def _nadamw(task):
         opt_state = opt.update(opt_state, grad, loss=loss)
 
         return opt_state, loss
-    
+
     return (opt, opt_str, update)
 
 
 def get_optimizer(optimizer, task):
     optimizers = {
-        "nadamw" : _nadamw,
-        "lopt" : _lopt,
+        "nadamw": _nadamw,
+        "lopt": _lopt,
     }
 
     return optimizers[optimizer](task)

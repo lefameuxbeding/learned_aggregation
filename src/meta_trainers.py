@@ -7,6 +7,7 @@ from learned_optimization.outer_trainers import (
     truncation_schedule,
 )
 from learned_optimization.tasks import base as tasks_base
+
 from tasks import get_task
 
 
@@ -30,9 +31,7 @@ def _lopt_meta_trainer(task, num_inner_steps):
             truncated_step=truncated_step, trunc_length=50
         )
 
-    mlp_task_family = tasks_base.single_task_to_family(
-        get_task(task)
-    )
+    mlp_task_family = tasks_base.single_task_to_family(get_task(task))
     gradient_estimators = [
         grad_est_fn(mlp_task_family),
     ]
@@ -46,7 +45,7 @@ def _lopt_meta_trainer(task, num_inner_steps):
 
 def get_meta_trainer(optimizer, task, num_inner_steps):
     meta_trainers = {
-        "lopt" : _lopt_meta_trainer,
+        "lopt": _lopt_meta_trainer,
     }
 
     return meta_trainers[optimizer](task, num_inner_steps)

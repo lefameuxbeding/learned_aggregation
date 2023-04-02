@@ -1,7 +1,8 @@
-import wandb
 import jax
-from tasks import get_task
+import wandb
+
 from optimizers import get_optimizer
+from tasks import get_task
 
 
 def benchmark(args):
