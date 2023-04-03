@@ -112,6 +112,8 @@ def progress_or_reset_inner_opt_state_agg(
                 for i in range(opt.num_grads)
             ]
 
+            overall_grad = jax.grad(task.loss)(p, key, data)
+
             meta_loss = l
 
         if axis_name:
@@ -121,7 +123,7 @@ def progress_or_reset_inner_opt_state_agg(
         summary.summary("task_loss", l)
 
         next_inner_opt_state = opt.update(
-            inner_opt_state, g, loss=l, model_state=s, key=key2
+            inner_opt_state, overall_grad, g, loss=l, model_state=s, key=key2
         )
         next_inner_step = inner_step + 1
 

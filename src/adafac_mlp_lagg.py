@@ -421,6 +421,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
             def update(
                 self,
                 opt_state: AdafacMLPLOptState,
+                overall_grad: list[opt_base.Gradient], # TODO
                 grads: list[opt_base.Gradient],
                 loss: jnp.ndarray,
                 model_state: Optional[opt_base.ModelState] = None,
@@ -433,15 +434,11 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
                 # fmt: on
 
                 mom_roll, rms_roll, fac_vec_roll = self._get_rolling()
-                next_mom_rolling = mom_roll.update(
-                    opt_state.mom_rolling, grads[0]
-                )  # TODO
-                next_rms_rolling = rms_roll.update(
-                    opt_state.rms_rolling, grads[0]
-                )  # TODO
+                next_mom_rolling = mom_roll.update(opt_state.mom_rolling, overall_grad)
+                next_rms_rolling = rms_roll.update(opt_state.rms_rolling, overall_grad)
                 next_fac_rolling_features, fac_g = fac_vec_roll.update(
-                    opt_state.fac_rolling_features, grads[0]
-                )  # TODO
+                    opt_state.fac_rolling_features, overall_grad
+                )
 
                 # compute some global features
                 training_step_feature = tanh_embedding(opt_state.iteration)
