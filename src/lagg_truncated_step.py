@@ -95,7 +95,7 @@ def progress_or_reset_inner_opt_state_agg(
             # Otherwise we can just use loss_with_state.
             (l, s) = task.loss_with_state(p, s, key1, data)
 
-            def sample_grad_fn(image, label):  # TODO
+            def sample_grad_fn(image, label):
                 sub_batch_dict = {}
                 sub_batch_dict["image"] = image
                 sub_batch_dict["label"] = label
@@ -112,7 +112,7 @@ def progress_or_reset_inner_opt_state_agg(
                 for i in range(opt.num_grads)
             ]
 
-            overall_grad = jax.grad(task.loss)(p, key, data)
+            overall_grad = jax.grad(task.loss)(p, key, data) # TODO
 
             meta_loss = l
 

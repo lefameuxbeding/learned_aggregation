@@ -24,7 +24,7 @@ def _lagg(args):
         params = agg.get_params(opt_state)
         loss = task.loss(params, key, batch)
 
-        def sample_grad_fn(image, label, key):
+        def sample_grad_fn(image, label):
             sub_batch_dict = {}
             sub_batch_dict["image"] = image
             sub_batch_dict["label"] = label
@@ -39,7 +39,7 @@ def _lagg(args):
             for i in range(lagg._num_grads)
         ]
 
-        overall_grad = jax.grad(task.loss)(params, key, batch)
+        overall_grad = jax.grad(task.loss)(params, key, batch) # TODO
 
         opt_state = agg.update(opt_state, overall_grad, grads, loss=loss)
 
