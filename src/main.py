@@ -15,8 +15,8 @@ def parse_args():
     parser.add_argument("--task", type=str, choices=["image_mlp"], required=True)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--num_runs", type=int, default=10)
-    parser.add_argument("--num_inner_steps", type=int, default=500)
-    parser.add_argument("--num_outer_steps", type=int, default=10000)
+    parser.add_argument("--num_inner_steps", type=int, default=2000)
+    parser.add_argument("--num_outer_steps", type=int, default=50000)
     # fmt: on
 
     return parser.parse_args()
