@@ -67,8 +67,8 @@ def _lopt(task):
 
 
 def _nadamw(args):
-    opt = nadamw.NAdamW()
-    opt_str = "nadamw_" + str(opt.config["learning_rate"])
+    opt = nadamw.NAdamW(learning_rate=args.learning_rate)
+    opt_str = "nadamw_" + str(args.learning_rate)
 
     task = get_task(args)
 
