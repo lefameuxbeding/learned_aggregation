@@ -421,7 +421,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
             def update(
                 self,
                 opt_state: AdafacMLPLOptState,
-                overall_grad: list[opt_base.Gradient], # TODO
+                overall_grad: list[opt_base.Gradient],
                 grads: list[opt_base.Gradient],
                 loss: jnp.ndarray,
                 model_state: Optional[opt_base.ModelState] = None,

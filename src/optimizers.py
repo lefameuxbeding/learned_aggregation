@@ -12,7 +12,7 @@ from tasks import get_task
 
 def _lagg(args):
     lagg = AdafacMLPLAgg()
-    agg_str = "lagg_" + str(lagg._num_grads)
+    agg_str = "lagg"
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
@@ -48,12 +48,14 @@ def _lagg(args):
     return agg, agg_str, update
 
 
-def _lopt(task):
+def _lopt(args):
     lopt = adafac_mlp_lopt.AdafacMLPLOpt()
     opt_str = "lopt"
     with open(opt_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     opt = lopt.opt_fn(meta_params)
+
+    task = get_task(args)
 
     @jax.jit
     def update(opt_state, key, batch):
