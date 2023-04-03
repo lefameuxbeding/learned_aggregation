@@ -40,7 +40,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         concat_weights=True,
         make_separate_weights=False,
         split_weights=False,
-        num_grads=4,
+        num_grads=8,
     ):
         super().__init__()
         self._exp_mult = exp_mult
@@ -53,7 +53,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         self._concat_weights = concat_weights
         self._make_separate_weights = make_separate_weights
         self._split_weights = split_weights
-        self.num_grads = num_grads
+        self._num_grads = num_grads
 
         self._mod_init, self._mod_apply = hk.without_apply_rng(hk.transform(self._mod))
 
@@ -333,7 +333,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         r = 10
         c = 10
         p = jnp.ones([r, c])
-        g = jnp.ones([self.num_grads, r, c])
+        g = jnp.ones([self._num_grads, r, c])
 
         m = jnp.ones([r, c, len(self._initial_momentum_decays)])
         rms = jnp.ones([r, c, len(self._initial_rms_decays)])
@@ -430,7 +430,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
             ) -> AdafacMLPLOptState:
                 # Makes sure we are feeding the correct number of sample gradients
                 # fmt: off
-                assert len(grads) == self.num_grads, "need " + str(self.num_grads) + "gradient samples, " + str(len(grads)) + "were provided"
+                assert len(grads) == self.num_grads, "need " + str(self.num_grads) + " gradient samples, but " + str(len(grads)) + " were provided"
                 # fmt: on
 
                 mom_roll, rms_roll, fac_vec_roll = self._get_rolling()
@@ -475,4 +475,4 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
 
                 return tree_utils.match_type(next_opt_state, opt_state)
 
-        return _Opt(theta, self.num_grads)
+        return _Opt(theta, self._num_grads)

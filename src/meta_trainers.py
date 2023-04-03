@@ -42,7 +42,7 @@ def _lagg_meta_trainer(args):
         lagg, gradient_estimators, meta_opt
     )
 
-    return meta_trainer, "lagg_" + str(lagg.num_grads)
+    return meta_trainer, "lagg_" + str(lagg._num_grads) + "_" + str(lagg._hidden_size)
 
 
 def _lopt_meta_trainer(args):

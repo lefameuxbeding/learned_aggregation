@@ -12,7 +12,7 @@ from tasks import get_task
 
 def _lagg(args):
     lagg = AdafacMLPLAgg()
-    agg_str = "lagg_" + str(lagg.num_grads)
+    agg_str = "lagg_" + str(lagg._num_grads)
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
@@ -32,11 +32,11 @@ def _lagg(args):
 
             return jax.grad(task.loss)(params, key, sub_batch)
 
-        split_image = jnp.split(batch["image"], lagg.num_grads)
-        split_label = jnp.split(batch["label"], lagg.num_grads)
+        split_image = jnp.split(batch["image"], lagg._num_grads)
+        split_label = jnp.split(batch["label"], lagg._num_grads)
         grads = [
             sample_grad_fn(split_image[i], split_label[i])
-            for i in range(lagg.num_grads)
+            for i in range(lagg._num_grads)
         ]
 
         overall_grad = jax.grad(task.loss)(params, key, batch)
