@@ -7,9 +7,7 @@ from meta_trainers import get_meta_trainer
 
 
 def meta_train(args):
-    meta_trainer, lopt_str = get_meta_trainer(
-        args.optimizer, args.task, args.num_inner_steps
-    )
+    meta_trainer, lopt_str = get_meta_trainer(args)
 
     key = jax.random.PRNGKey(0)
     key, key1 = jax.random.split(key)

@@ -7,14 +7,17 @@ from learned_optimization.learned_optimizers import adafac_mlp_lopt
 from learned_optimization.optimizers import nadamw
 
 from adafac_mlp_lagg import AdafacMLPLAgg
+from tasks import get_task
 
 
-def _lagg(task):
+def _lagg(args):
     lagg = AdafacMLPLAgg()
     agg_str = "lagg_" + str(lagg.num_grads)
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
+
+    task = get_task(args)
 
     @jax.jit
     def update(opt_state, key, batch):
@@ -63,9 +66,11 @@ def _lopt(task):
     return opt, opt_str, update
 
 
-def _nadamw(task):
+def _nadamw(args):
     opt = nadamw.NAdamW()
     opt_str = "nadamw_" + str(opt.config["learning_rate"])
+
+    task = get_task(args)
 
     @jax.jit
     def update(opt_state, key, batch):
@@ -78,11 +83,11 @@ def _nadamw(task):
     return opt, opt_str, update
 
 
-def get_optimizer(optimizer, task):
+def get_optimizer(args):
     optimizers = {
         "nadamw": _nadamw,
         "lopt": _lopt,
         "lagg": _lagg,
     }
 
-    return optimizers[optimizer](task)
+    return optimizers[args.optimizer](args)

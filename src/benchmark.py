@@ -8,8 +8,8 @@ from tasks import get_task
 def benchmark(args):
     key = jax.random.PRNGKey(0)
 
-    task = get_task(args.task)
-    opt, opt_str, update = get_optimizer(args.optimizer, task)
+    task = get_task(args)
+    opt, opt_str, update = get_optimizer(args)
 
     for _ in range(args.num_runs):
         run = wandb.init(project="learned_aggregation", group=opt_str)
