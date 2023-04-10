@@ -4,7 +4,7 @@ from learned_optimization.tasks.fixed.image_mlp import ImageMLP_FashionMnist_Rel
 
 def get_task(args):
     tasks = {
-        "image_mlp": ImageMLP_FashionMnist_Relu128x128(),
+        "image-mlp": ImageMLP_FashionMnist_Relu128x128(),
         "conv": Conv_Cifar10_32x64x64(),
     }
 

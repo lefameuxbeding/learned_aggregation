@@ -20,7 +20,7 @@ def meta_train(args):
         outer_trainer_state, meta_loss, _ = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=False
         )
-        run.log({"meta loss": meta_loss})
+        run.log({args.task + " meta loss": meta_loss})
 
     run.finish()
 

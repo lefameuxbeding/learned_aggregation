@@ -12,8 +12,9 @@ def parse_args():
     # fmt: off
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train"], required=True)
     parser.add_argument("--optimizer", type=str, choices=["nadamw", "adam", "lopt", "lagg"], required=True)
-    parser.add_argument("--task", type=str, choices=["image_mlp"], required=True)
+    parser.add_argument("--task", type=str, choices=["image-mlp", "conv"], required=True)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
+    parser.add_argument("--num_grads", type=int, default=8)
     parser.add_argument("--num_runs", type=int, default=10)
     parser.add_argument("--num_inner_steps", type=int, default=2000)
     parser.add_argument("--num_outer_steps", type=int, default=50000)

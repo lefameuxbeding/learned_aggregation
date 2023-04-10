@@ -14,7 +14,7 @@ from tasks import get_task
 
 
 def _lagg_meta_trainer(args):
-    lagg = AdafacMLPLAgg()
+    lagg = AdafacMLPLAgg(num_grads=args.num_grads)
 
     meta_opt = opt_base.Adam(1e-4)
 
@@ -42,7 +42,7 @@ def _lagg_meta_trainer(args):
         lagg, gradient_estimators, meta_opt
     )
 
-    return meta_trainer, "lagg"
+    return meta_trainer, args.optimizer + "_" + args.task + "_" + str(args.num_grads)
 
 
 def _lopt_meta_trainer(args):
@@ -74,7 +74,7 @@ def _lopt_meta_trainer(args):
         lopt, gradient_estimators, meta_opt
     )
 
-    return meta_trainer, "lopt"
+    return meta_trainer, args.optimizer + "_" + args.task
 
 
 def get_meta_trainer(args):

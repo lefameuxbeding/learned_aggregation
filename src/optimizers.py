@@ -11,8 +11,8 @@ from tasks import get_task
 
 
 def _lagg(args):
-    lagg = AdafacMLPLAgg()
-    agg_str = "lagg"
+    lagg = AdafacMLPLAgg(num_grads=args.num_grads)
+    agg_str = args.optimizer + "_" + args.task + "_" + str(args.num_grads)
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
@@ -39,7 +39,7 @@ def _lagg(args):
             for i in range(lagg._num_grads)
         ]
 
-        overall_grad = jax.grad(task.loss)(params, key, batch) # TODO
+        overall_grad = jax.grad(task.loss)(params, key, batch)  # TODO
 
         opt_state = agg.update(opt_state, overall_grad, grads, loss=loss)
 
@@ -50,7 +50,7 @@ def _lagg(args):
 
 def _lopt(args):
     lopt = adafac_mlp_lopt.AdafacMLPLOpt()
-    opt_str = "lopt"
+    opt_str = args.optimizer + "_" + args.task
     with open(opt_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
     opt = lopt.opt_fn(meta_params)
@@ -70,7 +70,7 @@ def _lopt(args):
 
 def _nadamw(args):
     opt = nadamw.NAdamW(learning_rate=args.learning_rate)
-    opt_str = "nadamw_" + str(args.learning_rate)
+    opt_str = args.optimizer + str(args.learning_rate)
 
     task = get_task(args)
 
@@ -87,7 +87,7 @@ def _nadamw(args):
 
 def _adam(args):
     opt = optax_opts.Adam(learning_rate=args.learning_rate)
-    opt_str = "adam_" + str(args.learning_rate)
+    opt_str = args.optimizer + str(args.learning_rate)
 
     task = get_task(args)
 

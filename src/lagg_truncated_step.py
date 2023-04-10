@@ -112,7 +112,7 @@ def progress_or_reset_inner_opt_state_agg(
                 for i in range(opt.num_grads)
             ]
 
-            overall_grad = jax.grad(task.loss)(p, key, data) # TODO
+            overall_grad = jax.grad(task.loss)(p, key, data)  # TODO
 
             meta_loss = l
 

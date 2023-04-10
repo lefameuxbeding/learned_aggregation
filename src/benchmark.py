@@ -23,6 +23,6 @@ def benchmark(args):
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            run.log({task.name + " train loss": loss})
+            run.log({args.task + " train loss": loss})
 
         run.finish()

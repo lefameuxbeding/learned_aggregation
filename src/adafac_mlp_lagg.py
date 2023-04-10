@@ -32,7 +32,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         self,
         exp_mult=0.001,
         step_mult=0.001,
-        hidden_size=4 * 8,
+        hidden_size=4,
         hidden_layers=2,
         initial_momentum_decays=(0.9, 0.99, 0.999),
         initial_rms_decays=(0.999,),
