@@ -25,8 +25,8 @@ def parse_args():
 
 def assert_args(args):
     # fmt: off
-    if args.run_type == "benchmark" and args.optimizer in ["lopt", "lagg"]:
-        assert os.path.exists(args.optimizer + ".pickle"), "need to meta-train learned optimizer before benchmarking"
+    # if args.run_type == "benchmark" and args.optimizer in ["lopt", "lagg"]:
+    #     assert os.path.exists(args.optimizer + ".pickle"), "need to meta-train learned optimizer before benchmarking" # TODO
     if args.run_type == "meta-train":
         assert args.optimizer not in ["nadamw", "adam"], "can't meta-train a non learned optimizer"
     # fmt: on

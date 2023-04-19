@@ -70,7 +70,7 @@ def _lopt(args):
 
 def _nadamw(args):
     opt = nadamw.NAdamW(learning_rate=args.learning_rate)
-    opt_str = args.optimizer + str(args.learning_rate)
+    opt_str = args.optimizer + "_" + str(args.learning_rate)
 
     task = get_task(args)
 
@@ -87,7 +87,7 @@ def _nadamw(args):
 
 def _adam(args):
     opt = optax_opts.Adam(learning_rate=args.learning_rate)
-    opt_str = args.optimizer + str(args.learning_rate)
+    opt_str = args.optimizer + "_" + str(args.learning_rate)
 
     task = get_task(args)
 
