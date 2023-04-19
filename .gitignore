@@ -2,3 +2,4 @@
 slurm-*
 __pycache__
 *.pickle
+models
