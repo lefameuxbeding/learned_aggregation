@@ -9,11 +9,20 @@ import jax.numpy as jnp
 from learned_optimization import summary, training, tree_utils
 from learned_optimization.learned_optimizers import base as lopt_base
 from learned_optimization.optimizers import base as opt_base
-from learned_optimization.outer_trainers import (full_es, truncated_step,
-                                                 truncation_schedule)
+from learned_optimization.outer_trainers import (
+    full_es,
+    truncated_step,
+    truncation_schedule,
+)
 from learned_optimization.outer_trainers.lopt_truncated_step import (
-    G, PRNGKey, T, TruncatedUnrollState, init_truncation_state,
-    init_truncation_state_vec_theta, vectorized_loss_and_aux)
+    G,
+    PRNGKey,
+    T,
+    TruncatedUnrollState,
+    init_truncation_state,
+    init_truncation_state_vec_theta,
+    vectorized_loss_and_aux,
+)
 from learned_optimization.tasks import base as tasks_base
 
 from utils import split_batch
@@ -88,10 +97,7 @@ def progress_or_reset_inner_opt_state_agg(
 
             s_batch = split_batch(data, opt.num_grads)
 
-            losses_grads = [
-                jax.value_and_grad(task.loss)(p, key, b)
-                for b in s_batch
-            ]
+            losses_grads = [jax.value_and_grad(task.loss)(p, key, b) for b in s_batch]
             l = jnp.mean(jnp.array([lo[0] for lo in losses_grads]))
             g = [gr[1] for gr in losses_grads]
             overall_grad = jax.tree_util.tree_map(

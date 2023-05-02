@@ -13,7 +13,9 @@ from utils import split_batch
 
 def _fedavg(args):
     opt = optax_opts.SGD(learning_rate=args.learning_rate)
-    opt_str = args.optimizer + "_K" + str(args.num_grads) + "_H" + str(args.num_local_steps)
+    opt_str = (
+        args.optimizer + "_K" + str(args.num_grads) + "_H" + str(args.num_local_steps)
+    )
 
     task = get_task(args)
 
@@ -23,7 +25,7 @@ def _fedavg(args):
 
         losses = []
         new_params = []
-        for client_batch in s_batch: # TODO Vectorize if possible
+        for client_batch in s_batch:  # TODO Vectorize if possible
             local_opt_state = copy.deepcopy(opt_state)
             s_c_batch = split_batch(client_batch, args.num_local_steps)
             for sub_client_batch in s_c_batch:
@@ -32,11 +34,13 @@ def _fedavg(args):
                 losses.append(l)
                 local_opt_state = opt.update(local_opt_state, grad, loss=l)
             new_params.append(opt.get_params(local_opt_state))
-        
+
         loss = jnp.mean(jnp.array(losses))
 
         overall_params = jax.tree_util.tree_map(
-            lambda p, *ps: jnp.mean(jnp.array(ps + (p,)), axis=0), new_params[0], *new_params[1:]
+            lambda p, *ps: jnp.mean(jnp.array(ps + (p,)), axis=0),
+            new_params[0],
+            *new_params[1:]
         )
         opt_state = opt.init(overall_params)
 
@@ -60,10 +64,7 @@ def _lagg(args):
 
         s_batch = split_batch(batch, args.num_grads)
 
-        losses_grads = [
-            jax.value_and_grad(task.loss)(params, key, b)
-            for b in s_batch
-        ]
+        losses_grads = [jax.value_and_grad(task.loss)(params, key, b) for b in s_batch]
         loss = jnp.mean(jnp.array([l[0] for l in losses_grads]))
         grads = [grad[1] for grad in losses_grads]
         overall_grad = jax.tree_util.tree_map(
