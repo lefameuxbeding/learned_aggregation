@@ -6,25 +6,17 @@ from typing import Any, Callable, Optional, Tuple
 import gin
 import jax
 import jax.numpy as jnp
-from haiku._src.data_structures import FlatMap
 from learned_optimization import summary, training, tree_utils
 from learned_optimization.learned_optimizers import base as lopt_base
 from learned_optimization.optimizers import base as opt_base
-from learned_optimization.outer_trainers import (
-    full_es,
-    truncated_step,
-    truncation_schedule,
-)
+from learned_optimization.outer_trainers import (full_es, truncated_step,
+                                                 truncation_schedule)
 from learned_optimization.outer_trainers.lopt_truncated_step import (
-    G,
-    PRNGKey,
-    T,
-    TruncatedUnrollState,
-    init_truncation_state,
-    init_truncation_state_vec_theta,
-    vectorized_loss_and_aux,
-)
+    G, PRNGKey, T, TruncatedUnrollState, init_truncation_state,
+    init_truncation_state_vec_theta, vectorized_loss_and_aux)
 from learned_optimization.tasks import base as tasks_base
+
+from utils import split_batch
 
 
 def progress_or_reset_inner_opt_state_agg(
@@ -94,19 +86,11 @@ def progress_or_reset_inner_opt_state_agg(
         else:
             # Otherwise we can just use loss_with_state.
 
-            # TODO Could try to use vmap
-            split_image = jnp.split(data["image"], opt.num_grads)
-            split_label = jnp.split(data["label"], opt.num_grads)
-            split_batch = []
-            for i in range(opt.num_grads):
-                sub_batch_dict = {}
-                sub_batch_dict["image"] = split_image[i]
-                sub_batch_dict["label"] = split_label[i]
-                split_batch.append(FlatMap(sub_batch_dict))
+            s_batch = split_batch(data, opt.num_grads)
 
             losses_grads = [
                 jax.value_and_grad(task.loss)(p, key, b)
-                for b in split_batch
+                for b in s_batch
             ]
             l = jnp.mean(jnp.array([lo[0] for lo in losses_grads]))
             g = [gr[1] for gr in losses_grads]

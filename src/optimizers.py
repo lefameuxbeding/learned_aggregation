@@ -1,13 +1,48 @@
 import pickle
+import copy
 
 import jax
 import jax.numpy as jnp
-from haiku._src.data_structures import FlatMap
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
 from learned_optimization.optimizers import nadamw, optax_opts
 
 from adafac_mlp_lagg import AdafacMLPLAgg
 from tasks import get_task
+from utils import split_batch
+
+
+def _fedavg(args):
+    opt = optax_opts.SGD(learning_rate=args.learning_rate)
+    opt_str = args.optimizer + "_K" + str(args.num_grads) + "_H" + str(args.num_local_steps)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        s_batch = split_batch(batch, args.num_grads)
+
+        losses = []
+        new_params = []
+        for client_batch in s_batch: # TODO Vectorize if possible
+            local_opt_state = copy.deepcopy(opt_state)
+            s_c_batch = split_batch(client_batch, args.num_local_steps)
+            for sub_client_batch in s_c_batch:
+                params = opt.get_params(local_opt_state)
+                l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                losses.append(l)
+                local_opt_state = opt.update(local_opt_state, grad, loss=l)
+            new_params.append(opt.get_params(local_opt_state))
+        
+        loss = jnp.mean(jnp.array(losses))
+
+        overall_params = jax.tree_util.tree_map(
+            lambda p, *ps: jnp.mean(jnp.array(ps + (p,)), axis=0), new_params[0], *new_params[1:]
+        )
+        opt_state = opt.init(overall_params)
+
+        return opt_state, loss
+
+    return opt, opt_str, update
 
 
 def _lagg(args):
@@ -23,19 +58,11 @@ def _lagg(args):
     def update(opt_state, key, batch):
         params = agg.get_params(opt_state)
 
-        # TODO Could try to use vmap
-        split_image = jnp.split(batch["image"], args.num_grads)
-        split_label = jnp.split(batch["label"], args.num_grads)
-        split_batch = []
-        for i in range(args.num_grads):
-            sub_batch_dict = {}
-            sub_batch_dict["image"] = split_image[i]
-            sub_batch_dict["label"] = split_label[i]
-            split_batch.append(FlatMap(sub_batch_dict))
+        s_batch = split_batch(batch, args.num_grads)
 
         losses_grads = [
             jax.value_and_grad(task.loss)(params, key, b)
-            for b in split_batch
+            for b in s_batch
         ]
         loss = jnp.mean(jnp.array([l[0] for l in losses_grads]))
         grads = [grad[1] for grad in losses_grads]
@@ -110,6 +137,7 @@ def get_optimizer(args):
         "adam": _adam,
         "lopt": _lopt,
         "lagg": _lagg,
+        "fedavg": _fedavg,
     }
 
     return optimizers[args.optimizer](args)
