@@ -4,14 +4,14 @@ import jax
 import jax.numpy as jnp
 from haiku._src.data_structures import FlatMap
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
-from learned_optimization.optimizers import optax_opts, nadamw
+from learned_optimization.optimizers import nadamw, optax_opts
 
 from adafac_mlp_lagg import AdafacMLPLAgg
 from tasks import get_task
 
 
 def _lagg(args):
-    lagg = AdafacMLPLAgg(num_grads=args.num_grads)
+    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
     agg_str = args.optimizer + "_" + args.task + "_" + str(args.num_grads)
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
@@ -22,24 +22,26 @@ def _lagg(args):
     @jax.jit
     def update(opt_state, key, batch):
         params = agg.get_params(opt_state)
-        loss = task.loss(params, key, batch)
 
-        def sample_grad_fn(image, label):
+        # TODO Could try to use vmap
+        split_image = jnp.split(batch["image"], args.num_grads)
+        split_label = jnp.split(batch["label"], args.num_grads)
+        split_batch = []
+        for i in range(args.num_grads):
             sub_batch_dict = {}
-            sub_batch_dict["image"] = image
-            sub_batch_dict["label"] = label
-            sub_batch = FlatMap(sub_batch_dict)
+            sub_batch_dict["image"] = split_image[i]
+            sub_batch_dict["label"] = split_label[i]
+            split_batch.append(FlatMap(sub_batch_dict))
 
-            return jax.grad(task.loss)(params, key, sub_batch)
-
-        split_image = jnp.split(batch["image"], lagg._num_grads)
-        split_label = jnp.split(batch["label"], lagg._num_grads)
-        grads = [
-            sample_grad_fn(split_image[i], split_label[i])
-            for i in range(lagg._num_grads)
+        losses_grads = [
+            jax.value_and_grad(task.loss)(params, key, b)
+            for b in split_batch
         ]
-
-        overall_grad = jax.grad(task.loss)(params, key, batch)  # TODO
+        loss = jnp.mean(jnp.array([l[0] for l in losses_grads]))
+        grads = [grad[1] for grad in losses_grads]
+        overall_grad = jax.tree_util.tree_map(
+            lambda g, *gs: jnp.mean(jnp.array(gs + (g,)), axis=0), grads[0], *grads[1:]
+        )
 
         opt_state = agg.update(opt_state, overall_grad, grads, loss=loss)
 
@@ -49,7 +51,7 @@ def _lagg(args):
 
 
 def _lopt(args):
-    lopt = adafac_mlp_lopt.AdafacMLPLOpt()
+    lopt = adafac_mlp_lopt.AdafacMLPLOpt(hidden_size=args.hidden_size)
     opt_str = args.optimizer + "_" + args.task
     with open(opt_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)

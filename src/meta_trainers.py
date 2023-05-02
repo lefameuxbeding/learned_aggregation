@@ -14,9 +14,9 @@ from tasks import get_task
 
 
 def _lagg_meta_trainer(args):
-    lagg = AdafacMLPLAgg(num_grads=args.num_grads)
+    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
 
-    meta_opt = opt_base.Adam(1e-4)
+    meta_opt = opt_base.Adam(args.learning_rate)
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
@@ -26,7 +26,7 @@ def _lagg_meta_trainer(args):
             task_family,
             lagg,
             trunc_sched,
-            num_tasks=16,
+            num_tasks=8,
             random_initial_iteration_offset=args.num_inner_steps,
         )
         return truncated_pes.TruncatedPES(
@@ -46,9 +46,9 @@ def _lagg_meta_trainer(args):
 
 
 def _lopt_meta_trainer(args):
-    lopt = adafac_mlp_lopt.AdafacMLPLOpt()
+    lopt = adafac_mlp_lopt.AdafacMLPLOpt(hidden_size=args.hidden_size)
 
-    meta_opt = opt_base.Adam(1e-4)
+    meta_opt = opt_base.Adam(args.learning_rate)
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
@@ -58,7 +58,7 @@ def _lopt_meta_trainer(args):
             task_family,
             lopt,
             trunc_sched,
-            num_tasks=16,
+            num_tasks=8,
             random_initial_iteration_offset=args.num_inner_steps,
         )
         return truncated_pes.TruncatedPES(

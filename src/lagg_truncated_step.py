@@ -93,26 +93,26 @@ def progress_or_reset_inner_opt_state_agg(
             meta_loss = aux[meta_loss_with_aux_key]
         else:
             # Otherwise we can just use loss_with_state.
-            (l, s) = task.loss_with_state(p, s, key1, data)
 
-            def sample_grad_fn(image, label):
-                sub_batch_dict = {}
-                sub_batch_dict["image"] = image
-                sub_batch_dict["label"] = label
-                sub_batch = FlatMap(sub_batch_dict)
-
-                return jax.grad(task.loss_with_state, has_aux=True)(
-                    p, s, key1, sub_batch
-                )[0]
-
+            # TODO Could try to use vmap
             split_image = jnp.split(data["image"], opt.num_grads)
             split_label = jnp.split(data["label"], opt.num_grads)
-            g = [
-                sample_grad_fn(split_image[i], split_label[i])
-                for i in range(opt.num_grads)
-            ]
+            split_batch = []
+            for i in range(opt.num_grads):
+                sub_batch_dict = {}
+                sub_batch_dict["image"] = split_image[i]
+                sub_batch_dict["label"] = split_label[i]
+                split_batch.append(FlatMap(sub_batch_dict))
 
-            overall_grad = jax.grad(task.loss)(p, key, data)  # TODO
+            losses_grads = [
+                jax.value_and_grad(task.loss)(p, key, b)
+                for b in split_batch
+            ]
+            l = jnp.mean(jnp.array([lo[0] for lo in losses_grads]))
+            g = [gr[1] for gr in losses_grads]
+            overall_grad = jax.tree_util.tree_map(
+                lambda g, *gs: jnp.mean(jnp.array(gs + (g,)), axis=0), g[0], *g[1:]
+            )
 
             meta_loss = l
 
