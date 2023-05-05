@@ -14,7 +14,13 @@ from utils import split_batch
 def _fedavg(args):
     opt = optax_opts.SGD(learning_rate=args.learning_rate)
     opt_str = (
-        args.optimizer + "_K" + str(args.num_grads) + "_H" + str(args.num_local_steps)
+        args.optimizer
+        + "_K"
+        + str(args.num_grads)
+        + "_H"
+        + str(args.num_local_steps)
+        + "_"
+        + str(args.learning_rate)
     )
 
     task = get_task(args)
