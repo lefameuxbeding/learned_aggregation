@@ -11,16 +11,80 @@ from tasks import get_task
 from utils import split_batch
 
 
-def _fedavg(args):
-    opt = optax_opts.SGD(learning_rate=args.learning_rate)
-    opt_str = (
+def _fedlagg(args):
+    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
+    agg_str = (
         args.optimizer
+        + "_"
+        + args.task
         + "_K"
         + str(args.num_grads)
         + "_H"
         + str(args.num_local_steps)
         + "_"
-        + str(args.learning_rate)
+        + str(args.local_learning_rate)
+    )
+    with open(agg_str + ".pickle", "rb") as f:
+        meta_params = pickle.load(f)
+    agg = lagg.opt_fn(meta_params)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        local_opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
+        params = agg.get_params(opt_state)
+        local_opt_state = local_opt.init(params)
+
+        s_batch = split_batch(batch, args.num_grads)
+
+        losses = []
+        deltas = []
+        for client_batch in s_batch:  # TODO Vectorize if possible
+            l_opt_state = copy.deepcopy(local_opt_state)
+            s_c_batch = split_batch(client_batch, args.num_local_steps)
+            grads = []
+            for sub_client_batch in s_c_batch:
+                params = local_opt.get_params(l_opt_state)
+                loss, grad = jax.value_and_grad(task.loss)(
+                    params, key, sub_client_batch
+                )
+                losses.append(loss)
+                grads.append(grad)
+            delta = jax.tree_util.tree_map(
+                lambda g, *gs: jnp.sum(jnp.array(gs + (g,)), axis=0),
+                grads[0],
+                *grads[1:],
+            )
+            deltas.append(delta)
+
+        loss = jnp.mean(jnp.array(losses))
+
+        overall_delta = jax.tree_util.tree_map(
+            lambda d, *ds: jnp.mean(jnp.array(ds + (d,)), axis=0),
+            deltas[0],
+            *deltas[1:],
+        )
+
+        opt_state = agg.update(opt_state, overall_delta, deltas, loss=loss)
+
+        return opt_state, loss
+
+    return agg, agg_str, update
+
+
+def _fedavg(args):
+    opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
+    opt_str = (
+        args.optimizer
+        + "_"
+        + args.task
+        + "_K"
+        + str(args.num_grads)
+        + "_H"
+        + str(args.num_local_steps)
+        + "_"
+        + str(args.local_learning_rate)
     )
 
     task = get_task(args)
@@ -46,7 +110,7 @@ def _fedavg(args):
         overall_params = jax.tree_util.tree_map(
             lambda p, *ps: jnp.mean(jnp.array(ps + (p,)), axis=0),
             new_params[0],
-            *new_params[1:]
+            *new_params[1:],
         )
         opt_state = opt.init(overall_params)
 
@@ -145,6 +209,7 @@ def get_optimizer(args):
         "lopt": _lopt,
         "lagg": _lagg,
         "fedavg": _fedavg,
+        "fedlagg": _fedlagg,
     }
 
     return optimizers[args.optimizer](args)
