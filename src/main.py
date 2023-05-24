@@ -12,7 +12,7 @@ def parse_args():
     # fmt: off
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train"], required=True)
     parser.add_argument("--optimizer", type=str, choices=["nadamw", "adam", "lopt", "lagg", "fedavg", "fedlagg"], required=True)
-    parser.add_argument("--task", type=str, choices=["image-mlp"], required=True)
+    parser.add_argument("--task", type=str, choices=["image-mlp", "conv"], required=True)
     parser.add_argument("--hidden_size", type=int, default=4)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--local_learning_rate", type=float, default=1e-1)

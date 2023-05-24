@@ -51,6 +51,7 @@ def _fedlagg(args):
                 )
                 losses.append(loss)
                 grads.append(grad)
+                l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
             delta = jax.tree_util.tree_map(
                 lambda g, *gs: jnp.sum(jnp.array(gs + (g,)), axis=0),
                 grads[0],
