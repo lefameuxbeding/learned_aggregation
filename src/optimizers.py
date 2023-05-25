@@ -52,10 +52,10 @@ def _fedlagg(args):
                 losses.append(loss)
                 grads.append(grad)
                 l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
+            old_params = local_opt.get_params(local_opt_state)
+            new_params = local_opt.get_params(l_opt_state)
             delta = jax.tree_util.tree_map(
-                lambda g, *gs: jnp.sum(jnp.array(gs + (g,)), axis=0),
-                grads[0],
-                *grads[1:],
+                lambda old_p, new_p: new_p - old_p, old_params, new_params
             )
             deltas.append(delta)
 
