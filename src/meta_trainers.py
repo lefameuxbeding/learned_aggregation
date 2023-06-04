@@ -8,14 +8,14 @@ from learned_optimization.outer_trainers import (
 )
 from learned_optimization.tasks import base as tasks_base
 
-from adafac_mlp_lagg import AdafacMLPLAgg
+from mlp_lagg import MLPLAgg
 from lagg_truncated_step import VectorizedLAggTruncatedStep
 from fedlagg_truncated_step import VectorizedFedLAggTruncatedStep
 from tasks import get_task
 
 
 def _fedlagg_meta_trainer(args):
-    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
+    lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
 
     meta_opt = opt_base.Adam(args.learning_rate)
 
@@ -49,7 +49,7 @@ def _fedlagg_meta_trainer(args):
 
 
 def _lagg_meta_trainer(args):
-    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
+    lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
 
     meta_opt = opt_base.Adam(args.learning_rate)
 

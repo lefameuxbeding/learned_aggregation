@@ -124,12 +124,6 @@ def progress_or_reset_inner_opt_state_agg(
 
             l = jnp.mean(jnp.array(losses))
 
-            overall_delta = jax.tree_util.tree_map(
-                lambda d, *ds: jnp.mean(jnp.array(ds + (d,)), axis=0),
-                deltas[0],
-                *deltas[1:],
-            )
-
             meta_loss = l
 
         if axis_name:
@@ -139,7 +133,7 @@ def progress_or_reset_inner_opt_state_agg(
         summary.summary("task_loss", l)
 
         next_inner_opt_state = opt.update(
-            inner_opt_state, overall_delta, deltas, loss=l, model_state=s, key=key2
+            inner_opt_state, deltas, loss=l, model_state=s, key=key2
         )
         next_inner_step = inner_step + 1
 

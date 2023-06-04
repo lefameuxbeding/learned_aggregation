@@ -6,13 +6,13 @@ import jax.numpy as jnp
 from learned_optimization.learned_optimizers import adafac_mlp_lopt
 from learned_optimization.optimizers import nadamw, optax_opts
 
-from adafac_mlp_lagg import AdafacMLPLAgg
+from mlp_lagg import MLPLAgg
 from tasks import get_task
 from utils import split_batch
 
 
 def _fedlagg(args):
-    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
+    lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
     agg_str = (
         args.optimizer
         + "_"
@@ -61,13 +61,7 @@ def _fedlagg(args):
 
         loss = jnp.mean(jnp.array(losses))
 
-        overall_delta = jax.tree_util.tree_map(
-            lambda d, *ds: jnp.mean(jnp.array(ds + (d,)), axis=0),
-            deltas[0],
-            *deltas[1:],
-        )
-
-        opt_state = agg.update(opt_state, overall_delta, deltas, loss=loss)
+        opt_state = agg.update(opt_state, deltas, loss=loss)
 
         return opt_state, loss
 
@@ -121,7 +115,7 @@ def _fedavg(args):
 
 
 def _lagg(args):
-    lagg = AdafacMLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
+    lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
     agg_str = args.optimizer + "_" + args.task + "_" + str(args.num_grads)
     with open(agg_str + ".pickle", "rb") as f:
         meta_params = pickle.load(f)
