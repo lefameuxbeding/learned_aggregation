@@ -1,31 +1,28 @@
-import pickle
 import copy
 
 import jax
 import jax.numpy as jnp
-from learned_optimization.learned_optimizers import adafac_mlp_lopt
-from learned_optimization.optimizers import nadamw, optax_opts
+from haiku._src.data_structures import FlatMap
+from learned_optimization import checkpoints
+from learned_optimization.optimizers import optax_opts
 
+from meta_trainers import get_meta_trainer
 from mlp_lagg import MLPLAgg
 from tasks import get_task
-from utils import split_batch
 
 
 def _fedlagg(args):
     lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
-    agg_str = (
-        args.optimizer
-        + "_"
-        + args.task
-        + "_K"
-        + str(args.num_grads)
-        + "_H"
-        + str(args.num_local_steps)
-        + "_"
-        + str(args.local_learning_rate)
+    meta_trainer, agg_str = get_meta_trainer(args)
+
+    key = jax.random.PRNGKey(0)
+    key, key1 = jax.random.split(key)
+    outer_trainer_state = meta_trainer.init(key1)
+    outer_trainer_state = checkpoints.load_state(
+        "./" + agg_str + ".ckpt", outer_trainer_state
     )
-    with open(agg_str + ".pickle", "rb") as f:
-        meta_params = pickle.load(f)
+    meta_params = outer_trainer_state.gradient_learner_state.theta_opt_state.params
+
     agg = lagg.opt_fn(meta_params)
 
     task = get_task(args)
@@ -36,28 +33,49 @@ def _fedlagg(args):
         params = agg.get_params(opt_state)
         local_opt_state = local_opt.init(params)
 
-        s_batch = split_batch(batch, args.num_grads)
+        images = jnp.array(batch["image"])
+        labels = jnp.array(batch["label"])
 
-        losses = []
-        deltas = []
-        for client_batch in s_batch:  # TODO Vectorize if possible
+        def split(arr, split_factor):
+            """Splits the first axis of `arr` evenly across the number of devices."""
+            return arr.reshape(
+                split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
+            )
+
+        images = split(images, agg.num_grads)
+        labels = split(labels, agg.num_grads)
+
+        def local_updates(im, lab):
             l_opt_state = copy.deepcopy(local_opt_state)
-            s_c_batch = split_batch(client_batch, args.num_local_steps)
-            grads = []
+            s_c_images = split(im, args.num_local_steps)
+            s_c_labels = split(lab, args.num_local_steps)
+
+            s_c_batch = []
+            for i in range(args.num_local_steps):
+                sub_batch_dict = {}
+                sub_batch_dict["image"] = s_c_images[i]
+                sub_batch_dict["label"] = s_c_labels[i]
+                s_c_batch.append(FlatMap(sub_batch_dict))
+
+            loss = 0
+
             for sub_client_batch in s_c_batch:
                 params = local_opt.get_params(l_opt_state)
                 loss, grad = jax.value_and_grad(task.loss)(
                     params, key, sub_client_batch
                 )
-                losses.append(loss)
-                grads.append(grad)
                 l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
+
             old_params = local_opt.get_params(local_opt_state)
             new_params = local_opt.get_params(l_opt_state)
             delta = jax.tree_util.tree_map(
                 lambda old_p, new_p: new_p - old_p, old_params, new_params
             )
-            deltas.append(delta)
+
+            return loss, delta
+
+        losses, deltas = jax.vmap(local_updates)(images, labels)
+        print("DELTAS HERE", deltas)
 
         loss = jnp.mean(jnp.array(losses))
 
@@ -114,95 +132,8 @@ def _fedavg(args):
     return opt, opt_str, update
 
 
-def _lagg(args):
-    lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
-    agg_str = args.optimizer + "_" + args.task + "_" + str(args.num_grads)
-    with open(agg_str + ".pickle", "rb") as f:
-        meta_params = pickle.load(f)
-    agg = lagg.opt_fn(meta_params)
-
-    task = get_task(args)
-
-    @jax.jit
-    def update(opt_state, key, batch):
-        params = agg.get_params(opt_state)
-
-        s_batch = split_batch(batch, args.num_grads)
-
-        losses_grads = [jax.value_and_grad(task.loss)(params, key, b) for b in s_batch]
-        loss = jnp.mean(jnp.array([l[0] for l in losses_grads]))
-        grads = [grad[1] for grad in losses_grads]
-        overall_grad = jax.tree_util.tree_map(
-            lambda g, *gs: jnp.mean(jnp.array(gs + (g,)), axis=0), grads[0], *grads[1:]
-        )
-
-        opt_state = agg.update(opt_state, overall_grad, grads, loss=loss)
-
-        return opt_state, loss
-
-    return agg, agg_str, update
-
-
-def _lopt(args):
-    lopt = adafac_mlp_lopt.AdafacMLPLOpt(hidden_size=args.hidden_size)
-    opt_str = args.optimizer + "_" + args.task
-    with open(opt_str + ".pickle", "rb") as f:
-        meta_params = pickle.load(f)
-    opt = lopt.opt_fn(meta_params)
-
-    task = get_task(args)
-
-    @jax.jit
-    def update(opt_state, key, batch):
-        params = opt.get_params(opt_state)
-        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
-        opt_state = opt.update(opt_state, grad, loss=loss)
-
-        return opt_state, loss
-
-    return opt, opt_str, update
-
-
-def _nadamw(args):
-    opt = nadamw.NAdamW(learning_rate=args.learning_rate)
-    opt_str = args.optimizer + "_" + str(args.learning_rate)
-
-    task = get_task(args)
-
-    @jax.jit
-    def update(opt_state, key, batch):
-        params = opt.get_params(opt_state)
-        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
-        opt_state = opt.update(opt_state, grad, loss=loss)
-
-        return opt_state, loss
-
-    return opt, opt_str, update
-
-
-def _adam(args):
-    opt = optax_opts.Adam(learning_rate=args.learning_rate)
-    opt_str = args.optimizer + "_" + str(args.learning_rate)
-
-    task = get_task(args)
-
-    @jax.jit
-    def update(opt_state, key, batch):
-        params = opt.get_params(opt_state)
-        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
-        opt_state = opt.update(opt_state, grad, loss=loss)
-
-        return opt_state, loss
-
-    return opt, opt_str, update
-
-
 def get_optimizer(args):
     optimizers = {
-        "nadamw": _nadamw,
-        "adam": _adam,
-        "lopt": _lopt,
-        "lagg": _lagg,
         "fedavg": _fedavg,
         "fedlagg": _fedlagg,
     }

@@ -7,9 +7,11 @@ from typing import Any, Callable, Optional, Tuple
 import gin
 import jax
 import jax.numpy as jnp
+from haiku._src.data_structures import FlatMap
 from learned_optimization import summary, training, tree_utils
 from learned_optimization.learned_optimizers import base as lopt_base
-from learned_optimization.optimizers import base as opt_base, optax_opts
+from learned_optimization.optimizers import base as opt_base
+from learned_optimization.optimizers import optax_opts
 from learned_optimization.outer_trainers import (
     full_es,
     truncated_step,
@@ -25,8 +27,6 @@ from learned_optimization.outer_trainers.lopt_truncated_step import (
     vectorized_loss_and_aux,
 )
 from learned_optimization.tasks import base as tasks_base
-
-from utils import split_batch
 
 
 def progress_or_reset_inner_opt_state_agg(
@@ -99,28 +99,48 @@ def progress_or_reset_inner_opt_state_agg(
             local_opt = optax_opts.SGD(learning_rate=1e-1)  # TODO Include as parameter
             local_opt_state = local_opt.init(p)
 
-            s_batch = split_batch(data, opt.num_grads)
+            images = jnp.array(data["image"])
+            labels = jnp.array(data["label"])
 
-            losses = []
-            deltas = []
-            for client_batch in s_batch:  # TODO Vectorize if possible
+            def split(arr, split_factor):
+                """Splits the first axis of `arr` evenly across the number of devices."""
+                return arr.reshape(
+                    split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
+                )
+
+            images = split(images, opt.num_grads)
+            labels = split(labels, opt.num_grads)
+
+            def local_updates(im, lab):
                 l_opt_state = copy.deepcopy(local_opt_state)
-                s_c_batch = split_batch(client_batch, 4)  # TODO Include as parameter
-                grads = []
+                s_c_images = split(im, 4)  # TODO Include as parameter
+                s_c_labels = split(lab, 4)  # TODO Include as parameter
+
+                s_c_batch = []
+                for i in range(4):  # TODO Include as parameter
+                    sub_batch_dict = {}
+                    sub_batch_dict["image"] = s_c_images[i]
+                    sub_batch_dict["label"] = s_c_labels[i]
+                    s_c_batch.append(FlatMap(sub_batch_dict))
+
+                loss = 0
+
                 for sub_client_batch in s_c_batch:
                     params = local_opt.get_params(l_opt_state)
                     loss, grad = jax.value_and_grad(task.loss)(
                         params, key, sub_client_batch
                     )
-                    losses.append(loss)
-                    grads.append(grad)
                     l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
+
                 old_params = local_opt.get_params(local_opt_state)
                 new_params = local_opt.get_params(l_opt_state)
                 delta = jax.tree_util.tree_map(
                     lambda old_p, new_p: new_p - old_p, old_params, new_params
                 )
-                deltas.append(delta)
+
+                return loss, delta
+
+            losses, deltas = jax.vmap(local_updates)(images, labels)
 
             l = jnp.mean(jnp.array(losses))
 

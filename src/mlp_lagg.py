@@ -63,7 +63,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         class _Opt(opt_base.Optimizer):
             """Optimizer instance which has captured the meta-params (theta)."""
 
-            def __init__(self, num_grads=4): # TODO
+            def __init__(self, num_grads=4):  # TODO
                 self.num_grads = num_grads
 
             def init(
@@ -91,28 +91,26 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                 is_valid: bool = False,
                 key: Optional[PRNGKey] = None,
             ) -> MLPLOptState:
-                
-                # Makes sure we are feeding the correct number of sample gradients
-                assert len(grads) == self.num_grads # TODO
+                # TODO Make sure we are feeding the correct number of sample gradients
 
                 # overall_grad = jax.tree_util.tree_map(lambda g, *gs : jnp.mean(jnp.array(gs + (g,))), grads[0], *grads[1:])
                 next_rolling_features = common.vec_rolling_mom(decays).update(
-                    opt_state.rolling_features, grads[0] 
+                    opt_state.rolling_features, opt_state.params  # TODO
                 )
 
                 training_step_feature = _tanh_embedding(opt_state.iteration)
 
-                def _update_tensor(p, m, *gs):  # TODO
+                def _update_tensor(p, m, gs):  # TODO
                     # this doesn't work with scalar parameters, so let's reshape.
                     if not p.shape:
                         p = jnp.expand_dims(p, 0)
                         g_list = []
                         for g in gs:
-                            g_list.append(jnp.expand_dims(g, 0)) # TODO
+                            g_list.append(jnp.expand_dims(g, 0))  # TODO
                         # m = jnp.expand_dims(m, 0)
                         did_reshape = True
                     else:
-                        g_list = list(gs) # TODO
+                        g_list = list(gs)  # TODO
                         did_reshape = False
 
                     inps = []
@@ -187,7 +185,9 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
                     return new_p
 
-                next_params = jax.tree_util.tree_map(_update_tensor, opt_state.params, next_rolling_features.m, *grads) # TODO
+                next_params = jax.tree_util.tree_map(
+                    _update_tensor, opt_state.params, next_rolling_features.m, grads
+                )  # TODO
                 next_opt_state = MLPLOptState(
                     params=tree_utils.match_type(next_params, opt_state.params),
                     rolling_features=tree_utils.match_type(
@@ -198,4 +198,4 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                 )
                 return next_opt_state
 
-        return _Opt(self.num_grads) # TODO
+        return _Opt(self.num_grads)  # TODO

@@ -1,5 +1,5 @@
 .vscode
 slurm-*
 __pycache__
-*.pickle
+*.ckpt
 models
