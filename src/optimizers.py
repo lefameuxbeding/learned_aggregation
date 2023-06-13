@@ -57,13 +57,14 @@ def _fedlagg(args):
                 sub_batch_dict["label"] = s_c_labels[i]
                 s_c_batch.append(FlatMap(sub_batch_dict))
 
-            loss = 0
+            losses = []
 
             for sub_client_batch in s_c_batch:
                 params = local_opt.get_params(l_opt_state)
                 loss, grad = jax.value_and_grad(task.loss)(
                     params, key, sub_client_batch
                 )
+                losses.append(loss)
                 l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
 
             old_params = local_opt.get_params(local_opt_state)
@@ -72,10 +73,9 @@ def _fedlagg(args):
                 lambda old_p, new_p: new_p - old_p, old_params, new_params
             )
 
-            return loss, delta
+            return jnp.mean(jnp.array(losses)), delta
 
         losses, deltas = jax.vmap(local_updates)(images, labels)
-        print("DELTAS HERE", deltas)
 
         loss = jnp.mean(jnp.array(losses))
 
@@ -104,28 +104,46 @@ def _fedavg(args):
 
     @jax.jit
     def update(opt_state, key, batch):
-        s_batch = split_batch(batch, args.num_grads)
+        images = jnp.array(batch["image"])
+        labels = jnp.array(batch["label"])
 
-        losses = []
-        new_params = []
-        for client_batch in s_batch:  # TODO Vectorize if possible
+        def split(arr, split_factor):
+            """Splits the first axis of `arr` evenly across the number of devices."""
+            return arr.reshape(
+                split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
+            )
+
+        images = split(images, args.num_grads)
+        labels = split(labels, args.num_grads)
+
+        def local_updates(im, lab):
             local_opt_state = copy.deepcopy(opt_state)
-            s_c_batch = split_batch(client_batch, args.num_local_steps)
+            s_c_images = split(im, args.num_local_steps)
+            s_c_labels = split(lab, args.num_local_steps)
+
+            s_c_batch = []
+            for i in range(args.num_local_steps):
+                sub_batch_dict = {}
+                sub_batch_dict["image"] = s_c_images[i]
+                sub_batch_dict["label"] = s_c_labels[i]
+                s_c_batch.append(FlatMap(sub_batch_dict))
+
+            losses = []
+
             for sub_client_batch in s_c_batch:
                 params = opt.get_params(local_opt_state)
                 l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
                 losses.append(l)
                 local_opt_state = opt.update(local_opt_state, grad, loss=l)
-            new_params.append(opt.get_params(local_opt_state))
+            
+            return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state)
+        
+        losses, new_params = jax.vmap(local_updates)(images, labels)
 
         loss = jnp.mean(jnp.array(losses))
 
-        overall_params = jax.tree_util.tree_map(
-            lambda p, *ps: jnp.mean(jnp.array(ps + (p,)), axis=0),
-            new_params[0],
-            *new_params[1:],
-        )
-        opt_state = opt.init(overall_params)
+        avg_params = jax.tree_util.tree_map(lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params)
+        opt_state = opt.init(avg_params)
 
         return opt_state, loss
 

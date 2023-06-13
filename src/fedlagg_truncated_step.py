@@ -123,13 +123,14 @@ def progress_or_reset_inner_opt_state_agg(
                     sub_batch_dict["label"] = s_c_labels[i]
                     s_c_batch.append(FlatMap(sub_batch_dict))
 
-                loss = 0
+                losses = []
 
                 for sub_client_batch in s_c_batch:
                     params = local_opt.get_params(l_opt_state)
                     loss, grad = jax.value_and_grad(task.loss)(
                         params, key, sub_client_batch
                     )
+                    losses.append(loss)
                     l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
 
                 old_params = local_opt.get_params(local_opt_state)
@@ -138,7 +139,7 @@ def progress_or_reset_inner_opt_state_agg(
                     lambda old_p, new_p: new_p - old_p, old_params, new_params
                 )
 
-                return loss, delta
+                return jnp.mean(jnp.array(losses)), delta
 
             losses, deltas = jax.vmap(local_updates)(images, labels)
 
