@@ -19,11 +19,14 @@ def My_ImageMLP_FashionMnist_Relu128x128(args):
     datasets = image.fashion_mnist_datasets(batch_size=args.batch_size)
     return _MLPImageTask(datasets, [128, 128])
 
+
 @gin.configurable
 def My_Small_ImageMLP_FashionMnist8_Relu32(args):
-  """A 1 hidden layer, 32 hidden unit MLP designed for 8x8 fashion mnist."""
-  datasets = image.fashion_mnist_datasets(batch_size=args.batch_size, image_size=(8, 8))
-  return _MLPImageTask(datasets, [32])
+    """A 1 hidden layer, 32 hidden unit MLP designed for 8x8 fashion mnist."""
+    datasets = image.fashion_mnist_datasets(
+        batch_size=args.batch_size, image_size=(8, 8)
+    )
+    return _MLPImageTask(datasets, [32])
 
 
 def get_task(args):

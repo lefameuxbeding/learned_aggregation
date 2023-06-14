@@ -6,13 +6,18 @@ from haiku._src.data_structures import FlatMap
 from learned_optimization import checkpoints
 from learned_optimization.optimizers import optax_opts
 
+from adafac_mlp_lagg import AdafacMLPLAgg
 from meta_trainers import get_meta_trainer
 from mlp_lagg import MLPLAgg
 from tasks import get_task
 
 
 def _fedlagg(args):
-    lagg = MLPLAgg(num_grads=args.num_grads, hidden_size=args.hidden_size)
+    lagg_class = AdafacMLPLAgg if args.optimizer == "fedlagg-adafac" else MLPLAgg
+    with_avg = True if args.optimizer == "fedlagg-wavg" else False
+    lagg = lagg_class(
+        num_grads=args.num_grads, hidden_size=args.hidden_size, with_avg=with_avg
+    )
     meta_trainer, agg_str = get_meta_trainer(args)
 
     key = jax.random.PRNGKey(0)
@@ -135,14 +140,16 @@ def _fedavg(args):
                 l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
                 losses.append(l)
                 local_opt_state = opt.update(local_opt_state, grad, loss=l)
-            
+
             return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state)
-        
+
         losses, new_params = jax.vmap(local_updates)(images, labels)
 
         loss = jnp.mean(jnp.array(losses))
 
-        avg_params = jax.tree_util.tree_map(lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params)
+        avg_params = jax.tree_util.tree_map(
+            lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
+        )
         opt_state = opt.init(avg_params)
 
         return opt_state, loss
@@ -150,10 +157,14 @@ def _fedavg(args):
     return opt, opt_str, update
 
 
-def get_optimizer(args):
+def get_optimizer(
+    args,
+):  # TODO Find a better way to organize this since we're only using a single function for some of them
     optimizers = {
         "fedavg": _fedavg,
         "fedlagg": _fedlagg,
+        "fedlagg-wavg": _fedlagg,
+        "fedlagg-adafac": _fedlagg,
     }
 
     return optimizers[args.optimizer](args)

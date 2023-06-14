@@ -33,13 +33,15 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         hidden_size=4,
         hidden_layers=2,
         compute_summary=True,
-        num_grads=4,  # TODO
+        num_grads=4,
+        with_avg=False,
     ):
         super().__init__()
         self._step_mult = step_mult
         self._exp_mult = exp_mult
         self._compute_summary = compute_summary
-        self.num_grads = num_grads  # TODO
+        self.num_grads = num_grads
+        self._with_avg = with_avg
 
         def ff_mod(inp):
             return hk.nets.MLP([hidden_size] * hidden_layers + [2])(inp)
@@ -48,7 +50,10 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
     def init(self, key: PRNGKey) -> lopt_base.MetaParams:
         # There are 19 features used as input. For now, hard code this.
-        return self._mod.init(key, jnp.zeros([0, 19 - 1 + self.num_grads - 6]))  # TODO
+        num_features = 19 - 1 + self.num_grads - 6
+        if self._with_avg:
+            num_features = num_features + 1
+        return self._mod.init(key, jnp.zeros([0, num_features]))
 
     def opt_fn(
         self, theta: lopt_base.MetaParams, is_training: bool = False
@@ -63,8 +68,9 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         class _Opt(opt_base.Optimizer):
             """Optimizer instance which has captured the meta-params (theta)."""
 
-            def __init__(self, num_grads=4):  # TODO
+            def __init__(self, num_grads=4, with_avg=False):
                 self.num_grads = num_grads
+                self._with_avg = with_avg
 
             def init(
                 self,
@@ -85,7 +91,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
             def update(
                 self,
                 opt_state: MLPLOptState,
-                grads: Any,  # TODO
+                grads: Any,
                 loss: float,
                 model_state: Any = None,
                 is_valid: bool = False,
@@ -93,31 +99,39 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
             ) -> MLPLOptState:
                 # TODO Make sure we are feeding the correct number of sample gradients
 
-                # overall_grad = jax.tree_util.tree_map(lambda g, *gs : jnp.mean(jnp.array(gs + (g,))), grads[0], *grads[1:])
+                # avg_grad = jax.tree_util.tree_map(lambda g, *gs : jnp.mean(jnp.array(gs + (g,))), grads[0], *grads[1:])
                 next_rolling_features = common.vec_rolling_mom(decays).update(
                     opt_state.rolling_features, opt_state.params  # TODO
                 )
 
                 training_step_feature = _tanh_embedding(opt_state.iteration)
 
-                def _update_tensor(p, m, gs):  # TODO
+                def _update_tensor(p, m, gs):
                     # this doesn't work with scalar parameters, so let's reshape.
+                    avg_g = gs[0]
                     if not p.shape:
                         p = jnp.expand_dims(p, 0)
                         g_list = []
                         for g in gs:
-                            g_list.append(jnp.expand_dims(g, 0))  # TODO
+                            g_list.append(jnp.expand_dims(g, 0))
                         # m = jnp.expand_dims(m, 0)
+                        if self._with_avg:
+                            avg_g = jnp.mean(gs, axis=0)
+                            avg_g = jnp.expand_dims(avg_g, 0)
                         did_reshape = True
                     else:
-                        g_list = list(gs)  # TODO
+                        g_list = list(gs)
                         did_reshape = False
 
                     inps = []
 
+                    if self._with_avg:
+                        batch_avg_g = jnp.expand_dims(avg_g, axis=-1)
+                        inps.append(batch_avg_g)
+
                     # feature consisting of raw gradient values
                     for g in g_list:
-                        batch_g = jnp.expand_dims(g, axis=-1)  # TODO
+                        batch_g = jnp.expand_dims(g, axis=-1)
                         inps.append(batch_g)
 
                     # feature consisting of raw parameter values
@@ -187,7 +201,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
                 next_params = jax.tree_util.tree_map(
                     _update_tensor, opt_state.params, next_rolling_features.m, grads
-                )  # TODO
+                )
                 next_opt_state = MLPLOptState(
                     params=tree_utils.match_type(next_params, opt_state.params),
                     rolling_features=tree_utils.match_type(
@@ -198,4 +212,4 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                 )
                 return next_opt_state
 
-        return _Opt(self.num_grads)  # TODO
+        return _Opt(self.num_grads, self._with_avg)
