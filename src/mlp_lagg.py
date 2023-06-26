@@ -107,17 +107,16 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                 training_step_feature = _tanh_embedding(opt_state.iteration)
 
                 def _update_tensor(p, m, gs):
+                    avg_g = jnp.mean(gs, axis=0)
+
                     # this doesn't work with scalar parameters, so let's reshape.
-                    avg_g = gs[0]
                     if not p.shape:
                         p = jnp.expand_dims(p, 0)
                         g_list = []
                         for g in gs:
                             g_list.append(jnp.expand_dims(g, 0))
                         # m = jnp.expand_dims(m, 0)
-                        if self._with_avg:
-                            avg_g = jnp.mean(gs, axis=0)
-                            avg_g = jnp.expand_dims(avg_g, 0)
+                        avg_g = jnp.expand_dims(avg_g, 0)
                         did_reshape = True
                     else:
                         g_list = list(gs)
@@ -125,6 +124,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
                     inps = []
 
+                    # append avg gradient if wanted as feature
                     if self._with_avg:
                         batch_avg_g = jnp.expand_dims(avg_g, axis=-1)
                         inps.append(batch_avg_g)

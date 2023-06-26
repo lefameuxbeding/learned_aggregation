@@ -17,13 +17,13 @@ def parse_args():
     parser.add_argument("--task", type=str, choices=["image-mlp", "small-image-mlp", "conv"], required=True)
     parser.add_argument("--hidden_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
-    parser.add_argument("--local_learning_rate", type=float, default=1e-1)
+    parser.add_argument("--local_learning_rate", type=float, default=5e-1)
     parser.add_argument("--batch_size", type=int, default=2048)
     parser.add_argument("--num_grads", type=int, default=8)
     parser.add_argument("--num_local_steps", type=int, default=4)
     parser.add_argument("--num_runs", type=int, default=10)
     parser.add_argument("--num_inner_steps", type=int, default=2000)
-    parser.add_argument("--num_outer_steps", type=int, default=40000)
+    parser.add_argument("--num_outer_steps", type=int, default=20000)
     parser.add_argument("--from_checkpoint", action="store_true")
     # fmt: on
 

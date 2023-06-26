@@ -96,7 +96,7 @@ def progress_or_reset_inner_opt_state_agg(
         else:
             # Otherwise we can just use loss_with_state.
 
-            local_opt = optax_opts.SGD(learning_rate=1e-1)  # TODO Include as parameter
+            local_opt = optax_opts.SGD(learning_rate=5e-1)  # TODO Include as parameter
             local_opt_state = local_opt.init(p)
 
             images = jnp.array(data["image"])
