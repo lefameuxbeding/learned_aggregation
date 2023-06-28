@@ -45,19 +45,7 @@ def _fedlagg_meta_trainer(args):
         lagg, gradient_estimators, meta_opt
     )
 
-    return (
-        meta_trainer,
-        args.optimizer
-        + str(args.hidden_size)
-        + "_"
-        + args.task
-        + "_K"
-        + str(args.num_grads)
-        + "_H"
-        + str(args.num_local_steps)
-        + "_"
-        + str(args.local_learning_rate),
-    )
+    return meta_trainer
 
 
 def get_meta_trainer(

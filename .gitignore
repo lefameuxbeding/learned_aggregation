@@ -1,5 +1,7 @@
 .vscode
 slurm-*
 __pycache__
-*.ckpt
 models
+*.pickle
+checkpoints
+*.ckpt

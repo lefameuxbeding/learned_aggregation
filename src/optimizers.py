@@ -1,13 +1,12 @@
 import copy
+import pickle
 
 import jax
 import jax.numpy as jnp
 from haiku._src.data_structures import FlatMap
-from learned_optimization import checkpoints
 from learned_optimization.optimizers import optax_opts
 
 from adafac_mlp_lagg import AdafacMLPLAgg
-from meta_trainers import get_meta_trainer
 from mlp_lagg import MLPLAgg
 from tasks import get_task
 
@@ -18,16 +17,9 @@ def _fedlagg(args):
     lagg = lagg_class(
         num_grads=args.num_grads, hidden_size=args.hidden_size, with_avg=with_avg
     )
-    meta_trainer, agg_str = get_meta_trainer(args)
 
-    key = jax.random.PRNGKey(0)
-    key, key1 = jax.random.split(key)
-    outer_trainer_state = meta_trainer.init(key1)
-    outer_trainer_state = checkpoints.load_state(
-        "./" + agg_str + ".ckpt", outer_trainer_state
-    )
-    meta_params = outer_trainer_state.gradient_learner_state.theta_opt_state.params
-
+    with open("./" + args.name + ".pickle", "rb") as f:
+        meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
 
     task = get_task(args)
@@ -88,22 +80,11 @@ def _fedlagg(args):
 
         return opt_state, loss
 
-    return agg, agg_str, update
+    return agg, update
 
 
 def _fedavg(args):
     opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
-    opt_str = (
-        args.optimizer
-        + "_"
-        + args.task
-        + "_K"
-        + str(args.num_grads)
-        + "_H"
-        + str(args.num_local_steps)
-        + "_"
-        + str(args.local_learning_rate)
-    )
 
     task = get_task(args)
 
@@ -154,7 +135,7 @@ def _fedavg(args):
 
         return opt_state, loss
 
-    return opt, opt_str, update
+    return opt, update
 
 
 def get_optimizer(
