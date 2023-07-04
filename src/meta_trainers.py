@@ -48,9 +48,7 @@ def _fedlagg_meta_trainer(args):
     return meta_trainer
 
 
-def get_meta_trainer(
-    args,
-):  # TODO Find a better way to organize this since we're only using a single function each time
+def get_meta_trainer(args):
     meta_trainers = {
         "fedlagg": _fedlagg_meta_trainer,
         "fedlagg-wavg": _fedlagg_meta_trainer,

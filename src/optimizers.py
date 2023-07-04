@@ -4,11 +4,27 @@ import pickle
 import jax
 import jax.numpy as jnp
 from haiku._src.data_structures import FlatMap
+from learned_optimization.optimizers import base as opt_base
 from learned_optimization.optimizers import optax_opts
 
 from adafac_mlp_lagg import AdafacMLPLAgg
 from mlp_lagg import MLPLAgg
 from tasks import get_task
+
+
+def _adam(args):
+    opt = opt_base.Adam(args.learning_rate)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
+
+        return opt.update(opt_state, grad, loss=loss), loss
+
+    return opt, update
 
 
 def _fedlagg(args):
@@ -73,12 +89,9 @@ def _fedlagg(args):
             return jnp.mean(jnp.array(losses)), delta
 
         losses, deltas = jax.vmap(local_updates)(images, labels)
-
         loss = jnp.mean(jnp.array(losses))
 
-        opt_state = agg.update(opt_state, deltas, loss=loss)
-
-        return opt_state, loss
+        return agg.update(opt_state, deltas, loss=loss), loss
 
     return agg, update
 
@@ -125,23 +138,18 @@ def _fedavg(args):
             return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state)
 
         losses, new_params = jax.vmap(local_updates)(images, labels)
-
-        loss = jnp.mean(jnp.array(losses))
-
         avg_params = jax.tree_util.tree_map(
             lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
         )
-        opt_state = opt.init(avg_params)
 
-        return opt_state, loss
+        return opt.init(avg_params), jnp.mean(jnp.array(losses))
 
     return opt, update
 
 
-def get_optimizer(
-    args,
-):  # TODO Find a better way to organize this since we're only using a single function for some of them
+def get_optimizer(args):
     optimizers = {
+        "adam": _adam,
         "fedavg": _fedavg,
         "fedlagg": _fedlagg,
         "fedlagg-wavg": _fedlagg,

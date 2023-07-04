@@ -13,7 +13,7 @@ def parse_args():
 
     # fmt: off
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train"], required=True)
-    parser.add_argument("--optimizer", type=str, choices=["fedavg", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"], required=True)
+    parser.add_argument("--optimizer", type=str, choices=["adam", "fedavg", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"], required=True)
     parser.add_argument("--task", type=str, choices=["image-mlp", "small-image-mlp", "conv", "small-conv"], required=True)
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--hidden_size", type=int, default=32)
@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument("--num_local_steps", type=int, default=4)
     parser.add_argument("--num_runs", type=int, default=10)
     parser.add_argument("--num_inner_steps", type=int, default=2000)
-    parser.add_argument("--num_outer_steps", type=int, default=30000)
+    parser.add_argument("--num_outer_steps", type=int, default=20000)
     parser.add_argument("--from_checkpoint", action="store_true")
     # fmt: on
 
