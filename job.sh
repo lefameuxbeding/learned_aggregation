@@ -4,4 +4,4 @@ module load anaconda/3
 
 conda activate learned_aggregation
 
-python ./src/main.py --run_type benchmark --optimizer adam --task small-conv --name adam_0.001 --learning_rate 1e-3 --num_inner_steps 5000
+python ./src/main.py --run_type benchmark --optimizer fedlopt-adafac --task small-image-mlp --name fedlopt-adafac32_small-image-mlp_K8_H4_0.5
