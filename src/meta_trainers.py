@@ -31,6 +31,8 @@ def _fedlopt_meta_trainer(args):
             trunc_sched,
             num_tasks=8,
             random_initial_iteration_offset=args.num_inner_steps,
+            local_learning_rate= args.local_learning_rate,
+            num_local_steps=args.num_local_steps,
         )
         return truncated_pes.TruncatedPES(
             truncated_step=truncated_step, trunc_length=50
@@ -67,6 +69,8 @@ def _fedlagg_meta_trainer(args):
             trunc_sched,
             num_tasks=8,
             random_initial_iteration_offset=args.num_inner_steps,
+            local_learning_rate= args.local_learning_rate,
+            num_local_steps=args.num_local_steps,
         )
         return truncated_pes.TruncatedPES(
             truncated_step=truncated_step, trunc_length=50

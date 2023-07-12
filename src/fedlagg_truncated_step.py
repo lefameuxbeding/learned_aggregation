@@ -29,7 +29,7 @@ from learned_optimization.outer_trainers.lopt_truncated_step import (
 from learned_optimization.tasks import base as tasks_base
 
 
-def progress_or_reset_inner_opt_state_agg(
+def progress_or_reset_inner_opt_state_fedlagg(
     task_family: tasks_base.TaskFamily,
     opt: opt_base.Optimizer,
     num_steps: int,
@@ -42,6 +42,8 @@ def progress_or_reset_inner_opt_state_agg(
     cond_fn: Callable[[bool, Any, Any, Any], Any] = jax.lax.cond,
     axis_name: Optional[str] = None,
     meta_loss_with_aux_key: Optional[str] = None,
+    local_learning_rate: float = 1e-1,
+    num_local_steps: int = 4,
 ) -> Tuple[T, G, int, jnp.ndarray]:
     """Train a single step, or reset the current inner problem."""
     summary.summary(
@@ -96,7 +98,7 @@ def progress_or_reset_inner_opt_state_agg(
         else:
             # Otherwise we can just use loss_with_state.
 
-            local_opt = optax_opts.SGD(learning_rate=5e-1)  # TODO Include as parameter
+            local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
             local_opt_state = local_opt.init(p)
 
             images = jnp.array(data["image"])
@@ -113,11 +115,11 @@ def progress_or_reset_inner_opt_state_agg(
 
             def local_updates(im, lab):
                 l_opt_state = copy.deepcopy(local_opt_state)
-                s_c_images = split(im, 4)  # TODO Include as parameter
-                s_c_labels = split(lab, 4)  # TODO Include as parameter
+                s_c_images = split(im, num_local_steps)
+                s_c_labels = split(lab, num_local_steps)
 
                 s_c_batch = []
-                for i in range(4):  # TODO Include as parameter
+                for i in range(num_local_steps):
                     sub_batch_dict = {}
                     sub_batch_dict["image"] = s_c_images[i]
                     sub_batch_dict["label"] = s_c_labels[i]
@@ -172,7 +174,7 @@ def progress_or_reset_inner_opt_state_agg(
     return next_inner_opt_state, task_param, next_inner_step, meta_loss
 
 
-def _truncated_unroll_one_step_agg(
+def _truncated_unroll_one_step_fedlagg(
     task_family: tasks_base.TaskFamily,
     learned_opt: lopt_base.LearnedOptimizer,
     trunc_sched: truncation_schedule.TruncationSchedule,
@@ -183,6 +185,8 @@ def _truncated_unroll_one_step_agg(
     outer_state: Any,
     meta_loss_with_aux_key,
     override_num_steps: Optional[int] = None,
+    local_learning_rate: float = 1e-1,
+    num_local_steps: int = 4,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Train a given inner problem state a single step or reset it when done."""
     key1, key2 = jax.random.split(key)
@@ -197,7 +201,7 @@ def _truncated_unroll_one_step_agg(
         task_param,
         next_inner_step,
         l,
-    ) = progress_or_reset_inner_opt_state_agg(  # pytype: disable=wrong-arg-types  # jax-ndarray
+    ) = progress_or_reset_inner_opt_state_fedlagg(  # pytype: disable=wrong-arg-types  # jax-ndarray
         task_family=task_family,
         opt=learned_opt.opt_fn(theta),
         num_steps=num_steps,
@@ -208,6 +212,8 @@ def _truncated_unroll_one_step_agg(
         is_done=state.is_done,
         data=data,
         meta_loss_with_aux_key=meta_loss_with_aux_key,
+        local_learning_rate=local_learning_rate,
+        num_local_steps=num_local_steps
     )
 
     next_truncation_state, is_done = trunc_sched.next_state(
@@ -246,10 +252,12 @@ def _truncated_unroll_one_step_agg(
         "learned_opt",
         "trunc_sched",
         "meta_loss_with_aux_key",
+        "local_learning_rate",
+        "num_local_steps",
     ),
 )
 @functools.partial(
-    jax.vmap, in_axes=(None, None, None, None, 0, 0, 0, None, None, None)
+    jax.vmap, in_axes=(None, None, None, None, 0, 0, 0, None, None, None, None, None)
 )
 def truncated_unroll_one_step_fedlagg(
     task_family: tasks_base.TaskFamily,
@@ -262,9 +270,11 @@ def truncated_unroll_one_step_fedlagg(
     outer_state: Any,
     meta_loss_with_aux_key: Optional[str],
     override_num_steps: Optional[int],
+    local_learning_rate: float = 1e-1,
+    num_local_steps: int = 4,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Perform one step of inner training without vectorized theta."""
-    return _truncated_unroll_one_step_agg(
+    return _truncated_unroll_one_step_fedlagg(
         task_family=task_family,
         learned_opt=learned_opt,
         trunc_sched=trunc_sched,
@@ -275,6 +285,8 @@ def truncated_unroll_one_step_fedlagg(
         outer_state=outer_state,
         meta_loss_with_aux_key=meta_loss_with_aux_key,
         override_num_steps=override_num_steps,
+        local_learning_rate=local_learning_rate,
+        num_local_steps=num_local_steps,
     )
 
 
@@ -285,9 +297,11 @@ def truncated_unroll_one_step_fedlagg(
         "learned_opt",
         "trunc_sched",
         "meta_loss_with_aux_key",
+        "local_learning_rate",
+        "num_local_steps",
     ),
 )
-@functools.partial(jax.vmap, in_axes=(None, None, None, 0, 0, 0, 0, None, None, None))
+@functools.partial(jax.vmap, in_axes=(None, None, None, 0, 0, 0, 0, None, None, None, None, None))
 def truncated_unroll_one_step_vec_theta_fedlagg(
     task_family: tasks_base.TaskFamily,
     learned_opt: lopt_base.LearnedOptimizer,
@@ -299,9 +313,11 @@ def truncated_unroll_one_step_vec_theta_fedlagg(
     outer_state: Any,
     meta_loss_with_aux_key: Optional[str],
     override_num_steps: Optional[int],
+    local_learning_rate: float = 1e-1,
+    num_local_steps: int = 4,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Perform one step of inner training with vectorized theta."""
-    return _truncated_unroll_one_step_agg(
+    return _truncated_unroll_one_step_fedlagg(
         task_family=task_family,
         learned_opt=learned_opt,
         trunc_sched=trunc_sched,
@@ -312,6 +328,8 @@ def truncated_unroll_one_step_vec_theta_fedlagg(
         outer_state=outer_state,
         meta_loss_with_aux_key=meta_loss_with_aux_key,
         override_num_steps=override_num_steps,
+        local_learning_rate=local_learning_rate,
+        num_local_steps=num_local_steps,
     )
 
 
@@ -335,6 +353,8 @@ class VectorizedFedLAggTruncatedStep(
         outer_data_split="train",
         meta_loss_with_aux_key: Optional[str] = None,
         task_name: Optional[str] = None,
+        local_learning_rate: float = 1e-1,
+        num_local_steps: int = 4,
     ):
         """Initializer.
         Args:
@@ -367,6 +387,8 @@ class VectorizedFedLAggTruncatedStep(
         self.outer_data_split = outer_data_split
         self.meta_loss_with_aux_key = meta_loss_with_aux_key
         self._task_name = task_name
+        self.local_learning_rate = local_learning_rate
+        self.num_local_steps = num_local_steps
 
         self.data_shape = jax.tree_util.tree_map(
             lambda x: jax.ShapedArray(shape=x.shape, dtype=x.dtype),
@@ -504,6 +526,8 @@ class VectorizedFedLAggTruncatedStep(
             outer_state,
             self.meta_loss_with_aux_key,
             override_num_steps,
+            self.local_learning_rate,
+            self.num_local_steps,
         )
 
         # Should we evaluate resulting state on potentially new data?
