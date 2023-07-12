@@ -39,10 +39,10 @@ def My_ImageMLP_FashionMnist8_Relu32(args):
 
 def get_task(args):
     tasks = {
-        "image-mlp": My_ImageMLP_FashionMnist_Relu128x128,
-        "small-image-mlp": My_ImageMLP_FashionMnist8_Relu32,
-        "conv": My_Conv_Cifar10_32x64x64,
-        "small-conv": My_Conv_Cifar10_8_16x32,
+        "image-mlp-fmst": My_ImageMLP_FashionMnist_Relu128x128,
+        "small-image-mlp-fmst": My_ImageMLP_FashionMnist8_Relu32,
+        "conv-c10": My_Conv_Cifar10_32x64x64,
+        "small-conv-c10": My_Conv_Cifar10_8_16x32,
     }
 
     return tasks[args.task](args)

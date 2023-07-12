@@ -41,6 +41,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         make_separate_weights=False,
         split_weights=False,
         num_grads=8,
+        with_all_grads=True,
         with_avg=False,  # TODO Remove this and find a better way to create meta-trainers
     ):
         super().__init__()

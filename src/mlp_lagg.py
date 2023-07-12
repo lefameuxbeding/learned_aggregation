@@ -34,6 +34,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         hidden_layers=2,
         compute_summary=True,
         num_grads=4,
+        with_all_grads=True,
         with_avg=False,
     ):
         super().__init__()
@@ -41,6 +42,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         self._exp_mult = exp_mult
         self._compute_summary = compute_summary
         self.num_grads = num_grads
+        self._with_all_grads = with_all_grads
         self._with_avg = with_avg
 
         def ff_mod(inp):
@@ -50,9 +52,11 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
     def init(self, key: PRNGKey) -> lopt_base.MetaParams:
         # There are 19 features used as input. For now, hard code this.
-        num_features = 19 - 1 + self.num_grads - 6
+        num_features = 19 - 1 - 6 # -1 for gradient, -6 for momentum features
+        if self._with_all_grads:
+            num_features += self.num_grads
         if self._with_avg:
-            num_features = num_features + 1
+            num_features += 1
         return self._mod.init(key, jnp.zeros([0, num_features]))
 
     def opt_fn(
@@ -68,8 +72,9 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
         class _Opt(opt_base.Optimizer):
             """Optimizer instance which has captured the meta-params (theta)."""
 
-            def __init__(self, num_grads=4, with_avg=False):
+            def __init__(self, num_grads=4, with_all_grads=True, with_avg=False):
                 self.num_grads = num_grads
+                self._with_all_grads = with_all_grads
                 self._with_avg = with_avg
 
             def init(
@@ -130,9 +135,10 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                         inps.append(batch_avg_g)
 
                     # feature consisting of raw gradient values
-                    for g in g_list:
-                        batch_g = jnp.expand_dims(g, axis=-1)
-                        inps.append(batch_g)
+                    if self._with_all_grads:
+                        for g in g_list:
+                            batch_g = jnp.expand_dims(g, axis=-1)
+                            inps.append(batch_g)
 
                     # feature consisting of raw parameter values
                     batch_p = jnp.expand_dims(p, axis=-1)
@@ -212,4 +218,4 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
                 )
                 return next_opt_state
 
-        return _Opt(self.num_grads, self._with_avg)
+        return _Opt(self.num_grads, self._with_all_grads, self._with_avg)
