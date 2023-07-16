@@ -6,18 +6,33 @@ from learned_optimization.outer_trainers import (
 )
 from learned_optimization.tasks import base as tasks_base
 
-from adafac_mlp_lagg import AdafacMLPLAgg
-from fedlagg_truncated_step import VectorizedFedLAggTruncatedStep
-from mlp_lagg import MLPLAgg
+from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
+from fed_truncated_step import VectorizedFedLOptTruncatedStep
+from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
 
 
 def _fedlagg_meta_trainer(args):
-    lagg_class = AdafacMLPLAgg if args.optimizer in ["fedlopt-adafac", "fedlagg-adafac"] else MLPLAgg
-    with_all_grads = True if args.optimizer in ["fedlagg", "fedlagg-wavg"] else False
-    with_avg = True if args.optimizer in ["fedlopt, fedlagg-wavg"] else False
+    lagg_class = (
+        FedAdafacMLPLOpt
+        if args.optimizer in ["fedlopt-adafac", "fedlagg-adafac"]
+        else FedMLPLOpt
+    )
+    with_all_grads = (
+        True
+        if args.optimizer in ["fedlagg", "fedlagg-wavg", "fedlagg-adafac"]
+        else False
+    )
+    with_avg = (
+        True
+        if args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg-wavg"]
+        else False
+    )
     lagg = lagg_class(
-        num_grads=args.num_grads, hidden_size=args.hidden_size, with_all_grads=with_all_grads, with_avg=with_avg
+        num_grads=args.num_grads,
+        hidden_size=args.hidden_size,
+        with_all_grads=with_all_grads,
+        with_avg=with_avg,
     )
 
     meta_opt = opt_base.Adam(args.learning_rate)
@@ -26,13 +41,13 @@ def _fedlagg_meta_trainer(args):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
             min_length=100, max_length=args.num_inner_steps
         )
-        truncated_step = VectorizedFedLAggTruncatedStep(
+        truncated_step = VectorizedFedLOptTruncatedStep(
             task_family,
             lagg,
             trunc_sched,
             num_tasks=8,
             random_initial_iteration_offset=args.num_inner_steps,
-            local_learning_rate= args.local_learning_rate,
+            local_learning_rate=args.local_learning_rate,
             num_local_steps=args.num_local_steps,
         )
         return truncated_pes.TruncatedPES(
@@ -60,4 +75,4 @@ def get_meta_trainer(args):
         "fedlagg-adafac": _fedlagg_meta_trainer,
     }
 
-    return meta_trainers[args.optimizer](args) # TODO Find better way to do this
+    return meta_trainers[args.optimizer](args)  # TODO Find better way to do this

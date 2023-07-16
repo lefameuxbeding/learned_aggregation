@@ -21,7 +21,7 @@ from learned_optimization.learned_optimizers.mlp_lopt import (
 
 
 @gin.configurable
-class MLPLAgg(lopt_base.LearnedOptimizer):
+class FedMLPLOpt(lopt_base.LearnedOptimizer):
     """Learned optimizer leveraging a per parameter MLP.
     This is also known as LOLv2.
     """
@@ -52,7 +52,7 @@ class MLPLAgg(lopt_base.LearnedOptimizer):
 
     def init(self, key: PRNGKey) -> lopt_base.MetaParams:
         # There are 19 features used as input. For now, hard code this.
-        num_features = 19 - 1 - 6 # -1 for gradient, -6 for momentum features
+        num_features = 19 - 1 - 6  # -1 for gradient, -6 for momentum features
         if self._with_all_grads:
             num_features += self.num_grads
         if self._with_avg:

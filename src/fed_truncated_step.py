@@ -29,7 +29,7 @@ from learned_optimization.outer_trainers.lopt_truncated_step import (
 from learned_optimization.tasks import base as tasks_base
 
 
-def progress_or_reset_inner_opt_state_fedlagg(
+def progress_or_reset_inner_opt_state_fedlopt(
     task_family: tasks_base.TaskFamily,
     opt: opt_base.Optimizer,
     num_steps: int,
@@ -174,7 +174,7 @@ def progress_or_reset_inner_opt_state_fedlagg(
     return next_inner_opt_state, task_param, next_inner_step, meta_loss
 
 
-def _truncated_unroll_one_step_fedlagg(
+def _truncated_unroll_one_step_fedlopt(
     task_family: tasks_base.TaskFamily,
     learned_opt: lopt_base.LearnedOptimizer,
     trunc_sched: truncation_schedule.TruncationSchedule,
@@ -201,7 +201,7 @@ def _truncated_unroll_one_step_fedlagg(
         task_param,
         next_inner_step,
         l,
-    ) = progress_or_reset_inner_opt_state_fedlagg(  # pytype: disable=wrong-arg-types  # jax-ndarray
+    ) = progress_or_reset_inner_opt_state_fedlopt(  # pytype: disable=wrong-arg-types  # jax-ndarray
         task_family=task_family,
         opt=learned_opt.opt_fn(theta),
         num_steps=num_steps,
@@ -213,7 +213,7 @@ def _truncated_unroll_one_step_fedlagg(
         data=data,
         meta_loss_with_aux_key=meta_loss_with_aux_key,
         local_learning_rate=local_learning_rate,
-        num_local_steps=num_local_steps
+        num_local_steps=num_local_steps,
     )
 
     next_truncation_state, is_done = trunc_sched.next_state(
@@ -259,7 +259,7 @@ def _truncated_unroll_one_step_fedlagg(
 @functools.partial(
     jax.vmap, in_axes=(None, None, None, None, 0, 0, 0, None, None, None, None, None)
 )
-def truncated_unroll_one_step_fedlagg(
+def truncated_unroll_one_step_fedlopt(
     task_family: tasks_base.TaskFamily,
     learned_opt: lopt_base.LearnedOptimizer,
     trunc_sched: truncation_schedule.TruncationSchedule,
@@ -274,7 +274,7 @@ def truncated_unroll_one_step_fedlagg(
     num_local_steps: int = 4,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Perform one step of inner training without vectorized theta."""
-    return _truncated_unroll_one_step_fedlagg(
+    return _truncated_unroll_one_step_fedlopt(
         task_family=task_family,
         learned_opt=learned_opt,
         trunc_sched=trunc_sched,
@@ -301,8 +301,10 @@ def truncated_unroll_one_step_fedlagg(
         "num_local_steps",
     ),
 )
-@functools.partial(jax.vmap, in_axes=(None, None, None, 0, 0, 0, 0, None, None, None, None, None))
-def truncated_unroll_one_step_vec_theta_fedlagg(
+@functools.partial(
+    jax.vmap, in_axes=(None, None, None, 0, 0, 0, 0, None, None, None, None, None)
+)
+def truncated_unroll_one_step_vec_theta_fedlopt(
     task_family: tasks_base.TaskFamily,
     learned_opt: lopt_base.LearnedOptimizer,
     trunc_sched: truncation_schedule.TruncationSchedule,
@@ -317,7 +319,7 @@ def truncated_unroll_one_step_vec_theta_fedlagg(
     num_local_steps: int = 4,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Perform one step of inner training with vectorized theta."""
-    return _truncated_unroll_one_step_fedlagg(
+    return _truncated_unroll_one_step_fedlopt(
         task_family=task_family,
         learned_opt=learned_opt,
         trunc_sched=trunc_sched,
@@ -334,7 +336,7 @@ def truncated_unroll_one_step_vec_theta_fedlagg(
 
 
 @gin.configurable
-class VectorizedFedLAggTruncatedStep(
+class VectorizedFedLOptTruncatedStep(
     truncated_step.VectorizedTruncatedStep, full_es.OverrideStepVectorizedTruncatedStep
 ):
     """VectorizedTruncatedStep for learned optimizer inner training.
@@ -511,9 +513,9 @@ class VectorizedFedLAggTruncatedStep(
             )
 
         fn = (
-            truncated_unroll_one_step_vec_theta_fedlagg
+            truncated_unroll_one_step_vec_theta_fedlopt
             if theta_is_vector
-            else truncated_unroll_one_step_fedlagg
+            else truncated_unroll_one_step_fedlopt
         )
         next_unroll_state_, ys = fn(
             self.task_family,

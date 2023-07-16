@@ -7,8 +7,8 @@ from haiku._src.data_structures import FlatMap
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.optimizers import optax_opts
 
-from adafac_mlp_lagg import AdafacMLPLAgg
-from mlp_lagg import MLPLAgg
+from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
+from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
 
 
@@ -28,11 +28,26 @@ def _adam(args):
 
 
 def _fedlagg(args):
-    lagg_class = AdafacMLPLAgg if args.optimizer in ["fedlopt-adafac", "fedlagg-adafac"] else MLPLAgg
-    with_all_grads = True if args.optimizer in ["fedlagg", "fedlagg-wavg"] else False
-    with_avg = True if args.optimizer in ["fedlopt, fedlagg-wavg"] else False
+    lagg_class = (
+        FedAdafacMLPLOpt
+        if args.optimizer in ["fedlopt-adafac", "fedlagg-adafac"]
+        else FedMLPLOpt
+    )
+    with_all_grads = (
+        True
+        if args.optimizer in ["fedlagg", "fedlagg-wavg", "fedlagg-adafac"]
+        else False
+    )
+    with_avg = (
+        True
+        if args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg-wavg"]
+        else False
+    )
     lagg = lagg_class(
-        num_grads=args.num_grads, hidden_size=args.hidden_size, with_all_grads=with_all_grads, with_avg=with_avg
+        num_grads=args.num_grads,
+        hidden_size=args.hidden_size,
+        with_all_grads=with_all_grads,
+        with_avg=with_avg,
     )
 
     with open("./" + args.name + ".pickle", "rb") as f:
@@ -159,4 +174,4 @@ def get_optimizer(args):
         "fedlagg-adafac": _fedlagg,
     }
 
-    return optimizers[args.optimizer](args) # TODO Find better way to do this
+    return optimizers[args.optimizer](args)  # TODO Find better way to do this

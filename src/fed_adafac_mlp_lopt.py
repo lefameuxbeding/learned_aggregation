@@ -13,6 +13,7 @@ from learned_optimization import summary, tree_utils
 from learned_optimization.learned_optimizers import base as lopt_base
 from learned_optimization.learned_optimizers import common
 from learned_optimization.learned_optimizers.adafac_mlp_lopt import (
+    PRNGKey,
     AdafacMLPLOptState,
     decay_to_param,
     param_to_decay,
@@ -21,11 +22,9 @@ from learned_optimization.learned_optimizers.adafac_mlp_lopt import (
 )
 from learned_optimization.optimizers import base as opt_base
 
-PRNGKey = jnp.ndarray
-
 
 @gin.configurable
-class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
+class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
     """MLP based learned aggregator with adafactor style accumulators."""
 
     def __init__(
@@ -42,7 +41,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         split_weights=False,
         num_grads=8,
         with_all_grads=True,
-        with_avg=False,  # TODO Remove this and find a better way to create meta-trainers
+        with_avg=False,
     ):
         super().__init__()
         self._exp_mult = exp_mult
@@ -56,6 +55,8 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         self._make_separate_weights = make_separate_weights
         self._split_weights = split_weights
         self._num_grads = num_grads
+        self._with_all_grads = with_all_grads
+        self._with_avg = with_avg
 
         self._mod_init, self._mod_apply = hk.without_apply_rng(hk.transform(self._mod))
 
@@ -90,9 +91,17 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
 
         inps = []
 
-        for g in g_list:
-            batch_g = jnp.expand_dims(g, axis=-1)
-            inps.append(batch_g)
+        avg_g = jnp.mean(gs, axis=0)
+
+        if self._with_avg:
+            batch_avg_g = jnp.expand_dims(avg_g, axis=-1)
+            inps.append(batch_avg_g)
+
+        if self._with_all_grads:
+            for g in g_list:
+                batch_g = jnp.expand_dims(g, axis=-1)
+                inps.append(batch_g)
+
         inps.append(jnp.expand_dims(p, axis=-1))
         inps.append(m)
         inps.append(rms)
@@ -101,19 +110,19 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
         inps.append(rsqrt)
         inps.append(fac_g)
 
-        factored_dims = common.factored_dims(gs[0].shape)
+        factored_dims = common.factored_dims(avg_g.shape)
         if factored_dims is not None:
             # Construct features for
             d1, d0 = factored_dims
 
             # add 2 dims: 1 for batch of decay, one because low rank
-            to_tile = [1] * (1 + len(gs[0].shape))
-            to_tile[d0] = gs[0].shape[d0]
+            to_tile = [1] * (1 + len(avg_g.shape))
+            to_tile[d0] = avg_g.shape[d0]
 
             row_feat = jnp.tile(jnp.expand_dims(fac_vec_row, axis=d0), to_tile)
 
-            to_tile = [1] * (1 + len(gs[0].shape))
-            to_tile[d1] = gs[0].shape[d1]
+            to_tile = [1] * (1 + len(avg_g.shape))
+            to_tile[d1] = avg_g.shape[d1]
             col_feat = jnp.tile(jnp.expand_dims(fac_vec_col, axis=d1), to_tile)
 
             # 3 possible kinds of adafactor style features.
@@ -423,7 +432,7 @@ class AdafacMLPLAgg(lopt_base.LearnedOptimizer):
             def update(
                 self,
                 opt_state: AdafacMLPLOptState,
-                grads,  # TODO Typing if necessary
+                grads,
                 loss: jnp.ndarray,
                 model_state: Optional[opt_base.ModelState] = None,
                 is_valid: bool = False,
