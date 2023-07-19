@@ -20,16 +20,9 @@ def benchmark(args):
 
         for _ in range(args.num_inner_steps):
             batch = next(task.datasets.train)
-
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            key, key1 = jax.random.split(key)
-            params = opt.get_params(opt_state)
-            test_loss = task.loss(params, key1, next(task.datasets.test))
-
-            run.log(
-                {args.task + " train loss": loss, args.task + " test loss": test_loss}
-            )
+            run.log({args.task + " train loss": loss})
 
         run.finish()
