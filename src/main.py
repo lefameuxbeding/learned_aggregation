@@ -14,7 +14,7 @@ def parse_args():
     # fmt: off
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train"], required=True)
     parser.add_argument("--optimizer", type=str, choices=["adam", "fedavg", "fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"], required=True)
-    parser.add_argument("--task", type=str, choices=["image-mlp-fmst", "small-image-mlp-fmst", "conv-c10", "small-conv-c10"], required=True)
+    parser.add_argument("--task", type=str, choices=["image-mlp-fmst", "small-image-mlp-fmst", "conv-c10", "small-conv-c10", 'conv-imagenet', 'conv-imagenet64'], required=True)
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
@@ -34,7 +34,7 @@ def parse_args():
 def assert_args(args):
     # fmt: off
     if args.run_type == "benchmark" and args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"]:
-        assert os.path.exists( "./" + args.name + ".pickle"), "need to meta-train learned optimizer before benchmarking"
+        assert os.path.exists( "./models/small-image-mlp/" + args.name + ".pickle"), "need to meta-train learned optimizer before benchmarking"
     if args.run_type == "meta-train":
         assert args.optimizer not in ["adam", "fedavg"], "can't meta-train a non learned optimizer"
     # fmt: on

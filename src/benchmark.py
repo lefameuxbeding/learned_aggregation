@@ -1,9 +1,10 @@
 import jax
 import wandb
 
+from tqdm import tqdm
 from optimizers import get_optimizer
 from tasks import get_task
-
+import jax.numpy as jnp
 
 def benchmark(args):
     key = jax.random.PRNGKey(0)
@@ -11,7 +12,7 @@ def benchmark(args):
     task = get_task(args)
     opt, update = get_optimizer(args)
 
-    for _ in range(args.num_runs):
+    for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project="learned_aggregation", group=args.name)
 
         key, key1 = jax.random.split(key)
@@ -23,6 +24,14 @@ def benchmark(args):
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            run.log({args.task + " train loss": loss})
+            key, key1 = jax.random.split(key)
+            params = opt.get_params(opt_state)
+
+            test_batch = next(task.datasets.test)
+            test_loss = task.loss(params, key1, test_batch)
+
+            run.log(
+                {args.task + " train loss": loss, args.task + " test loss": test_loss}
+            )
 
         run.finish()

@@ -5,3 +5,8 @@ models
 *.pickle
 checkpoints
 *.ckpt
+wandb/*
+
+script_new_install.sh
+usefull_commands.txt
+benchmark_*.sh
