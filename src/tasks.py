@@ -22,7 +22,7 @@ def imagenet_datasets(
         batch_size=batch_size,
         image_size=image_size,
         stack_channels= 1,
-        prefetch_batches=1000,
+        prefetch_batches=50,
         shuffle_buffer_size=10000,
         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
@@ -44,7 +44,7 @@ def imagenet_64_datasets(
         batch_size=batch_size,
         image_size=image_size,
         stack_channels= 1,
-        prefetch_batches=1000,
+        prefetch_batches=200,
         shuffle_buffer_size=10000,
         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
@@ -55,14 +55,14 @@ def imagenet_64_datasets(
 def My_Conv_Food101_32x64x64(args):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=101)
-    datasets = image.food101_datasets(batch_size=args.batch_size)
+    datasets = image.food101_datasets(batch_size=args.num_grads * args.num_local_steps * args.local_batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 @gin.configurable
 def My_Conv_Imagenet_32x64x64(args):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=1000)
-    datasets = imagenet_datasets(batch_size=args.batch_size)
+    datasets = imagenet_datasets(batch_size=args.num_grads * args.num_local_steps * args.local_batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 
@@ -70,7 +70,7 @@ def My_Conv_Imagenet_32x64x64(args):
 def My_Conv_Imagenet64_32x64x64(args):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=1000)
-    datasets = imagenet_64_datasets(batch_size=args.batch_size)
+    datasets = imagenet_64_datasets(batch_size=args.num_grads * args.num_local_steps * args.local_batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 

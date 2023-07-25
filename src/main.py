@@ -6,6 +6,7 @@ from jax.lib import xla_bridge
 
 from benchmark import benchmark
 from meta_train import meta_train
+import tensorflow as tf
 
 
 def parse_args():
@@ -41,11 +42,14 @@ def assert_args(args):
 
 
 if __name__ == "__main__":
+
+    tf.config.experimental.set_visible_devices([], "GPU")
+
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
-    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
+    # os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    # os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     args = parse_args()
     assert_args(args)

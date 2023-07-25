@@ -19,7 +19,7 @@ def benchmark(args):
         params = task.init(key1)
         opt_state = opt.init(params, num_steps=args.num_inner_steps)
 
-        for _ in range(args.num_inner_steps):
+        for _ in tqdm(range(args.num_inner_steps),ascii=True, desc="Inner Loop"):
             batch = next(task.datasets.train)
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
