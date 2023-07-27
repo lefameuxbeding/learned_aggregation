@@ -52,8 +52,8 @@ if __name__ == "__main__":
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    # os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
-    # os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
+    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     args = parse_args()
     cfg = Config.fromfile(args.config)
