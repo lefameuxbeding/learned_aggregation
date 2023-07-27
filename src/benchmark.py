@@ -16,7 +16,7 @@ def benchmark(args):
     opt, update = get_optimizer(args)
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
-        run = wandb.init(project="learned_aggregation", group=args.name, config=vars(args))
+        run = wandb.init(project="learned_aggregation_meta_test", group=args.name, config=vars(args))
 
         key, key1 = jax.random.split(key)
         params = task.init(key1)
@@ -34,7 +34,7 @@ def benchmark(args):
             test_loss = task.loss(params, key1, test_batch)
 
             run.log(
-                {args.task + " train loss": loss, args.task + " test loss": test_loss}
+                {"train loss": loss, "test loss": test_loss}
             )
 
         run.finish()
@@ -44,7 +44,7 @@ def benchmark(args):
 def sweep(args):
     def sweep_fn(args=args):
 
-        run = wandb.init(project="learned_aggregation", 
+        run = wandb.init(project="learned_aggregation_meta_test", 
                          group=args.name, 
                          config=vars(args))
 
@@ -72,16 +72,16 @@ def sweep(args):
             test_loss = task.loss(params, key1, test_batch)
 
             run.log(
-                {args.task + " train loss": loss, args.task + " test loss": test_loss}
+                {"train loss": loss, "test loss": test_loss}
             )
 
         run.finish()
         
 
-    with open(args.sweep_config, 'r') as f:
-        sweep_config = yaml.safe_load(f)
+    # with open(args.sweep_config, 'r') as f:
+    #     sweep_config = yaml.safe_load(f)
     
-    sweep_id = wandb.sweep(sweep=sweep_config, project="learned_aggregation")
+    sweep_id = wandb.sweep(sweep=args.sweep_config, project="learned_aggregation_meta_test")
     wandb.agent(sweep_id, sweep_fn)
 
     
