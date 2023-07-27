@@ -9,6 +9,7 @@ from learned_optimization.optimizers import optax_opts
 
 from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
 from fed_mlp_lopt import FedMLPLOpt
+from slowmo import SGDSlowMo
 from tasks import get_task
 
 
@@ -165,7 +166,7 @@ def _fedavg(args):
 import pdb
 
 def _fedavg_slowmo(args):
-    opt = optax_opts.SGDSlowMo(learning_rate=args.local_learning_rate)
+    opt = SGDSlowMo(learning_rate=args.local_learning_rate)
 
     task = get_task(args)
 
