@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument("--sweep_config", type=str, required=False)
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--from_checkpoint", action="store_true")
+    parser.add_argument("--test_checkpoint", type=str)
     # fmt: on
 
     return parser.parse_args()
@@ -40,7 +41,7 @@ def parse_args():
 def assert_args(args):
     # fmt: off
     if args.run_type == "benchmark" and args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"]:
-        assert os.path.exists( "./models/small-image-mlp/" + args.name + ".pickle"), "need to meta-train learned optimizer before benchmarking"
+        assert os.path.exists(args.test_checkpoint + ".pickle"), "need to meta-train learned optimizer before benchmarking"
     if args.run_type == "meta-train":
         assert args.optimizer not in ["adam", "fedavg", "fedavg-slowmo"], "can't meta-train a non learned optimizer"
     # fmt: on
