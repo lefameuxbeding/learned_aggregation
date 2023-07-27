@@ -10,3 +10,6 @@ wandb/*
 script_new_install.sh
 usefull_commands.txt
 benchmark_*.sh
+
+job.sh
+setup.sh
