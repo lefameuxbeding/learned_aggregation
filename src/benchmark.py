@@ -14,6 +14,8 @@ def benchmark(args):
     key = jax.random.PRNGKey(0)
 
     task = get_task(args)
+    test_task = get_task(args, is_test=True)
+
     opt, update = get_optimizer(args)
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
@@ -33,8 +35,8 @@ def benchmark(args):
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
 
-            test_batch = next(task.datasets.test)
-            test_loss = task.loss(params, key1, test_batch)
+            test_batch = next(test_task.datasets.test)
+            test_loss = test_task.loss(params, key1, test_batch)
 
             run.log({"train loss": loss, "test loss": test_loss})
 
@@ -52,6 +54,8 @@ def sweep(args):
         key = jax.random.PRNGKey(0)
 
         task = get_task(args)
+        test_task = get_task(args, is_test=True)
+
         opt, update = get_optimizer(args)
         # for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
 
@@ -67,8 +71,8 @@ def sweep(args):
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
 
-            test_batch = next(task.datasets.test)
-            test_loss = task.loss(params, key1, test_batch)
+            test_batch = next(test_task.datasets.test)
+            test_loss = test_task.loss(params, key1, test_batch)
 
             run.log({"train loss": loss, "test loss": test_loss})
 

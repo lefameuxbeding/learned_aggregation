@@ -54,80 +54,70 @@ def imagenet_64_datasets(
 
 
 @gin.configurable
-def My_Conv_Food101_32x64x64(args):
+def My_Conv_Food101_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=101)
-    datasets = image.food101_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size
-    )
+    datasets = image.food101_datasets(batch_size=batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 
 @gin.configurable
-def My_Conv_Imagenet_32x64x64(args):
+def My_Conv_Imagenet_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss(
         [32, 64, 64], jax.nn.relu, num_classes=1000
     )
-    datasets = imagenet_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size
-    )
+    datasets = imagenet_datasets(batch_size=batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 
 @gin.configurable
-def My_Conv_Imagenet64_32x64x64(args):
+def My_Conv_Imagenet64_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss(
         [32, 64, 64], jax.nn.relu, num_classes=1000
     )
-    datasets = imagenet_64_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size
-    )
+    datasets = imagenet_64_datasets(batch_size=batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 
 @gin.configurable
-def My_Conv_Cifar10_32x64x64(args):
+def My_Conv_Cifar10_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=10)
-    datasets = image.cifar10_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size
-    )
+    datasets = image.cifar10_datasets(batch_size=batch_size)
     return _ConvTask(base_model_fn, datasets)
 
 
 @gin.configurable
-def My_Conv_Cifar10_8_16x32(args):
+def My_Conv_Cifar10_8_16x32(batch_size):
     """A 2 hidden layer convnet designed for 8x8 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([16, 32], jax.nn.relu, num_classes=10)
     datasets = image.cifar10_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size,
+        batch_size=batch_size,
         image_size=(8, 8),
     )
     return _ConvTask(base_model_fn, datasets)
 
 
 @gin.configurable
-def My_ImageMLP_FashionMnist_Relu128x128(args):
+def My_ImageMLP_FashionMnist_Relu128x128(batch_size):
     """A 2 hidden layer, 128 hidden unit MLP designed for 28x28 fashion mnist."""
-    datasets = image.fashion_mnist_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size
-    )
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
     return _MLPImageTask(datasets, [128, 128])
 
 
 @gin.configurable
-def My_ImageMLP_FashionMnist8_Relu32(args):
+def My_ImageMLP_FashionMnist8_Relu32(batch_size):
     """A 1 hidden layer, 32 hidden unit MLP designed for 8x8 fashion mnist."""
     datasets = image.fashion_mnist_datasets(
-        batch_size=args.num_grads * args.num_local_steps * args.local_batch_size,
+        batch_size=batch_size,
         image_size=(8, 8),
     )
     return _MLPImageTask(datasets, [32])
 
 
-def get_task(args):
+def get_task(args, is_test=False):
     tasks = {
         "image-mlp-fmst": My_ImageMLP_FashionMnist_Relu128x128,
         "small-image-mlp-fmst": My_ImageMLP_FashionMnist8_Relu32,
@@ -137,4 +127,17 @@ def get_task(args):
         "conv-imagenet": My_Conv_Imagenet_32x64x64,
     }
 
-    return tasks[args.task](args)
+    test_batch_size = {
+        "image-mlp-fmst": 10000,
+        "small-image-mlp-fmst": 10000,
+        "conv-c10": 1000,
+        "small-conv-c10": 1000,
+        "conv-imagenet64": 100000,  # TODO Could probably get oom error, fix it when needed
+        "conv-imagenet": 100000,
+    }
+
+    batch_size = args.num_grads * args.num_local_steps * args.local_batch_size
+    if is_test:
+        batch_size = test_batch_size[args.task]
+
+    return tasks[args.task](batch_size)
