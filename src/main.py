@@ -10,6 +10,7 @@ import tensorflow as tf
 
 from mmengine.config import Config
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -46,7 +47,6 @@ def assert_args(args):
 
 
 if __name__ == "__main__":
-
     tf.config.experimental.set_visible_devices([], "GPU")
 
     print(xla_bridge.get_backend().platform)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     args = parse_args()
     cfg = Config.fromfile(args.config)
 
-    #override args from the command line
+    # override args from the command line
     for k, v in vars(args).items():
         if v is not None:
             print("[INFO] Overriding config value: {}={}".format(k, v))
@@ -66,14 +66,17 @@ if __name__ == "__main__":
 
     cfg.name = "{}_{}".format(cfg.optimizer, cfg.task)
     cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}".format(
-        cfg.optimizer,cfg.hidden_size,cfg.task,cfg.num_grads,cfg.num_local_steps,cfg.learning_rate)
+        cfg.optimizer,
+        cfg.hidden_size,
+        cfg.task,
+        cfg.num_grads,
+        cfg.num_local_steps,
+        cfg.learning_rate,
+    )
     args = argparse.Namespace(**cfg._cfg_dict)
 
     assert_args(args)
 
-
-    run_types = {"benchmark": benchmark, 
-                 "meta-train": meta_train,
-                 "sweep": sweep}
+    run_types = {"benchmark": benchmark, "meta-train": meta_train, "sweep": sweep}
 
     run_types[args.run_type](args)

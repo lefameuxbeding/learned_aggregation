@@ -1,4 +1,4 @@
-_base_ = ['./meta_train_base.py']
+_base_ = ["./meta_train_base.py"]
 
-optimizer = 'fedlagg-adafac'
-task = 'small-image-mlp-fmst'
+optimizer = "fedlagg-adafac"
+task = "small-image-mlp-fmst"

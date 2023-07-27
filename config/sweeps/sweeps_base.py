@@ -1,3 +1,3 @@
-_base_ = ['../config_base.py']
+_base_ = ["../config_base.py"]
 
-run_type='sweep'
+run_type = "sweep"

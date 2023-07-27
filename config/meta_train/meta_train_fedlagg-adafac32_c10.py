@@ -1,4 +1,4 @@
-_base_ = ['./meta_train_base.py']
+_base_ = ["./meta_train_base.py"]
 
-optimizer = 'fedlagg-adafac'
-task = 'conv-c10'
+optimizer = "fedlagg-adafac"
+task = "conv-c10"

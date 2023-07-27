@@ -163,7 +163,9 @@ def _fedavg(args):
 
     return opt, update
 
+
 import pdb
+
 
 def _fedavg_slowmo(args):
     opt = SGDSlowMo(learning_rate=args.local_learning_rate)
@@ -213,32 +215,36 @@ def _fedavg_slowmo(args):
 
         ##### SLOW MO UPDATE #####
 
-        def update_momentum(momentum, avg_params, current_params, beta, local_learning_rate):
-            return beta * momentum + (1 / local_learning_rate) * (current_params - avg_params)
+        def update_momentum(
+            momentum, avg_params, current_params, beta, local_learning_rate
+        ):
+            return beta * momentum + (1 / local_learning_rate) * (
+                current_params - avg_params
+            )
 
         def update_params(current_params, momentum, local_learning_rate):
             return current_params - local_learning_rate * momentum
 
         # Get the momentum and current parameters
-        momentum = opt_state.optax_opt_state[1]['momentum']
+        momentum = opt_state.optax_opt_state[1]["momentum"]
         current_params = opt.get_params(opt_state)
 
         # Update the momentum
         momentum = jax.tree_util.tree_map(
-            update_momentum, 
-            momentum, 
-            avg_params, 
+            update_momentum,
+            momentum,
+            avg_params,
             current_params,
-            jax.tree_util.tree_map(lambda x : args.beta, momentum),
-            jax.tree_util.tree_map(lambda x : args.local_learning_rate, momentum),
+            jax.tree_util.tree_map(lambda x: args.beta, momentum),
+            jax.tree_util.tree_map(lambda x: args.local_learning_rate, momentum),
         )
 
         # Update the parameters
         updated_params = jax.tree_util.tree_map(
-            update_params, 
-            current_params, 
-            momentum, 
-            jax.tree_util.tree_map(lambda x : args.local_learning_rate, current_params),
+            update_params,
+            current_params,
+            momentum,
+            jax.tree_util.tree_map(lambda x: args.local_learning_rate, current_params),
         )
 
         return opt.init(updated_params, momentum=momentum), jnp.mean(jnp.array(losses))
