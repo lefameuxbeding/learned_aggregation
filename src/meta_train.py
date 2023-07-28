@@ -38,10 +38,8 @@ def delete_old_checkpoints(save_dir, n_to_keep):
             if i.endswith('.pickle') and re.search(ckpt_dir_regex, i)
         ]
     )
-    print(all_pkl)
 
     n_to_delete = len(all_ckpts) - n_to_keep
-    print('n_to_delete',n_to_delete)
     if n_to_delete > 0:
         to_delete_ckpt = all_ckpts[:n_to_delete]
         to_delete_pkl = all_pkl[:n_to_delete]

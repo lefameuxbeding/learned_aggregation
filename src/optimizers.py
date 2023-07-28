@@ -51,7 +51,7 @@ def _fedlagg(args):
         with_avg=with_avg,
     )
 
-    with open("./models/small-image-mlp/" + args.name + ".pickle", "rb") as f:
+    with open(args.test_checkpoint, "rb") as f:
         meta_params = pickle.load(f)
     agg = lagg.opt_fn(meta_params)
 

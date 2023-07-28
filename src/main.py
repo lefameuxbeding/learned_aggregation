@@ -41,7 +41,8 @@ def parse_args():
 def assert_args(args):
     # fmt: off
     if args.run_type == "benchmark" and args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"]:
-        assert os.path.exists(args.test_checkpoint + ".pickle"), "need to meta-train learned optimizer before benchmarking"
+        assert os.path.exists(args.test_checkpoint), "need to meta-train learned optimizer before benchmarking"
+        assert args.test_checkpoint.endswith('.pickle'), "optimizer checkpoints must be saved as .pickle files"
     if args.run_type == "meta-train":
         assert args.optimizer not in ["adam", "fedavg", "fedavg-slowmo"], "can't meta-train a non learned optimizer"
     # fmt: on
@@ -53,8 +54,8 @@ if __name__ == "__main__":
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
-    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
+    # os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    # os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     args = parse_args()
     cfg = Config.fromfile(args.config)
