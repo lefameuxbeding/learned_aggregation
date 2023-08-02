@@ -15,6 +15,8 @@ learning_rate = 0.0001
 # meta training only
 num_outer_steps = 50000
 from_checkpoint = False
+num_devices = 1
+use_pmap = False
 
 # meta testing only
 num_runs = 10

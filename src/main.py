@@ -33,6 +33,8 @@ def parse_args():
     parser.add_argument("--sweep_config", type=str)
     parser.add_argument("--from_checkpoint", type=bool)
     parser.add_argument("--test_checkpoint", type=str)
+    parser.add_argument("--use_pmap", action="store_true")
+    parser.add_argument("--num_devices", type=int)
     # fmt: on
 
     return parser.parse_args()

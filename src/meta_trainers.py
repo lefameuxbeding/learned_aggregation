@@ -50,9 +50,15 @@ def _fedlagg_meta_trainer(args):
             local_learning_rate=args.local_learning_rate,
             num_local_steps=args.num_local_steps,
         )
-        return truncated_pes.TruncatedPES(
-            truncated_step=truncated_step, trunc_length=50
-        )
+
+        if args.use_pmap:
+            return truncated_pes.TruncatedPESPMAP( 
+                truncated_step=truncated_step, trunc_length=50, num_devices=args.num_devices
+            )
+        else:
+            return truncated_pes.TruncatedPES(
+                truncated_step=truncated_step, trunc_length=50
+            )
 
     task_family = tasks_base.single_task_to_family(get_task(args))
     gradient_estimators = [
