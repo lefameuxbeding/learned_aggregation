@@ -130,8 +130,8 @@ def get_task(args, is_test=False):
     test_batch_size = {
         "image-mlp-fmst": 10000,
         "small-image-mlp-fmst": 10000,
-        "conv-c10": 1000,
-        "small-conv-c10": 1000,
+        "conv-c10": 10000,
+        "small-conv-c10": 10000,
         "conv-imagenet64": 100000,  # TODO Could probably get oom error, fix it when needed
         "conv-imagenet": 100000,
     }

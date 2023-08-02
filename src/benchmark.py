@@ -1,13 +1,11 @@
+import argparse
+
 import jax
 import wandb
-
 from tqdm import tqdm
+
 from optimizers import get_optimizer
 from tasks import get_task
-import jax.numpy as jnp
-
-import yaml
-import argparse
 
 
 def benchmark(args):
@@ -45,19 +43,17 @@ def benchmark(args):
 
 def sweep(args):
     def sweep_fn(args=args):
+        key = jax.random.PRNGKey(0)
+
         run = wandb.init(
             project="learned_aggregation_meta_test", group=args.name, config=vars(args)
         )
-
         args = argparse.Namespace(**run.config)
-
-        key = jax.random.PRNGKey(0)
 
         task = get_task(args)
         test_task = get_task(args, is_test=True)
 
         opt, update = get_optimizer(args)
-        # for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
 
         key, key1 = jax.random.split(key)
         params = task.init(key1)
@@ -77,9 +73,6 @@ def sweep(args):
             run.log({"train loss": loss, "test loss": test_loss})
 
         run.finish()
-
-    # with open(args.sweep_config, 'r') as f:
-    #     sweep_config = yaml.safe_load(f)
 
     sweep_id = wandb.sweep(
         sweep=args.sweep_config, project="learned_aggregation_meta_test"

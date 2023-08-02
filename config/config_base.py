@@ -1,6 +1,5 @@
 # must be overriden
 run_type = None
-from_checkpoint = None
 
 # common
 optimizer = "fedavg"
@@ -15,6 +14,7 @@ learning_rate = 0.0001
 
 # meta training only
 num_outer_steps = 50000
+from_checkpoint = False
 
 # meta testing only
 num_runs = 10
