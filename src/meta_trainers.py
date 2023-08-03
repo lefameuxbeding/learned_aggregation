@@ -11,6 +11,8 @@ from fed_truncated_step import VectorizedFedLOptTruncatedStep
 from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
 
+import optax
+
 
 def _fedlagg_meta_trainer(args):
     lagg_class = (
@@ -35,7 +37,12 @@ def _fedlagg_meta_trainer(args):
         with_avg=with_avg,
     )
 
-    meta_opt = opt_base.Adam(args.learning_rate)
+    if args.schedule != {}:
+        print('using scheduler')
+        schedule = optax.warmup_cosine_decay_schedule(**args.schedule)
+        meta_opt = optax.adamw(schedule)
+    else:
+        meta_opt = opt_base.Adam(args.learning_rate)
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
