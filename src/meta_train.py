@@ -52,8 +52,39 @@ def delete_old_checkpoints(save_dir, n_to_keep):
                 pass
 
 
+
+def save_checkpoint(prefix,i,args,outer_trainer_state):  # Checkpoint every 1000th iteration
+    save_dir = osp.join("checkpoints", prefix + args.meta_train_name)
+    checkpoints.save_state(
+        osp.join(
+            save_dir,
+            "global_step{}.ckpt".format(i + 1),
+        ),
+        outer_trainer_state,
+    )
+    pickle_filename = osp.join(save_dir, "global_step{}.pickle".format(i + 1),)
+    with open(pickle_filename, "wb",) as f:
+        pickle.dump(
+            outer_trainer_state.gradient_learner_state.theta_opt_state.params, f
+        )
+
+    with open(osp.join(save_dir, "latest"), "w") as f:
+        f.write("global_step{}".format(i + 1))
+
+    delete_old_checkpoints(
+        save_dir=save_dir,
+        n_to_keep=args.checkpoints_to_keep,
+    )
+
+    return pickle_filename
+
+
 def meta_train(args):
     meta_trainer = get_meta_trainer(args)
+    # print(meta_trainer)
+    # print(meta_trainer.__dict__)
+    # print(meta_trainer.gradient_learner._theta_opt.opt)
+    # exit(0)
 
     key = jax.random.PRNGKey(0)
     key, key1 = jax.random.split(key)
@@ -67,7 +98,7 @@ def meta_train(args):
         )
 
     run = wandb.init(
-        project="learned_aggregation_meta_train", group=args.meta_train_name
+        project="learned_aggregation_meta_train", group=args.meta_train_name, config=vars(args)
     )
 
     for i in tqdm(range(args.num_outer_steps), ascii=True, desc="Outer Loop"):
@@ -75,36 +106,25 @@ def meta_train(args):
         outer_trainer_state, meta_loss, _ = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=False
         )
+        # print(outer_trainer_state.gradient_learner_state.theta_opt_state)
+        # exit(0)
         run.log({args.task + " meta loss": meta_loss})
 
         if (i + 1) % args.save_iter == 0:  # Checkpoint every 1000th iteration
-            checkpoints.save_state(
-                osp.join(
-                    "checkpoints",
-                    args.meta_train_name,
-                    "global_step{}.ckpt".format(i + 1),
-                ),
-                outer_trainer_state,
-            )
-            with open(
-                osp.join(
-                    "checkpoints",
-                    args.meta_train_name,
-                    "global_step{}.pickle".format(i + 1),
-                ),
-                "wb",
-            ) as f:
-                pickle.dump(
-                    outer_trainer_state.gradient_learner_state.theta_opt_state.params, f
-                )
-            with open(
-                osp.join("checkpoints", args.meta_train_name, "latest"), "w"
-            ) as f:
-                f.write("global_step{}".format(i + 1))
+            save_checkpoint(prefix=run.id,
+                            i=i,
+                            args=args,
+                            outer_trainer_state=outer_trainer_state)
 
-            delete_old_checkpoints(
-                save_dir=osp.join("checkpoints", args.meta_train_name),
-                n_to_keep=args.checkpoints_to_keep,
-            )
+    savepath = save_checkpoint(
+            prefix=run.id,
+            i=i,
+            args=args,
+            outer_trainer_state=outer_trainer_state
+        )
+
+    wandb.save(savepath)
 
     run.finish()
+
+
