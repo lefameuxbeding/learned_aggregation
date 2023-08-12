@@ -1,6 +1,8 @@
- parser = argparse.ArgumentParser()
+import argparse
 
-    # fmt: off
+parser = argparse.ArgumentParser()
+
+# fmt: off
 parser.add_argument("--config", type=str, required=True)
 parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
 parser.add_argument("--optimizer", type=str, choices=["adam", "fedavg", "fedavg-slowmo", "fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"])
@@ -29,8 +31,11 @@ args = parser.parse_args()
 
 
 prefix = "CUDA_VISIBLE_DEVICES={} ".format(args.gpu)
-for h in [4,8,16,32]:
-    for local_learning_rate in [0.1,0.3,0.5,1.]:
-        command = prefix + "python ./src/main.py --config {} --task {} --local_learning_rate {} --num_local_steps {}".format(
-            args.config, args.task, local_learning_rate)
-
+for h in [4, 8, 16, 32]:
+    for local_learning_rate in [0.1, 0.3, 0.5, 1.0]:
+        command = (
+            prefix
+            + "python ./src/main.py --config {} --task {} --local_learning_rate {} --num_local_steps {}".format(
+                args.config, args.task, local_learning_rate
+            )
+        )

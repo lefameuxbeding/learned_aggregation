@@ -1,13 +1,15 @@
 _base_ = ["./meta_train_base.py"]
 
+num_outer_steps = 5000
 schedule = dict(
     init_value=3e-10,
-    peak_value=1e-3,
-    end_value=1e-5,
+    peak_value=6e-3,
+    end_value=6e-5,
     warmup_steps=100,
-    decay_steps=1900,
+    decay_steps=4900,
     exponent=1.0,
 )
-num_outer_steps = 2000
-task = "image-mlp-fmst"
+hidden_size = 32
+
 optimizer = "fedlagg-adafac"
+task = "small-image-mlp-fmst"

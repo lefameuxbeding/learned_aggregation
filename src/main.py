@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--test_checkpoint", type=str)
     parser.add_argument("--use_pmap", action="store_true")
     parser.add_argument("--num_devices", type=int)
+    parser.add_argument("--num_tasks", type=int)
     parser.add_argument("--name_suffix", type=str)
     # fmt: on
 
@@ -78,7 +79,7 @@ if __name__ == "__main__":
         cfg.num_local_steps,
         cfg.learning_rate,
     )
-    
+
     args = argparse.Namespace(**cfg._cfg_dict)
 
     assert_args(args)
