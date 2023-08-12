@@ -1,4 +1,5 @@
 import argparse
+import os
 
 parser = argparse.ArgumentParser()
 
@@ -35,7 +36,18 @@ for h in [4, 8, 16, 32]:
     for local_learning_rate in [0.1, 0.3, 0.5, 1.0]:
         command = (
             prefix
-            + "python ./src/main.py --config {} --task {} --local_learning_rate {} --num_local_steps {}".format(
-                args.config, args.task, local_learning_rate
+            + "python ./src/main.py --config {} --local_learning_rate {} --num_local_steps {}".format(
+                args.config, local_learning_rate, h
             )
         )
+
+        print(command)
+        os.system(command)
+
+
+
+
+
+#python train_models.py --config config/meta_train/meta_train_fedlagg_small-image-mlp-fmst_schedule_6e-3_5000_d001.py --gpu 0
+#python train_models.py --config config/meta_train/meta_train_fedlopt_small-image-mlp-fmst_schedule_6e-3_5000_d001.py --gpu 1
+#python train_models.py --config config/meta_train/meta_train_fedlagg-adafac_small-image-mlp-fmst_schedule_6e-3_5000_d001.py --gpu 2
