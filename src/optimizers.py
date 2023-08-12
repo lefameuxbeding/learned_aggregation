@@ -15,9 +15,6 @@ from tasks import get_task
 import gin
 import optax
 
-# @optax.inject_hyperparams
-
-
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
     """Adam with a piecewise linear learning rate schedule."""
