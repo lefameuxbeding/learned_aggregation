@@ -35,6 +35,8 @@ def parse_args():
     parser.add_argument("--test_checkpoint", type=str)
     parser.add_argument("--use_pmap", action="store_true")
     parser.add_argument("--num_devices", type=int)
+    parser.add_argument("--num_tasks", type=int)
+    parser.add_argument("--name_suffix", type=str)
     # fmt: on
 
     return parser.parse_args()
@@ -68,7 +70,7 @@ if __name__ == "__main__":
             print("[INFO] Overriding config value: {}={}".format(k, v))
             cfg._cfg_dict[k] = v
 
-    cfg.name = "{}_{}".format(cfg.optimizer, cfg.task)
+    cfg.name = "{}_{}{}".format(cfg.optimizer, cfg.task, cfg.name_suffix)
     cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}".format(
         cfg.optimizer,
         cfg.hidden_size,
@@ -77,6 +79,7 @@ if __name__ == "__main__":
         cfg.num_local_steps,
         cfg.learning_rate,
     )
+
     args = argparse.Namespace(**cfg._cfg_dict)
 
     assert_args(args)

@@ -11,6 +11,9 @@ from fed_truncated_step import VectorizedFedLOptTruncatedStep
 from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
 
+import optax
+from optimizers import AdamWLinearCosine
+
 
 def _fedlagg_meta_trainer(args):
     lagg_class = (
@@ -35,7 +38,11 @@ def _fedlagg_meta_trainer(args):
         with_avg=with_avg,
     )
 
-    meta_opt = opt_base.Adam(args.learning_rate)
+    if args.schedule != {}:
+        print("Using learning rate scheduler")
+        meta_opt = AdamWLinearCosine(**args.schedule)
+    else:
+        meta_opt = opt_base.Adam(args.learning_rate)
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
@@ -45,15 +52,17 @@ def _fedlagg_meta_trainer(args):
             task_family,
             lagg,
             trunc_sched,
-            num_tasks=8,
+            num_tasks=args.num_tasks,
             random_initial_iteration_offset=args.num_inner_steps,
             local_learning_rate=args.local_learning_rate,
             num_local_steps=args.num_local_steps,
         )
 
         if args.use_pmap:
-            return truncated_pes.TruncatedPESPMAP( 
-                truncated_step=truncated_step, trunc_length=50, num_devices=args.num_devices
+            return truncated_pes.TruncatedPESPMAP(
+                truncated_step=truncated_step,
+                trunc_length=50,
+                num_devices=args.num_devices,
             )
         else:
             return truncated_pes.TruncatedPES(
@@ -69,7 +78,7 @@ def _fedlagg_meta_trainer(args):
         lagg, gradient_estimators, meta_opt
     )
 
-    return meta_trainer
+    return meta_trainer, meta_opt
 
 
 def get_meta_trainer(args):

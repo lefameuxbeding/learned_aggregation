@@ -13,3 +13,7 @@ benchmark_*.sh
 
 job.sh
 setup.sh
+
+
+run_*
+eval_*
