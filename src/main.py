@@ -3,6 +3,8 @@ import os
 import sys
 
 from jax.lib import xla_bridge
+import wandb
+import os.path as osp
 
 from benchmark import benchmark, sweep
 from meta_train import meta_train
@@ -38,6 +40,7 @@ def parse_args():
     parser.add_argument("--num_tasks", type=int)
     parser.add_argument("--name_suffix", type=str)
     parser.add_argument("--slowmo_learning_rate", type=float)
+    parser.add_argument("--wandb_checkpoint_id", type=str)
     # fmt: on
 
     return parser.parse_args()
@@ -51,6 +54,25 @@ def assert_args(args):
     if args.run_type == "meta-train":
         assert args.optimizer not in ["adam", "fedavg", "fedavg-slowmo"], "can't meta-train a non learned optimizer"
     # fmt: on
+
+
+def download_wandb_checkpoint(cfg):
+    api = wandb.Api()
+    run = api.run(cfg.wandb_checkpoint_id)
+
+    ckpts = [x for x in run.files() if 'global_step' in x.name]
+    if len(ckpts) > 1:
+        print(ckpts)
+        
+    assert len(ckpts) <= 1, "multiple checkpoints exist can't determine which one to use"
+    
+    if len(ckpts) == 0:
+        return None
+    
+    ckpts[0].download('/tmp',replace=True)
+    return osp.join('/tmp',ckpts[0].name)
+
+
 
 
 if __name__ == "__main__":
@@ -72,14 +94,21 @@ if __name__ == "__main__":
             cfg._cfg_dict[k] = v
 
     cfg.name = "{}_{}{}".format(cfg.optimizer, cfg.task, cfg.name_suffix)
-    cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}".format(
+    cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}{}".format(
         cfg.optimizer,
         cfg.hidden_size,
         cfg.task,
         cfg.num_grads,
         cfg.num_local_steps,
         cfg.learning_rate,
+        cfg.name_suffix
     )
+
+    print(cfg.meta_train_name)
+    exit(0)
+
+    if cfg.wandb_checkpoint_id is not None:
+        cfg.test_checkpoint = download_wandb_checkpoint(cfg)
 
     args = argparse.Namespace(**cfg._cfg_dict)
 

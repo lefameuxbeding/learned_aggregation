@@ -21,6 +21,7 @@ use_pmap = False
 
 # meta testing only
 num_runs = 10
+wandb_checkpoint_id = None
 
 # for slowmo
 beta = 0.99
