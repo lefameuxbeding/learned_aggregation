@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--num_devices", type=int)
     parser.add_argument("--num_tasks", type=int)
     parser.add_argument("--name_suffix", type=str)
+    parser.add_argument("--slowmo_learning_rate", type=float)
     # fmt: on
 
     return parser.parse_args()

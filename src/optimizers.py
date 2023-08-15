@@ -271,7 +271,7 @@ def _fedavg_slowmo(args):
             update_params,
             current_params,
             momentum,
-            jax.tree_util.tree_map(lambda x: args.local_learning_rate, current_params),
+            jax.tree_util.tree_map(lambda x: args.slowmo_learning_rate, current_params),
         )
 
         return opt.init(updated_params, momentum=momentum), jnp.mean(jnp.array(losses))
