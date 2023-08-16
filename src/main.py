@@ -104,9 +104,6 @@ if __name__ == "__main__":
         cfg.name_suffix
     )
 
-    print(cfg.meta_train_name)
-    exit(0)
-
     if cfg.wandb_checkpoint_id is not None:
         cfg.test_checkpoint = download_wandb_checkpoint(cfg)
 
