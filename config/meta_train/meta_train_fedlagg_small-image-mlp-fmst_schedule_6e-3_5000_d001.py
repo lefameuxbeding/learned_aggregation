@@ -12,4 +12,4 @@ schedule = dict(
 hidden_size = 32
 
 optimizer = "fedlagg"
-task = "conv-c10"
+task = "small-image-mlp-fmst"

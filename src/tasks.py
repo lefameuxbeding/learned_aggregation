@@ -85,7 +85,8 @@ def My_Conv_Imagenet64_32x64x64(batch_size):
 def My_Conv_Cifar10_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=10)
-    datasets = image.cifar10_datasets(batch_size=batch_size)
+    datasets = image.cifar10_datasets(batch_size=batch_size,
+                                      prefetch_batches=50,)
     return _ConvTask(base_model_fn, datasets)
 
 
