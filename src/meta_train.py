@@ -111,13 +111,9 @@ def meta_train(args):
         outer_trainer_state, meta_loss, _ = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=False
         )
-        run.log({args.task + " meta loss": meta_loss})
-        run.log(
-            {
-                "learning rate": meta_opt.__dict__.get(
-                    "schedule_", lambda x: args.learning_rate
-                )(i)
-            }
+        run.log({args.task + " meta loss": meta_loss,
+                 "learning rate": meta_opt.__dict__.get(
+                    "schedule_", lambda x: args.learning_rate)(i)}
         )
 
         if (i + 1) % args.save_iter == 0:  # Checkpoint every 1000th iteration
