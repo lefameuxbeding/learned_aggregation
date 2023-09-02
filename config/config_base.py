@@ -18,6 +18,7 @@ num_outer_steps = 50000
 from_checkpoint = False
 num_devices = 1
 use_pmap = False
+outer_data_split = "Train" 
 
 # meta testing only
 num_runs = 10
