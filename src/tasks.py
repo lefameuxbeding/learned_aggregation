@@ -85,7 +85,7 @@ def My_Conv_Imagenet64_32x64x64(batch_size):
 def My_Conv_Cifar10_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=10)
-    datasets = image.cifar10_datasets(batch_size=batch_size)
+    datasets = image.cifar10_datasets(batch_size=batch_size, prefetch_batches=5)
     return _ConvTask(base_model_fn, datasets)
 
 
@@ -103,7 +103,7 @@ def My_Conv_Cifar10_8_16x32(batch_size):
 @gin.configurable
 def My_ImageMLP_FashionMnist_Relu128x128(batch_size):
     """A 2 hidden layer, 128 hidden unit MLP designed for 28x28 fashion mnist."""
-    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size, prefetch_batches=5)
     return _MLPImageTask(datasets, [128, 128])
 
 

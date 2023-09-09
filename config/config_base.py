@@ -9,12 +9,12 @@ local_learning_rate = 0.5
 local_batch_size = 128
 num_grads = 8
 num_local_steps = 4
-num_inner_steps = 2000
+num_inner_steps = 1000
 learning_rate = 0.0001
 name_suffix = ""
 
 # meta training only
-num_outer_steps = 50000
+num_outer_steps = 5000
 from_checkpoint = False
 num_devices = 1
 use_pmap = False
