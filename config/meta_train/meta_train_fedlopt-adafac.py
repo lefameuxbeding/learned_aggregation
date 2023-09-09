@@ -1,6 +1,6 @@
 _base_ = ["./meta_train_base.py"]
 
-optimizer = "fedlagg-adafac"
+optimizer = "fedlopt-adafac"
 task = "image-mlp-fmst"
 
 schedule = dict(
