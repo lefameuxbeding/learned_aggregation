@@ -4,7 +4,7 @@ module load anaconda/3
 
 conda activate learned_aggregation
 
-python ./src/main.py --config ./config/meta_train/meta_train_fedlopt-adafac.py --num_local_steps 32  --name_suffix z
+python ./src/main.py --config ./config/meta_train/meta_train_fedlagg-adafac.py --num_local_steps 32  --name_suffix z
 
 # test_models_wandb_example.py
 
