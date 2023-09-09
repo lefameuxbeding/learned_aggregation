@@ -3,7 +3,6 @@ import os
 import sys
 
 from jax.lib import xla_bridge
-from jax import config
 
 from benchmark import benchmark, sweep
 from meta_train import meta_train
@@ -57,7 +56,6 @@ if __name__ == "__main__":
     tf.config.experimental.set_visible_devices([], "GPU")
 
     print(xla_bridge.get_backend().platform)
-    config.update("jax_enable_x64", True)
 
     sys.path.append(os.getcwd())
     os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
