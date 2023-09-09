@@ -71,13 +71,14 @@ if __name__ == "__main__":
             cfg._cfg_dict[k] = v
 
     cfg.name = "{}_{}{}".format(cfg.optimizer, cfg.task, cfg.name_suffix)
-    cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}".format(
+    cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}{}".format(
         cfg.optimizer,
         cfg.hidden_size,
         cfg.task,
         cfg.num_grads,
         cfg.num_local_steps,
-        cfg.learning_rate,
+        cfg.local_learning_rate,
+        cfg.name_suffix,
     )
 
     args = argparse.Namespace(**cfg._cfg_dict)
