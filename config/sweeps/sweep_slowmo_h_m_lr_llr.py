@@ -9,13 +9,13 @@ sweep_config = dict(
     metric=dict(name="test loss", goal="minimize"),
     parameters=dict(
         num_local_steps=dict(
-            values=[
-                8,16,
+            num_grads=[
+                16, 32,
             ]
         ),
         slowmo_learning_rate=dict(
             values=[
-                0.5,
+                1,
             ]
         ),
         local_learning_rate=dict(
