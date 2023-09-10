@@ -8,7 +8,7 @@ sweep_config = dict(
     method="grid",
     metric=dict(name="test loss", goal="minimize"),
     parameters=dict(
-        num_local_steps=dict(
+        num_grads=dict(
             num_grads=[
                 16, 32,
             ]
