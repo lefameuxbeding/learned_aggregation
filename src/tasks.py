@@ -199,7 +199,8 @@ def get_task(args, is_test=False):
         batch_size = test_batch_size[args.task]
 
     task = tasks[args.task]
-    if task is list:
+
+    if type(task) is list:
         return [task(batch_size) for task in task]
     else:
         return tasks[args.task](batch_size)
