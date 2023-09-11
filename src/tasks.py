@@ -174,7 +174,7 @@ def get_task(args, is_test=False):
         "fmnist-conv-mlp-mix": [My_Conv_FashionMnist_28_16x32,
                        My_ImageMLP_FashionMnist_Relu64x64,
                        My_ImageMLP_FashionMnist_Relu128x128],
-        "fmnist-mlp-mix": [My_Conv_FashionMnist_28_16x32,
+        "fmnist-mlp-mix": [My_ImageMLP_FashionMnist_Relu32x32,
                        My_ImageMLP_FashionMnist_Relu64x64,
                        My_ImageMLP_FashionMnist_Relu128x128],
         "dataset-mlp-mix": [My_ImageMLP_Imagenet_Relu128x128,
