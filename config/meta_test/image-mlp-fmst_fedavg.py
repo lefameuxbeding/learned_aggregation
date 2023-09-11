@@ -3,7 +3,10 @@ _base_ = ["./meta_test_base.py"]
 
 optimizer = "fedavg"
 task = "image-mlp-fmst"
-num_inner_steps = 5000
+num_inner_steps = 1000
 
-local_learning_rate = 0.1
-num_local_steps = 8
+num_grads = 8
+num_local_steps = 4
+
+# value determined by sweep
+local_learning_rate = 0.5
