@@ -74,10 +74,18 @@ def _fedlagg_meta_trainer(args):
                 truncated_step=truncated_step, trunc_length=50
             )
 
-    task_family = tasks_base.single_task_to_family(get_task(args))
-    gradient_estimators = [
-        grad_est_fn(task_family),
-    ]
+    tasks = get_task(args)
+
+    if type(tasks) is list:
+        task_family = tasks_base.TaskFamily(tasks)
+        gradient_estimators = [
+            grad_est_fn(tasks_base.TaskFamily(task_family)) for task in tasks
+        ]
+    else:
+        task_family = tasks_base.single_task_to_family(tasks)
+        gradient_estimators = [
+            grad_est_fn(task_family),
+        ]
 
     meta_trainer = gradient_learner.SingleMachineGradientLearner(
         lagg, gradient_estimators, meta_opt
