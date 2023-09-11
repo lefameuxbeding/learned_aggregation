@@ -77,9 +77,8 @@ def _fedlagg_meta_trainer(args):
     tasks = get_task(args)
 
     if type(tasks) is list:
-        task_family = tasks_base.TaskFamily(tasks)
         gradient_estimators = [
-            grad_est_fn(tasks_base.TaskFamily(task_family)) for task in tasks
+            grad_est_fn(tasks_base.single_task_to_family(task)) for task in tasks
         ]
     else:
         task_family = tasks_base.single_task_to_family(tasks)
