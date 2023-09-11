@@ -8,6 +8,8 @@ usefull_commands.txt
 script_new_install.sh
 benchmark_*.sh
 run_sweeps_gpu*.sh
+job.sh
+setup.sh
 train_models.py
 
 run_*
