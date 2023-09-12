@@ -64,7 +64,15 @@ for i, run in enumerate(runs):
     except KeyError:
         continue
 
-    if run.config["name_suffix"] == "z" and (run.config["optimizer"] == "fedlopt-adafac" or run.config["optimizer"] == "fedlagg-adafac") and run.config["num_grads"] == 16 and run.config["num_local_steps"] == 4:
+    if (
+        run.config["name_suffix"] == "z"
+        and (
+            run.config["optimizer"] == "fedlopt-adafac"
+            or run.config["optimizer"] == "fedlagg-adafac"
+        )
+        and run.config["num_grads"] == 16
+        and run.config["num_local_steps"] == 4
+    ):
         # print(run.created_at)
         # run_date = parse_date(run.created_at)
         # if run_date > compare_date and run.config['optimizer'] in list(config_map.keys()):
@@ -93,7 +101,13 @@ for i, run in enumerate(runs):
         command = (
             cmd_prefix
             + "python src/main.py --config {} --name_suffix {} --local_learning_rate {} --num_grads {} --num_local_steps {} --test_checkpoint {} --task {}".format(
-                config_map[opt], "_5K_iters_on_{}".format(task), llr, k, h, ckpt_name, task
+                config_map[opt],
+                "_5K_iters_on_{}".format(task),
+                llr,
+                k,
+                h,
+                ckpt_name,
+                task,
             )
         )
 
