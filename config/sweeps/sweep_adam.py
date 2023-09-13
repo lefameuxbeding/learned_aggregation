@@ -1,14 +1,19 @@
 _base_ = ["./sweeps_base.py"]
 
-optimizer = "fedavg-slowmo"
+optimizer = "adam"
 task = "conv-c10"
 num_inner_steps = 1000
+
+num_grads = 8
 
 sweep_config = dict(
     method="grid",
     metric=dict(name="test loss", goal="minimize"),
     parameters=dict(
-        local_learning_rate=dict(
+        num_local_steps=dict(
+            values=[4, 8, 16, 32,]
+        ),
+        learning_rate=dict(
             values=[
                 0.5,
                 0.1,

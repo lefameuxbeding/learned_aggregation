@@ -9,4 +9,4 @@ num_grads = 8
 num_local_steps = 4
 
 # value determined by sweep
-local_learning_rate = 0.5
+local_learning_rate = 0.3
