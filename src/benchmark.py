@@ -18,7 +18,7 @@ def benchmark(args):
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(
-            project="learned_aggregation_meta_test", group=args.name, config=vars(args)
+            project=args.test_project, group=args.name, config=vars(args)
         )
 
         key, key1 = jax.random.split(key)

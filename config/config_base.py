@@ -23,7 +23,7 @@ outer_data_split = "Train"
 # meta testing only
 num_runs = 10
 wandb_checkpoint_id = None
-
+test_project = "learned_aggregation_meta_test"
 # for slowmo
 beta = 0.99
 
