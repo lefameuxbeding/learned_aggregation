@@ -60,16 +60,6 @@ def My_Conv_Food101_32x64x64(batch_size):
     datasets = image.food101_datasets(batch_size=batch_size)
     return _ConvTask(base_model_fn, datasets)
 
-
-
-@gin.configurable
-def My_Conv_Imagenet32_32x64x64(batch_size):
-    """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=101)
-    datasets = image.imagenet32_datasets(batch_size=batch_size)
-    return _ConvTask(base_model_fn, datasets)
-
-
 @gin.configurable
 def My_Conv_Imagenet_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
@@ -173,7 +163,6 @@ def get_task(args, is_test=False):
         "small-conv-c10": My_Conv_Cifar10_8_16x32,
         "conv-imagenet64": My_Conv_Imagenet64_32x64x64,
         "conv-imagenet": My_Conv_Imagenet_32x64x64,
-        "conv-imagenet32": My_Conv_Imagenet32_32x64x64,
         "image-mlp-imagenet32-128x128": My_ImageMLP_Imagenet_Relu128x128,
         "fmnist-conv-mlp-mix": [My_Conv_FashionMnist_28_16x32,
                        My_ImageMLP_FashionMnist_Relu64x64,
