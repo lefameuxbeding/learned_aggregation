@@ -14,4 +14,4 @@ hidden_size = 32
 optimizer = "fedlagg-adafac"
 task = "small-image-mlp-fmst"
 
-outer_data_split = "outer_valid" 
+outer_data_split = "outer_valid"

@@ -11,7 +11,12 @@ sweep_config = dict(
     metric=dict(name="test loss", goal="minimize"),
     parameters=dict(
         num_local_steps=dict(
-            values=[4, 8, 16, 32,]
+            values=[
+                4,
+                8,
+                16,
+                32,
+            ]
         ),
         learning_rate=dict(
             values=[

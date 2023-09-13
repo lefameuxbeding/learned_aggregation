@@ -8,7 +8,7 @@ schedule = dict(
     decay_steps=4900,
     exponent=1.0,
 )
-learning_rate=3e-3
+learning_rate = 3e-3
 num_outer_steps = 5000
 task = "conv-c10"
 optimizer = "fedlagg-adafac"

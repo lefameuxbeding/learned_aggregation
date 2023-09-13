@@ -75,19 +75,19 @@ def download_wandb_checkpoint(cfg):
     api = wandb.Api()
     run = api.run(cfg.wandb_checkpoint_id)
 
-    ckpts = [x for x in run.files() if 'global_step' in x.name]
+    ckpts = [x for x in run.files() if "global_step" in x.name]
     if len(ckpts) > 1:
         print(ckpts)
-        
-    assert len(ckpts) <= 1, "multiple checkpoints exist can't determine which one to use"
-    
+
+    assert (
+        len(ckpts) <= 1
+    ), "multiple checkpoints exist can't determine which one to use"
+
     if len(ckpts) == 0:
         return None
-    
-    ckpts[0].download('/tmp',replace=True)
-    return osp.join('/tmp',ckpts[0].name)
 
-
+    ckpts[0].download("/tmp", replace=True)
+    return osp.join("/tmp", ckpts[0].name)
 
 
 if __name__ == "__main__":
