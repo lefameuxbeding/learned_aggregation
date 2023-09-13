@@ -18,7 +18,7 @@ def benchmark(args):
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(
-            project="learned_aggregation_meta_test", group=args.name, config=vars(args)
+            project=args.test_project, group=args.name, config=vars(args)
         )
 
         key, key1 = jax.random.split(key)
@@ -36,7 +36,7 @@ def benchmark(args):
             test_batch = next(test_task.datasets.test)
             test_loss = test_task.loss(params, key1, test_batch)
 
-            run.log({"train loss": loss, "test loss": test_loss})
+            run.log({"train loss": loss, "test loss": test_loss,})
 
         run.finish()
 

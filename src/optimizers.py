@@ -41,6 +41,18 @@ class AdamWLinearCosine(OptaxOptimizer):
         super().__init__(opt)
 
 
+@gin.configurable
+class AdamW(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        learning_rate,
+    ):
+        opt = optax.adamw(learning_rate)
+        super().__init__(opt)
+
+
 def _adam(args):
     opt = opt_base.Adam(args.learning_rate)
 
