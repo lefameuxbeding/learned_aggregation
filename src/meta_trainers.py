@@ -12,7 +12,7 @@ from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
 
 import optax
-from optimizers import AdamWLinearCosine
+from optimizers import AdamWLinearCosine, AdamW
 
 
 def _fedlagg_meta_trainer(args):
@@ -40,7 +40,11 @@ def _fedlagg_meta_trainer(args):
 
     if args.schedule != {}:
         print("Using learning rate scheduler")
-        meta_opt = AdamWLinearCosine(**args.schedule)
+        if args.schedule.get("use_adamw",False):
+            del args.schedule["use_adamw"]
+            meta_opt = AdamW(**args.schedule)
+        else:
+            meta_opt = AdamWLinearCosine(**args.schedule)
     else:
         meta_opt = opt_base.Adam(args.learning_rate)
 
@@ -56,6 +60,7 @@ def _fedlagg_meta_trainer(args):
             random_initial_iteration_offset=args.num_inner_steps,
             local_learning_rate=args.local_learning_rate,
             num_local_steps=args.num_local_steps,
+            outer_data_split=args.outer_data_split,
         )
 
         if args.use_pmap:
@@ -69,10 +74,17 @@ def _fedlagg_meta_trainer(args):
                 truncated_step=truncated_step, trunc_length=50
             )
 
-    task_family = tasks_base.single_task_to_family(get_task(args))
-    gradient_estimators = [
-        grad_est_fn(task_family),
-    ]
+    tasks = get_task(args)
+
+    if type(tasks) is list:
+        gradient_estimators = [
+            grad_est_fn(tasks_base.single_task_to_family(task)) for task in tasks
+        ]
+    else:
+        task_family = tasks_base.single_task_to_family(tasks)
+        gradient_estimators = [
+            grad_est_fn(task_family),
+        ]
 
     meta_trainer = gradient_learner.SingleMachineGradientLearner(
         lagg, gradient_estimators, meta_opt
