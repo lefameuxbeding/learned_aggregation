@@ -165,12 +165,16 @@ def My_ImageMLP_FashionMnist8_Relu32(batch_size):
 def get_task(args, is_test=False):
     tasks = {
         "image-mlp-fmst": My_ImageMLP_FashionMnist_Relu128x128,
+        "image-mlp-fmst64x64": My_ImageMLP_FashionMnist_Relu64x64,
+        "image-mlp-fmst32x32": My_ImageMLP_FashionMnist_Relu32x32,
         "small-image-mlp-fmst": My_ImageMLP_FashionMnist8_Relu32,
+        "image-mlp-c10-128x128": My_ImageMLP_Cifar10_Relu128x128,
         "conv-c10": My_Conv_Cifar10_32x64x64,
         "small-conv-c10": My_Conv_Cifar10_8_16x32,
         "conv-imagenet64": My_Conv_Imagenet64_32x64x64,
         "conv-imagenet": My_Conv_Imagenet_32x64x64,
         "conv-imagenet32": My_Conv_Imagenet32_32x64x64,
+        "image-mlp-imagenet32-128x128": My_ImageMLP_Imagenet_Relu128x128,
         "fmnist-conv-mlp-mix": [My_Conv_FashionMnist_28_16x32,
                        My_ImageMLP_FashionMnist_Relu64x64,
                        My_ImageMLP_FashionMnist_Relu128x128],
@@ -183,7 +187,11 @@ def get_task(args, is_test=False):
     }
 
     test_batch_size = {
+        "image-mlp-imagenet32-128x128":10000,
+        "image-mlp-c10-128x128": 10000,
         "image-mlp-fmst": 10000,
+        "image-mlp-fmst64x64": 10000,
+        "image-mlp-fmst32x32": 10000,
         "small-image-mlp-fmst": 10000,
         "conv-c10": 10000,
         "small-conv-c10": 10000,

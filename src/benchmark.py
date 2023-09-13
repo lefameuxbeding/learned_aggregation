@@ -13,6 +13,7 @@ def benchmark(args):
 
     task = get_task(args)
     test_task = get_task(args, is_test=True)
+    ov_task = get_task(args, is_test=True)
 
     opt, update = get_optimizer(args)
 
@@ -36,7 +37,16 @@ def benchmark(args):
             test_batch = next(test_task.datasets.test)
             test_loss = test_task.loss(params, key1, test_batch)
 
-            run.log({"train loss": loss, "test loss": test_loss})
+            # import time 
+            # time.sleep(1)
+
+            # ov_batch = next(ov_task.datasets.outer_valid)
+            # ov_loss = ov_task.loss(params, key1, ov_batch)
+
+            run.log({"train loss": loss, 
+                     "test loss": test_loss,
+                    #  "outer valid loss": ov_loss
+                     })
 
         run.finish()
 

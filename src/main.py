@@ -20,7 +20,9 @@ def parse_args():
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
     parser.add_argument("--optimizer", type=str, choices=["adam", "fedavg", "fedavg-slowmo", "fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"])
-    parser.add_argument("--task", type=str, choices=["image-mlp-fmst", 
+    parser.add_argument("--task", type=str, choices=["image-mlp-fmst",
+                                                     "image-mlp-fmst64x64",
+                                                     "image-mlp-fmst32x32", 
                                                      "small-image-mlp-fmst", 
                                                      "conv-c10", 
                                                      "small-conv-c10", 
@@ -29,7 +31,9 @@ def parse_args():
                                                      'conv-imagenet32',
                                                      'fmnist-conv-mlp-mix',
                                                      'fmnist-mlp-mix',
-                                                     'dataset-mlp-mix',])
+                                                     'dataset-mlp-mix',
+                                                     'image-mlp-imagenet32-128x128',
+                                                     'image-mlp-c10-128x128'])
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
     parser.add_argument("--learning_rate", type=float)
