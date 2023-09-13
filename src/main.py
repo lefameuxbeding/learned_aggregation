@@ -46,7 +46,7 @@ def parse_args():
                                                     "conv-imagenet8",
                                                      'image-mlp-c10-128x128',
                                                      'mlp128x128_imagenet_64', 'conv_imagenet_32', 
-                                                     'mlp128x128_imagenet_32', 'mlp128x128x128_imagenet_32', 
+                                                     'mlp128x128_imagenet_32', 'mlp128x128x128_imagenet_32', 'mlp64x64_imagenet_64',
 'small_conv_imagenet_8', 'mlp32_imagenet_8', 'mlp32x32_imagenet_8','mlp128x128_c10_64', 
 'conv_c10_32', 'mlp128x128_c10_32', 'mlp128x128x128_c10_32', 'small_conv_c10_8', 'mlp32_c10_8', 'mlp32x32_c10_8',
 'mlp128x128_fmnist_64', 'conv_fmnist_32', 'mlp128x128_fmnist_32', 'mlp128x128x128_fmnist_32', 'small_conv_fmnist_8', 
