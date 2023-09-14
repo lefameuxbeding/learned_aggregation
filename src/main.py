@@ -27,30 +27,7 @@ def parse_args():
                                                           "fedlagg", 
                                                           "fedlagg-wavg", 
                                                           "fedlagg-adafac"])
-    parser.add_argument("--task", type=str, choices=["image-mlp-fmst",
-                                                     "image-mlp-fmst64x64",
-                                                     "image-mlp-fmst32x32", 
-                                                     "small-image-mlp-fmst", 
-                                                     "conv-c10", 
-                                                     "small-conv-c10", 
-                                                     'conv-imagenet', 
-                                                     'conv-imagenet64',
-                                                     'conv-imagenet32',
-                                                     'fmnist-conv-mlp-mix',
-                                                     'fmnist-mlp-mix',
-                                                     'dataset-mlp-mix',
-                                                     'image-mlp-imagenet32-128x128',
-                                                    "small-conv-imagenet32",
-                                                    "conv-imagenet32",
-                                                    "small-conv-imagenet8",
-                                                    "conv-imagenet8",
-                                                     'image-mlp-c10-128x128',
-                                                     'mlp128x128_imagenet_64', 'conv_imagenet_32', 
-                                                     'mlp128x128_imagenet_32', 'mlp128x128x128_imagenet_32', 'mlp64x64_imagenet_64',
-'small_conv_imagenet_8', 'mlp32_imagenet_8', 'mlp32x32_imagenet_8','mlp128x128_c10_64', 
-'conv_c10_32', 'mlp128x128_c10_32', 'mlp128x128x128_c10_32', 'small_conv_c10_8', 'mlp32_c10_8', 'mlp32x32_c10_8',
-'mlp128x128_fmnist_64', 'conv_fmnist_32', 'mlp128x128_fmnist_32', 'mlp128x128x128_fmnist_32', 'small_conv_fmnist_8', 
-'mlp32_fmnist_8', 'mlp32x32_fmnist_8'])
+    parser.add_argument("--task", type=str)
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
     parser.add_argument("--learning_rate", type=float)
