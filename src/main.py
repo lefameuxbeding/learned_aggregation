@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument("--name_suffix", type=str)
     parser.add_argument("--slowmo_learning_rate", type=float)
     parser.add_argument("--wandb_checkpoint_id", type=str)
-    parser.add_argument("--outer_data_split", type=str)
+    parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
     # fmt: on
 

@@ -34,6 +34,7 @@ def imagenet_datasets(
 def imagenet_64_datasets(
     batch_size: int,
     image_size: Tuple[int, int] = (64, 64),
+    prefetch_batches=50,
     **kwargs,
 ) -> base.Datasets:
     splits = ("train", "validation", "validation", "validation")
@@ -43,7 +44,7 @@ def imagenet_64_datasets(
         batch_size=batch_size,
         image_size=image_size,
         stack_channels=1,
-        prefetch_batches=50,
+        prefetch_batches=prefetch_batches,
         shuffle_buffer_size=10000,
         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
@@ -218,11 +219,30 @@ def mlp32x32_c10_8(batch_size):
 # Imagenet
 ###
 @gin.configurable
+def conv32x32_imagenet_64(batch_size):
+    """A 3 hidden layer convnet designed for 32x32 cifar10."""
+    base_model_fn = _cross_entropy_pool_loss([32, 32], jax.nn.relu, num_classes=10)
+    datasets = imagenet_64_datasets(batch_size=batch_size,
+                                    image_size=(64, 64),
+                                    prefetch_batches=200)
+    return _ConvTask(base_model_fn, datasets)
+
+@gin.configurable
+def mlp128x128x128_imagenet_48(batch_size):
+    """A 3 hidden layer convnet designed for 32x32 cifar10."""
+    datasets = imagenet_64_datasets(batch_size=batch_size,
+                                    image_size=(48, 48),
+                                    prefetch_batches=800)
+    return _MLPImageTask(datasets,[128,128,128])
+
+@gin.configurable
 def mlp128x128_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(64, 64),)
+                                    image_size=(64, 64),
+                                    prefetch_batches=200)
     return _MLPImageTask(datasets,[128,128])
+
 @gin.configurable
 def mlp64x64_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
@@ -287,6 +307,8 @@ def get_task(args, is_test=False):
 
 
         #inet
+        'mlp128x128x128_imagenet_48':mlp128x128x128_imagenet_48,
+        'conv32x32_imagenet_64':conv32x32_imagenet_64,
         'mlp128x128_imagenet_64':mlp128x128_imagenet_64, 
         'mlp64x64_imagenet_64':mlp64x64_imagenet_64, 
         'conv_imagenet_32':conv_imagenet_32,

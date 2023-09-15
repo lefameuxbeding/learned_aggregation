@@ -60,7 +60,7 @@ def _fedlagg_meta_trainer(args):
             random_initial_iteration_offset=args.num_inner_steps,
             local_learning_rate=args.local_learning_rate,
             num_local_steps=args.num_local_steps,
-            outer_data_split=args.outer_data_split,
+            meta_loss_split=args.meta_loss_split,
         )
 
         if args.use_pmap:
