@@ -5,13 +5,13 @@ schedule = dict(
     peak_value=3e-3,
     end_value=1e-3,
     warmup_steps=100,
-    decay_steps=4900,
+    decay_steps=9900,
     exponent=1.0,
 )
 learning_rate=3e-3
-num_outer_steps = 5000
+num_outer_steps = 10000
 task = "image-mlp-fmst"
 optimizer = "fedlagg-adafac"
-name_suffix = "_H4_3e-3_5000_d3:1_valid"
-meta_loss_split = "outer_valid" 
-num_local_steps = 4
+name_suffix = "_3e-3_10000_d3:1"
+
+num_local_steps = 16
