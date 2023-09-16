@@ -19,21 +19,15 @@ def parse_args():
     # fmt: off
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
-    parser.add_argument("--optimizer", type=str, choices=["adam", "fedavg", "fedavg-slowmo", "fedlopt", "fedlopt-adafac", "fedlagg", "fedlagg-wavg", "fedlagg-adafac"])
-    parser.add_argument("--task", type=str, choices=["image-mlp-fmst",
-                                                     "image-mlp-fmst64x64",
-                                                     "image-mlp-fmst32x32", 
-                                                     "small-image-mlp-fmst", 
-                                                     "conv-c10", 
-                                                     "small-conv-c10", 
-                                                     'conv-imagenet', 
-                                                     'conv-imagenet64',
-                                                     'conv-imagenet32',
-                                                     'fmnist-conv-mlp-mix',
-                                                     'fmnist-mlp-mix',
-                                                     'dataset-mlp-mix',
-                                                     'image-mlp-imagenet32-128x128',
-                                                     'image-mlp-c10-128x128'])
+    parser.add_argument("--optimizer", type=str, choices=["adam", 
+                                                          "fedavg", 
+                                                          "fedavg-slowmo", 
+                                                          "fedlopt", 
+                                                          "fedlopt-adafac", 
+                                                          "fedlagg", 
+                                                          "fedlagg-wavg", 
+                                                          "fedlagg-adafac"])
+    parser.add_argument("--task", type=str)
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
     parser.add_argument("--learning_rate", type=float)
@@ -54,7 +48,7 @@ def parse_args():
     parser.add_argument("--name_suffix", type=str)
     parser.add_argument("--slowmo_learning_rate", type=float)
     parser.add_argument("--wandb_checkpoint_id", type=str)
-    parser.add_argument("--outer_data_split", type=str)
+    parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
     # fmt: on
 
