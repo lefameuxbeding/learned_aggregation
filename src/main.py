@@ -19,7 +19,8 @@ def parse_args():
     # fmt: off
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
-    parser.add_argument("--optimizer", type=str, choices=["adam", 
+    parser.add_argument("--optimizer", type=str, choices=["sgd,"
+                                                          "adam", 
                                                           "fedavg", 
                                                           "fedavg-slowmo", 
                                                           "fedlopt", 
@@ -69,19 +70,19 @@ def download_wandb_checkpoint(cfg):
     api = wandb.Api()
     run = api.run(cfg.wandb_checkpoint_id)
 
-    ckpts = [x for x in run.files() if 'global_step' in x.name]
+    ckpts = [x for x in run.files() if "global_step" in x.name]
     if len(ckpts) > 1:
         print(ckpts)
-        
-    assert len(ckpts) <= 1, "multiple checkpoints exist can't determine which one to use"
-    
+
+    assert (
+        len(ckpts) <= 1
+    ), "multiple checkpoints exist can't determine which one to use"
+
     if len(ckpts) == 0:
         return None
-    
-    ckpts[0].download('/tmp',replace=True)
-    return osp.join('/tmp',ckpts[0].name)
 
-
+    ckpts[0].download("/tmp", replace=True)
+    return osp.join("/tmp", ckpts[0].name)
 
 
 if __name__ == "__main__":
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    os.environ["TFDS_DATA_DIR"] = "/network/scratch/b/benjamin.therien/data/tensorflow_datasets" # os.getenv("SLURM_TMPDIR")
     os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     args = parse_args()
@@ -109,8 +110,8 @@ if __name__ == "__main__":
         cfg.task,
         cfg.num_grads,
         cfg.num_local_steps,
-        cfg.learning_rate,
-        cfg.name_suffix
+        cfg.local_learning_rate,
+        cfg.name_suffix,
     )
 
     if cfg.wandb_checkpoint_id is not None:

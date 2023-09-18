@@ -15,6 +15,7 @@ from tasks import get_task
 import gin
 import optax
 
+
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
     """Adam with a piecewise linear learning rate schedule."""
@@ -50,6 +51,21 @@ class AdamW(OptaxOptimizer):
     ):
         opt = optax.adamw(learning_rate)
         super().__init__(opt)
+
+
+def _sgd(args):
+    opt = optax_opts.SGD(learning_rate=args.learning_rate)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
+
+        return opt.update(opt_state, grad, loss=loss), loss
+
+    return opt, update
 
 
 def _adam(args):
@@ -294,6 +310,7 @@ def _fedavg_slowmo(args):
 def get_optimizer(args):
     optimizers = {
         "adam": _adam,
+        "sgd": _sgd,
         "fedavg": _fedavg,
         "fedavg-slowmo": _fedavg_slowmo,
         "fedlopt": _fedlagg,
