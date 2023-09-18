@@ -152,6 +152,16 @@ def mlp128x128_fmnist_32(batch_size):
     return _MLPImageTask(datasets,[128,128])
 
 @gin.configurable
+def mlp64x64_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    return _MLPImageTask(datasets,[64,64])
+
+@gin.configurable
+def mlp32x32_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    return _MLPImageTask(datasets,[32,32])
+
+@gin.configurable
 def mlp128x128x128_fmnist_32(batch_size):
     datasets = idatasets = image.fashion_mnist_datasets(batch_size=batch_size)
     return _MLPImageTask(datasets,[128,128,128])
@@ -188,8 +198,22 @@ def conv_c10_32(batch_size):
 def mlp128x128_c10_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,)
+                                      prefetch_batches=500,)
     return _MLPImageTask(datasets,[128,128])
+
+@gin.configurable
+def mlp64x64_c10_32(batch_size):
+    """A 3 hidden layer convnet designed for 32x32 cifar10."""
+    datasets = image.cifar10_datasets(batch_size=batch_size,
+                                      prefetch_batches=500,)
+    return _MLPImageTask(datasets,[64,64])
+
+@gin.configurable
+def mlp32x32_c10_32(batch_size):
+    """A 3 hidden layer convnet designed for 32x32 cifar10."""
+    datasets = image.cifar10_datasets(batch_size=batch_size,
+                                      prefetch_batches=500,)
+    return _MLPImageTask(datasets,[32,32])
 
 @gin.configurable
 def mlp128x128x128_c10_32(batch_size):
@@ -327,6 +351,8 @@ def get_task(args, is_test=False):
         #c10
         'conv_c10_32':conv_c10_32, 
         'mlp128x128_c10_32':mlp128x128_c10_32,
+        'mlp64x64_c10_32':mlp64x64_c10_32,
+        'mlp32x32_c10_32':mlp32x32_c10_32,
         'mlp128x128x128_c10_32':mlp128x128x128_c10_32,
         'small_conv_c10_8':small_conv_c10_8,
         'mlp32_c10_8':mlp32_c10_8,
@@ -335,6 +361,8 @@ def get_task(args, is_test=False):
         #fmst
         'conv_fmnist_32':conv_fmnist_32,
         'mlp128x128_fmnist_32':mlp128x128_fmnist_32,
+        'mlp64x64_fmnist_32':mlp64x64_fmnist_32,
+        'mlp32x32_fmnist_32':mlp32x32_fmnist_32,
         'mlp128x128x128_fmnist_32':mlp128x128x128_fmnist_32,
         'small_conv_fmnist_8':small_conv_fmnist_8,
         'mlp32_fmnist_8':mlp32_fmnist_8,
@@ -344,12 +372,23 @@ def get_task(args, is_test=False):
         "fmnist-conv-mlp-mix": [My_Conv_FashionMnist_28_16x32,
                        My_ImageMLP_FashionMnist_Relu64x64,
                        My_ImageMLP_FashionMnist_Relu128x128],
-        "fmnist-mlp-mix": [My_ImageMLP_FashionMnist_Relu32x32,
-                       My_ImageMLP_FashionMnist_Relu64x64,
-                       My_ImageMLP_FashionMnist_Relu128x128],
+        "fmnist-mlp-mix": [mlp128x128_fmnist_32,
+                           mlp64x64_fmnist_32,
+                           mlp32x32_fmnist_32],
         "dataset-mlp-mix": [My_ImageMLP_Imagenet_Relu128x128,
                             My_ImageMLP_Cifar10_Relu128x128,
                             My_ImageMLP_FashionMnist_Relu128x128],
+
+        #cifar-fmnist-all
+        "cifar-fmnist-all":[mlp128x128_fmnist_32,
+                            mlp64x64_fmnist_32,
+                            mlp32x32_fmnist_32,
+                            mlp128x128_c10_32,
+                            mlp64x64_c10_32,
+                            mlp32x32_c10_32],
+
+        "cifar-fmnist-128x128":[mlp128x128_fmnist_32,
+                                mlp128x128_c10_32,],
     }
 
     test_batch_size = {
@@ -370,6 +409,8 @@ def get_task(args, is_test=False):
         "fmnist-conv-mlp-mix": 10000,
         "fmnist-mlp-mix": 10000,
         "dataset-mlp-mix": 10000,
+        "cifar-fmnist-128x128": 10000,
+        "cifar-fmnist-all": 10000,
     }
     test_batch_size.update({k:10000 for k in tasks.keys() if ('_c10' in k or 'imagenet' in k or '_fmnist' in k) })
     batch_size = args.num_grads * args.num_local_steps * args.local_batch_size
