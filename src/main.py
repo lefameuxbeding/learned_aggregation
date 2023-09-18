@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument("--wandb_checkpoint_id", type=str)
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
-    parser.add_argument("--tfds_data_dir", type=str, default=os.getenv("SLURM_TMPDIR"))
+    parser.add_argument("--tfds_data_dir", type=str, default="/network/scratch/b/benjamin.therien/data/tensorflow_datasets") # os.getenv("SLURM_TMPDIR")
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     # fmt: on
 
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    os.environ["TFDS_DATA_DIR"] =  args.tfds_data_dir
     os.environ["WANDB_DIR"] = args.wandb_dir
 
     cfg = Config.fromfile(args.config)
