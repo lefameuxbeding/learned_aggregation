@@ -53,6 +53,21 @@ class AdamW(OptaxOptimizer):
         super().__init__(opt)
 
 
+def _sgd(args):
+    opt = optax_opts.SGD(learning_rate=args.learning_rate)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
+
+        return opt.update(opt_state, grad, loss=loss), loss
+
+    return opt, update
+
+
 def _adam(args):
     opt = opt_base.Adam(args.learning_rate)
 
@@ -295,6 +310,7 @@ def _fedavg_slowmo(args):
 def get_optimizer(args):
     optimizers = {
         "adam": _adam,
+        "sgd": _sgd,
         "fedavg": _fedavg,
         "fedavg-slowmo": _fedavg_slowmo,
         "fedlopt": _fedlagg,

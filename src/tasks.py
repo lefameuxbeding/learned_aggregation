@@ -238,7 +238,7 @@ def mlp128x128x128_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     datasets = imagenet_64_datasets(batch_size=batch_size,
                                     image_size=(64, 64),
-                                    prefetch_batches=1000)
+                                    prefetch_batches=1)
     return _MLPImageTask(datasets,[128,128,128])
 
 @gin.configurable
@@ -246,7 +246,7 @@ def mlp128x128_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     datasets = imagenet_64_datasets(batch_size=batch_size,
                                     image_size=(64, 64),
-                                    prefetch_batches=200)
+                                    prefetch_batches=5)
     return _MLPImageTask(datasets,[128,128])
 
 @gin.configurable

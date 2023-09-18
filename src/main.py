@@ -19,7 +19,8 @@ def parse_args():
     # fmt: off
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
-    parser.add_argument("--optimizer", type=str, choices=["adam", 
+    parser.add_argument("--optimizer", type=str, choices=["sgd,"
+                                                          "adam", 
                                                           "fedavg", 
                                                           "fedavg-slowmo", 
                                                           "fedlopt", 
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    os.environ["TFDS_DATA_DIR"] = "/network/scratch/b/benjamin.therien/data/tensorflow_datasets" # os.getenv("SLURM_TMPDIR")
     os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
 
     args = parse_args()
