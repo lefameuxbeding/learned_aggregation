@@ -1,19 +1,16 @@
 .vscode
-slurm-*
 __pycache__
-models
-*.pickle
+slurm-*
 checkpoints
-*.ckpt
-wandb/*
+wandb
 
-script_new_install.sh
 usefull_commands.txt
+script_new_install.sh
 benchmark_*.sh
-
+run_sweeps_gpu*.sh
 job.sh
 setup.sh
-
+train_models.py
 
 run_*
 eval_*

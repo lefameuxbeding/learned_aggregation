@@ -40,7 +40,7 @@ def _fedlagg_meta_trainer(args):
 
     if args.schedule != {}:
         print("Using learning rate scheduler")
-        if args.schedule.get("use_adamw",False):
+        if args.schedule.get("use_adamw", False):
             del args.schedule["use_adamw"]
             meta_opt = AdamW(**args.schedule)
         else:
