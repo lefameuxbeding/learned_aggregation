@@ -49,7 +49,7 @@ def imagenet_64_datasets(
         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
         convert_to_black_and_white=False,
-        cache=True,
+        # cache=True,
         **kwargs,
     )
 
