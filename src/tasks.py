@@ -6,6 +6,8 @@ from learned_optimization.tasks.datasets import base
 from learned_optimization.tasks.fixed.conv import _ConvTask, _cross_entropy_pool_loss
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask
 from learned_optimization.tasks.fixed.transformer_lm import _TransformerTask
+from learned_optimization.tasks.fixed.vit import VisionTransformerTask, wide16_config
+from learned_optimization.tasks.fixed.vit_test import VITTest
 
 @base.dataset_lru_cache
 @gin.configurable
@@ -321,25 +323,45 @@ def mlp32x32_imagenet_8(batch_size):
     return _MLPImageTask(datasets,[32,32])
 
 
+def tall16_imagenet_64(batch_size):
+    model = wide16_config()
+    datasets = imagenet_64_datasets(batch_size=batch_size,
+                                    image_size=(32, 32),
+                                    prefetch_batches=500)
+    return VisionTransformerTask(model, datasets)
 
 
+#C100
+
+@gin.configurable
+def mlp128x128x128_c100_32(batch_size):
+    """A 3 hidden layer convnet designed for 32x32 cifar10."""
+    datasets = image.cifar100_datasets(batch_size=batch_size,
+                                    #    prefetch_batches=10,
+                                       )
+    return _MLPImageTask(datasets,[128,128,128])
+    
 # LM 
 def transformer32_lm(batch_size):
     _d_model = 32
     _cfg = {
-        'num_heads': 8,
+        'num_heads': 1,
         'd_model': _d_model,
-        'num_layers': 5,
+        'num_layers': 1,
         'batch_size': batch_size,
-        'sequence_length': 128,
+        'sequence_length': 16,
         'dropout_rate': 0.1
     }
     _task_name = 'TransformerLM_LM1B_5layer_%dwidth' % _d_model
     return _TransformerTask( _cfg, name=_task_name)
 
+
 def get_task(args, is_test=False):
 
     tasks = {
+        "mlp128x128x128_c100_32":mlp128x128x128_c100_32,
+        # "VIT_Cifar100_wideshallow": VITTest.test_tasks("VIT_Cifar100_wideshallow"),
+        "tall16_imagenet_64": tall16_imagenet_64,
         # LM
         "transformer32_lm": transformer32_lm,
 
