@@ -18,6 +18,7 @@ num_outer_steps = 5000
 from_checkpoint = False
 num_devices = 1
 use_pmap = False
+auto_resume = False
 meta_loss_split = None
 
 # meta testing only
