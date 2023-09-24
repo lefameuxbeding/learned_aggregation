@@ -140,9 +140,10 @@ def meta_train(args):
         )
     elif args.auto_resume:
         ckpt = get_resume_ckpt("checkpoints",args.meta_train_name)
-        outer_trainer_state = checkpoints.load_state(
-            "{}.ckpt".format(ckpt), outer_trainer_state
-        )
+        if ckpt is not None:
+            outer_trainer_state = checkpoints.load_state(
+                "{}.ckpt".format(ckpt), outer_trainer_state
+            )
 
     run = wandb.init(
         project="learned_aggregation_meta_train",
