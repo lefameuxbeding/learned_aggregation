@@ -51,6 +51,7 @@ def parse_args():
     parser.add_argument("--wandb_checkpoint_id", type=str)
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
+    parser.add_argument("--auto_resume", action="store_true")
     # fmt: on
 
     return parser.parse_args()
