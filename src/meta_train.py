@@ -86,44 +86,54 @@ def save_checkpoint(
     return pickle_filename
 
 
-def get_ckpt_dirs(ckpt_dir,meta_train_name):
+def get_ckpt_dirs(ckpt_dir, meta_train_name):
     a = os.listdir(ckpt_dir)
     keep = []
     for x in a:
-        if osp.isdir(osp.join(ckpt_dir,x)) and x[8:] == meta_train_name:
+        if osp.isdir(osp.join(ckpt_dir, x)) and x[8:] == meta_train_name:
             keep.append(x)
     return keep
 
-def get_ckpt_to_load(ckpt_dir,dirs):
+
+def get_ckpt_to_load(ckpt_dir, dirs):
     def nat_sort(l):
         convert = lambda text: int(text) if text.isdigit() else text.lower()
         alphanum_key = lambda key: [convert(c) for c in re.split("([0-9]+)", key[1])]
         return sorted(l, key=alphanum_key)
-    
+
     sortable = []
     for x in dirs:
         if osp.isfile(osp.join(ckpt_dir, x, "latest")):
             ckpt = open(osp.join(ckpt_dir, x, "latest"), "r").readline().strip()
-            sortable.append((osp.join(ckpt_dir, x, ckpt),ckpt,))
+            sortable.append(
+                (
+                    osp.join(ckpt_dir, x, ckpt),
+                    ckpt,
+                )
+            )
     sortable = nat_sort(sortable)
-    
+
     keep = []
     for x in sortable:
         if x[1] == sortable[-1][1]:
             keep.append(x)
     if len(keep) > 1:
-        print("[Warning] multiple directories contain a checkpoint at the same latest iteration. Selecting one arbitrarily.")
-        
+        print(
+            "[Warning] multiple directories contain a checkpoint at the same latest iteration. Selecting one arbitrarily."
+        )
+
     return keep[0]
 
-def get_resume_ckpt(ckpt_dir,meta_train_name):
-    dirs = get_ckpt_dirs(ckpt_dir,meta_train_name)
+
+def get_resume_ckpt(ckpt_dir, meta_train_name):
+    dirs = get_ckpt_dirs(ckpt_dir, meta_train_name)
     if len(dirs) == 0:
         print("[Info] No existing checkpoint found. Starting from scratch.")
         return None
-    ckpt_path, suffix = get_ckpt_to_load(ckpt_dir,dirs)
+    ckpt_path, suffix = get_ckpt_to_load(ckpt_dir, dirs)
     print("[Info] Loading checkpoint from {}".format(ckpt_path))
     return ckpt_path
+
 
 def meta_train(args):
     meta_trainer, meta_opt = get_meta_trainer(args)
@@ -139,7 +149,7 @@ def meta_train(args):
             osp.join(dirname, "{}.ckpt".format(ckpt)), outer_trainer_state
         )
     elif args.auto_resume:
-        ckpt = get_resume_ckpt("checkpoints",args.meta_train_name)
+        ckpt = get_resume_ckpt("checkpoints", args.meta_train_name)
         if ckpt is not None:
             outer_trainer_state = checkpoints.load_state(
                 "{}.ckpt".format(ckpt), outer_trainer_state
@@ -151,20 +161,30 @@ def meta_train(args):
         config=vars(args),
     )
 
-    iteration = int(outer_trainer_state.gradient_learner_state.theta_opt_state.iteration)
-    for i in tqdm(range(iteration,args.num_outer_steps), initial=iteration, total=args.num_outer_steps, ascii=True, desc="Outer Loop"):
-
+    iteration = int(
+        outer_trainer_state.gradient_learner_state.theta_opt_state.iteration
+    )
+    for i in tqdm(
+        range(iteration, args.num_outer_steps),
+        initial=iteration,
+        total=args.num_outer_steps,
+        ascii=True,
+        desc="Outer Loop",
+    ):
         key, key1 = jax.random.split(key)
         outer_trainer_state, meta_loss, _ = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=False
         )
         run.log(
             {
-                'iteration':i,
+                "iteration": i,
                 args.task + " meta loss": meta_loss,
                 "learning rate": meta_opt.__dict__.get(
                     "schedule_", lambda x: args.learning_rate
-                )(outer_trainer_state.gradient_learner_state.theta_opt_state.iteration - 1),
+                )(
+                    outer_trainer_state.gradient_learner_state.theta_opt_state.iteration
+                    - 1
+                ),
             }
         )
 
