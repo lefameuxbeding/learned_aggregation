@@ -120,6 +120,8 @@ def _fedlagg(args):
 
         images = jnp.array(batch["image"])
         labels = jnp.array(batch["label"])
+        # images = jnp.array(batch["obs"])
+        # labels = jnp.array(batch["target"])
 
         def split(arr, split_factor):
             """Splits the first axis of `arr` evenly across the number of devices."""
@@ -138,6 +140,8 @@ def _fedlagg(args):
             s_c_batch = []
             for i in range(args.num_local_steps):
                 sub_batch_dict = {}
+                # sub_batch_dict["obs"] = s_c_images[i]
+                # sub_batch_dict["target"] = s_c_labels[i]
                 sub_batch_dict["image"] = s_c_images[i]
                 sub_batch_dict["label"] = s_c_labels[i]
                 s_c_batch.append(FlatMap(sub_batch_dict))
