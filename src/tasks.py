@@ -327,7 +327,7 @@ def tall16_imagenet_64(batch_size):
     model = wide16_config()
     datasets = imagenet_64_datasets(batch_size=batch_size,
                                     image_size=(32, 32),
-                                    prefetch_batches=500)
+                                    prefetch_batches=1000)
     return VisionTransformerTask(model, datasets)
 
 
