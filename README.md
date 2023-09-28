@@ -1,4 +1,6 @@
-# learned_aggregation
+# Welcome to Learned Aggregation!
+
+This repository contains the code for our ICLR 2023 submission.
 
 # Installation
 ### Step 1
