@@ -1,9 +1,9 @@
 # learned_aggregation
 
 # Installation
-## Step 1
+### Step 1
 [Install jax](https://jax.readthedocs.io/en/latest/installation.html)
-## Step 2
+### Step 2
 Run the following code:
 ```
 export TFDS_DATA_DIR=/PATH_TO_LARGE_FILE_STORAGE/
@@ -26,7 +26,7 @@ As a quickstart tutorial, we will replicate the experiments at different H value
 ```
 python src/main.py \
 --config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
---num_local_steps 4 --num_grads 8\
+--num_local_steps 4 --num_grads 8 \
 --optimizer fedlagg-adafac \
 --local_learning_rate 0.5
 ```
@@ -35,7 +35,7 @@ python src/main.py \
 ```
 python src/main.py \
 --config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
---num_local_steps 8 --num_grads 8\
+--num_local_steps 8 --num_grads 8 \
 --optimizer fedlagg-adafac \
 --local_learning_rate 0.5
 ```
@@ -44,7 +44,7 @@ python src/main.py \
 ```
 python src/main.py \
 --config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
---num_local_steps 4 --num_grads 8\
+--num_local_steps 4 --num_grads 8 \
 --optimizer fedlagg-adafac \
 --local_learning_rate 0.5
 ```
