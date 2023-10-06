@@ -441,9 +441,9 @@ def mlp128x128x128_c100_32(batch_size):
 def transformer32_lm(batch_size):
     _d_model = 32
     _cfg = {
-        "num_heads": 1,
+        "num_heads": 4,
         "d_model": _d_model,
-        "num_layers": 1,
+        "num_layers": 2,
         "batch_size": batch_size,
         "sequence_length": 16,
         "dropout_rate": 0.1,
