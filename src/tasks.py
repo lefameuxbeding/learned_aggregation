@@ -6,7 +6,7 @@ from learned_optimization.tasks.datasets import base
 from learned_optimization.tasks.fixed.conv import _ConvTask, _cross_entropy_pool_loss
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask
 from learned_optimization.tasks.fixed.transformer_lm import _TransformerTask
-from learned_optimization.tasks.fixed.vit import VisionTransformerTask, wide16_config
+from learned_optimization.tasks.fixed.vit import VisionTransformerTask, wide16_config, tall16_config
 from learned_optimization.tasks.fixed.vit_test import VITTest
 
 
@@ -396,15 +396,35 @@ def mlp32x32_imagenet_8(batch_size):
     return _MLPImageTask(datasets, [32, 32])
 
 
-def tall16_imagenet_64(batch_size):
-    model = wide16_config()
+def tall16_imagenet_32(batch_size):
+    model = tall16_config()
     datasets = imagenet_64_datasets(
-        batch_size=batch_size, image_size=(32, 32), prefetch_batches=1000
+        batch_size=batch_size, image_size=(32, 32), prefetch_batches=500
+    )
+    return VisionTransformerTask(model, datasets)
+
+def tall16_imagenet_8(batch_size):
+    model = tall16_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(8 ,8), prefetch_batches=500
     )
     return VisionTransformerTask(model, datasets)
 
 
-# C100
+
+def wide16_imagenet_32(batch_size):
+    model = wide16_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(32, 32), prefetch_batches=500
+    )
+    return VisionTransformerTask(model, datasets)
+
+def wide16_imagenet_8(batch_size):
+    model = wide16_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(8 ,8), prefetch_batches=500
+    )
+    return VisionTransformerTask(model, datasets)
 
 
 @gin.configurable
@@ -436,7 +456,10 @@ def get_task(args, is_test=False):
     tasks = {
         "mlp128x128x128_c100_32": mlp128x128x128_c100_32,
         # "VIT_Cifar100_wideshallow": VITTest.test_tasks("VIT_Cifar100_wideshallow"),
-        "tall16_imagenet_64": tall16_imagenet_64,
+        "tall16_imagenet_32": tall16_imagenet_32,
+        "tall16_imagenet_8": tall16_imagenet_8,
+        "wide16_imagenet_32": wide16_imagenet_32,
+        "wide16_imagenet_8": wide16_imagenet_8,
         # LM
         "transformer32_lm": transformer32_lm,
         # 8x8 fmst
