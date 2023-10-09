@@ -16,6 +16,12 @@ def benchmark(args):
 
     opt, update = get_optimizer(args)
 
+
+    tmp = {'obs':'image',
+            'target':'label',
+            'image':'image',
+            'label':'label'}
+
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
 
@@ -25,6 +31,7 @@ def benchmark(args):
 
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = next(task.datasets.train)
+            batch = {tmp[k]:v for k,v in batch.items()}
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
@@ -32,6 +39,7 @@ def benchmark(args):
             params = opt.get_params(opt_state)
 
             test_batch = next(test_task.datasets.test)
+            test_batch = {tmp[k]:v for k,v in test_batch.items()}
             test_loss = test_task.loss(params, key1, test_batch)
 
             run.log(

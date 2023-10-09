@@ -445,7 +445,7 @@ def transformer32_lm(batch_size):
         "d_model": _d_model,
         "num_layers": 2,
         "batch_size": batch_size,
-        "sequence_length": 16,
+        "sequence_length": 8,
         "dropout_rate": 0.1,
     }
     _task_name = "TransformerLM_LM1B_5layer_%dwidth" % _d_model
