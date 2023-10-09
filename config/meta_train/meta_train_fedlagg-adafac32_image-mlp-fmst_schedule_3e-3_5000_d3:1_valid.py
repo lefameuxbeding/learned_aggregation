@@ -13,5 +13,5 @@ num_outer_steps = 5000
 task = "image-mlp-fmst"
 optimizer = "fedlagg-adafac"
 name_suffix = "_H4_3e-3_5000_d3:1_valid"
-meta_loss_split = "outer_valid" 
+meta_loss_split = "outer_valid"
 num_local_steps = 4

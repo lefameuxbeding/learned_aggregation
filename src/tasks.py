@@ -29,6 +29,7 @@ def imagenet_datasets(
         **kwargs,
     )
 
+
 @base.dataset_lru_cache
 @gin.configurable
 def imagenet_64_datasets(
@@ -52,6 +53,7 @@ def imagenet_64_datasets(
         **kwargs,
     )
 
+
 @gin.configurable
 def My_Conv_Food101_32x64x64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
@@ -66,6 +68,7 @@ def My_Conv_Cifar10_32x64x64(batch_size):
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=10)
     datasets = image.cifar10_datasets(batch_size=batch_size, prefetch_batches=5)
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def My_Conv_Cifar10_8_16x32(batch_size):
@@ -136,9 +139,11 @@ def My_ImageMLP_FashionMnist8_Relu32(batch_size):
     )
     return _MLPImageTask(datasets, [32])
 
+
 ###
-#fmst
+# fmst
 ###
+
 
 @gin.configurable
 def conv_fmnist_32(batch_size):
@@ -146,80 +151,114 @@ def conv_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size)
     return _ConvTask(base_model_fn, datasets)
 
+
 @gin.configurable
 def mlp128x128_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size)
-    return _MLPImageTask(datasets,[128,128])
+    return _MLPImageTask(datasets, [128, 128])
+
 
 @gin.configurable
 def mlp128x128x128_fmnist_32(batch_size):
     datasets = idatasets = image.fashion_mnist_datasets(batch_size=batch_size)
-    return _MLPImageTask(datasets,[128,128,128])
+    return _MLPImageTask(datasets, [128, 128, 128])
+
 
 @gin.configurable
 def small_conv_fmnist_8(batch_size):
     base_model_fn = _cross_entropy_pool_loss([16, 32], jax.nn.relu, num_classes=10)
-    datasets = datasets = image.fashion_mnist_datasets(batch_size=batch_size,image_size=(8, 8),)
+    datasets = datasets = image.fashion_mnist_datasets(
+        batch_size=batch_size,
+        image_size=(8, 8),
+    )
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def mlp32_fmnist_8(batch_size):
-    datasets = datasets = image.fashion_mnist_datasets(batch_size=batch_size,image_size=(8, 8),)
-    return _MLPImageTask(datasets,[32])
+    datasets = datasets = image.fashion_mnist_datasets(
+        batch_size=batch_size,
+        image_size=(8, 8),
+    )
+    return _MLPImageTask(datasets, [32])
+
 
 @gin.configurable
 def mlp32x32_fmnist_8(batch_size):
-    datasets = datasets = image.fashion_mnist_datasets(batch_size=batch_size,image_size=(8, 8),)
-    return _MLPImageTask(datasets,[32,32])
+    datasets = datasets = image.fashion_mnist_datasets(
+        batch_size=batch_size,
+        image_size=(8, 8),
+    )
+    return _MLPImageTask(datasets, [32, 32])
+
 
 ###
-#Cifar-10
+# Cifar-10
 ###
+
 
 @gin.configurable
 def conv_c10_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=10)
-    datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,)
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=50,
+    )
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def mlp128x128_c10_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,)
-    return _MLPImageTask(datasets,[128,128])
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=50,
+    )
+    return _MLPImageTask(datasets, [128, 128])
+
 
 @gin.configurable
 def mlp128x128x128_c10_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,)
-    return _MLPImageTask(datasets,[128,128,128])
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=50,
+    )
+    return _MLPImageTask(datasets, [128, 128, 128])
+
 
 @gin.configurable
 def small_conv_c10_8(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([16, 32], jax.nn.relu, num_classes=10)
-    datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,
-                                      image_size=(8, 8),)
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=50,
+        image_size=(8, 8),
+    )
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def mlp32_c10_8(batch_size):
-    datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,
-                                      image_size=(8, 8),)
-    return _MLPImageTask(datasets,[32])
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=50,
+        image_size=(8, 8),
+    )
+    return _MLPImageTask(datasets, [32])
+
 
 @gin.configurable
 def mlp32x32_c10_8(batch_size):
-    datasets = image.cifar10_datasets(batch_size=batch_size,
-                                      prefetch_batches=50,
-                                      image_size=(8, 8),)
-    return _MLPImageTask(datasets,[32,32])
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=50,
+        image_size=(8, 8),
+    )
+    return _MLPImageTask(datasets, [32, 32])
+
 
 ###
 # Imagenet
@@ -228,136 +267,160 @@ def mlp32x32_c10_8(batch_size):
 def conv32x32_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     base_model_fn = _cross_entropy_pool_loss([32, 32], jax.nn.relu, num_classes=10)
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(64, 64),
-                                    prefetch_batches=200)
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=200
+    )
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def mlp128x128x128_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(64, 64),
-                                    prefetch_batches=1)
-    return _MLPImageTask(datasets,[128,128,128])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=1
+    )
+    return _MLPImageTask(datasets, [128, 128, 128])
+
 
 @gin.configurable
 def mlp128x128_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(64, 64),
-                                    prefetch_batches=5)
-    return _MLPImageTask(datasets,[128,128])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=5
+    )
+    return _MLPImageTask(datasets, [128, 128])
+
 
 @gin.configurable
 def mlp64x64_imagenet_64(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(64, 64),)
-    return _MLPImageTask(datasets,[64,64])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(64, 64),
+    )
+    return _MLPImageTask(datasets, [64, 64])
+
 
 @gin.configurable
 def conv_imagenet_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    base_model_fn = _cross_entropy_pool_loss([32, 64, 64], jax.nn.relu, num_classes=1000)
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(32, 32),)
+    base_model_fn = _cross_entropy_pool_loss(
+        [32, 64, 64], jax.nn.relu, num_classes=1000
+    )
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def mlp128x128_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(32, 32),)
-    return _MLPImageTask(datasets,[128,128])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [128, 128])
+
 
 @gin.configurable
 def mlp128x128x128_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(32, 32),)
-    return _MLPImageTask(datasets,[128,128,128])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [128, 128, 128])
+
 
 @gin.configurable
 def small_conv_imagenet_8(batch_size):
     base_model_fn = _cross_entropy_pool_loss([16, 32], jax.nn.relu, num_classes=1000)
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(8, 8),)
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(8, 8),
+    )
     return _ConvTask(base_model_fn, datasets)
+
 
 @gin.configurable
 def mlp32_imagenet_8(batch_size):
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(8, 8),)
-    return _MLPImageTask(datasets,[32])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(8, 8),
+    )
+    return _MLPImageTask(datasets, [32])
+
 
 @gin.configurable
 def mlp32x32_imagenet_8(batch_size):
-    datasets = imagenet_64_datasets(batch_size=batch_size,
-                                    image_size=(8, 8),)
-    return _MLPImageTask(datasets,[32,32])
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(8, 8),
+    )
+    return _MLPImageTask(datasets, [32, 32])
+
 
 def get_task(args, is_test=False):
-
     tasks = {
         # 8x8 fmst
         "small-image-mlp-fmst": My_ImageMLP_FashionMnist8_Relu32,
         "conv-fmst": My_Conv_Cifar10_32x64x64,
-
         "image-mlp-fmst": My_ImageMLP_FashionMnist_Relu128x128,
         "image-mlp-fmst64x64": My_ImageMLP_FashionMnist_Relu64x64,
         "image-mlp-fmst32x32": My_ImageMLP_FashionMnist_Relu32x32,
-
-        #cifar10
+        # cifar10
         "image-mlp-c10-128x128": My_ImageMLP_Cifar10_Relu128x128,
         "conv-c10": My_Conv_Cifar10_32x64x64,
         "small-conv-c10": My_Conv_Cifar10_8_16x32,
-
-
-        #inet
-        'mlp128x128x128_imagenet_64':mlp128x128x128_imagenet_64,
-        'conv32x32_imagenet_64':conv32x32_imagenet_64,
-        'mlp128x128_imagenet_64':mlp128x128_imagenet_64, 
-        'mlp64x64_imagenet_64':mlp64x64_imagenet_64, 
-        'conv_imagenet_32':conv_imagenet_32,
-        'mlp128x128_imagenet_32':mlp128x128_imagenet_32, 
-        'mlp128x128x128_imagenet_32':mlp128x128x128_imagenet_32, 
-        'small_conv_imagenet_8':small_conv_imagenet_8,
-        'mlp32_imagenet_8':mlp32_imagenet_8, 
-        'mlp32x32_imagenet_8':mlp32x32_imagenet_8,
-
-        #c10
-        'conv_c10_32':conv_c10_32, 
-        'mlp128x128_c10_32':mlp128x128_c10_32,
-        'mlp128x128x128_c10_32':mlp128x128x128_c10_32,
-        'small_conv_c10_8':small_conv_c10_8,
-        'mlp32_c10_8':mlp32_c10_8,
-        'mlp32x32_c10_8':mlp32x32_c10_8,
-
-        #fmst
-        'conv_fmnist_32':conv_fmnist_32,
-        'mlp128x128_fmnist_32':mlp128x128_fmnist_32,
-        'mlp128x128x128_fmnist_32':mlp128x128x128_fmnist_32,
-        'small_conv_fmnist_8':small_conv_fmnist_8,
-        'mlp32_fmnist_8':mlp32_fmnist_8,
-        'mlp32x32_fmnist_8':mlp32x32_fmnist_8,
-
-        #multiple tasks
-        "fmnist-conv-mlp-mix": [My_Conv_FashionMnist_28_16x32,
-                       My_ImageMLP_FashionMnist_Relu64x64,
-                       My_ImageMLP_FashionMnist_Relu128x128],
-        "fmnist-mlp-mix": [My_ImageMLP_FashionMnist_Relu32x32,
-                       My_ImageMLP_FashionMnist_Relu64x64,
-                       My_ImageMLP_FashionMnist_Relu128x128],
-        "dataset-mlp-mix": [My_ImageMLP_Imagenet_Relu128x128,
-                            My_ImageMLP_Cifar10_Relu128x128,
-                            My_ImageMLP_FashionMnist_Relu128x128],
+        # inet
+        "mlp128x128x128_imagenet_64": mlp128x128x128_imagenet_64,
+        "conv32x32_imagenet_64": conv32x32_imagenet_64,
+        "mlp128x128_imagenet_64": mlp128x128_imagenet_64,
+        "mlp64x64_imagenet_64": mlp64x64_imagenet_64,
+        "conv_imagenet_32": conv_imagenet_32,
+        "mlp128x128_imagenet_32": mlp128x128_imagenet_32,
+        "mlp128x128x128_imagenet_32": mlp128x128x128_imagenet_32,
+        "small_conv_imagenet_8": small_conv_imagenet_8,
+        "mlp32_imagenet_8": mlp32_imagenet_8,
+        "mlp32x32_imagenet_8": mlp32x32_imagenet_8,
+        # c10
+        "conv_c10_32": conv_c10_32,
+        "mlp128x128_c10_32": mlp128x128_c10_32,
+        "mlp128x128x128_c10_32": mlp128x128x128_c10_32,
+        "small_conv_c10_8": small_conv_c10_8,
+        "mlp32_c10_8": mlp32_c10_8,
+        "mlp32x32_c10_8": mlp32x32_c10_8,
+        # fmst
+        "conv_fmnist_32": conv_fmnist_32,
+        "mlp128x128_fmnist_32": mlp128x128_fmnist_32,
+        "mlp128x128x128_fmnist_32": mlp128x128x128_fmnist_32,
+        "small_conv_fmnist_8": small_conv_fmnist_8,
+        "mlp32_fmnist_8": mlp32_fmnist_8,
+        "mlp32x32_fmnist_8": mlp32x32_fmnist_8,
+        # multiple tasks
+        "fmnist-conv-mlp-mix": [
+            My_Conv_FashionMnist_28_16x32,
+            My_ImageMLP_FashionMnist_Relu64x64,
+            My_ImageMLP_FashionMnist_Relu128x128,
+        ],
+        "fmnist-mlp-mix": [
+            My_ImageMLP_FashionMnist_Relu32x32,
+            My_ImageMLP_FashionMnist_Relu64x64,
+            My_ImageMLP_FashionMnist_Relu128x128,
+        ],
+        "dataset-mlp-mix": [
+            My_ImageMLP_Imagenet_Relu128x128,
+            My_ImageMLP_Cifar10_Relu128x128,
+            My_ImageMLP_FashionMnist_Relu128x128,
+        ],
     }
 
     test_batch_size = {
-        "small-conv-imagenet32":10000,
-        "conv-imagenet32":10000,
-        "small-conv-imagenet8":10000,
-        "conv-imagenet8":10000,
-        "image-mlp-imagenet32-128x128":10000,
+        "small-conv-imagenet32": 10000,
+        "conv-imagenet32": 10000,
+        "small-conv-imagenet8": 10000,
+        "conv-imagenet8": 10000,
+        "image-mlp-imagenet32-128x128": 10000,
         "image-mlp-c10-128x128": 10000,
         "image-mlp-fmst": 10000,
         "image-mlp-fmst64x64": 10000,
@@ -371,7 +434,13 @@ def get_task(args, is_test=False):
         "fmnist-mlp-mix": 10000,
         "dataset-mlp-mix": 10000,
     }
-    test_batch_size.update({k:10000 for k in tasks.keys() if ('_c10' in k or 'imagenet' in k or '_fmnist' in k) })
+    test_batch_size.update(
+        {
+            k: 10000
+            for k in tasks.keys()
+            if ("_c10" in k or "imagenet" in k or "_fmnist" in k)
+        }
+    )
     batch_size = args.num_grads * args.num_local_steps * args.local_batch_size
     if is_test:
         batch_size = test_batch_size[args.task]

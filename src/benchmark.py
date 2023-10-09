@@ -34,12 +34,7 @@ def benchmark(args):
             test_batch = next(test_task.datasets.test)
             test_loss = test_task.loss(params, key1, test_batch)
 
-            run.log(
-                {
-                    "train loss": loss,
-                    "test loss": test_loss,
-                }
-            )
+            run.log({"train loss": loss, "test loss": test_loss})
 
         run.finish()
 
