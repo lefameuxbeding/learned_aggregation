@@ -1,6 +1,57 @@
-# learned_aggregation
+# Welcome to Learned Aggregation!
 
-# How Config files are setup.
+This repository contains the code for our ICLR 2023 submission.
+
+# Installation
+### Step 1
+[Install jax](https://jax.readthedocs.io/en/latest/installation.html)
+### Step 2
+Run the following code:
+```
+export TFDS_DATA_DIR=/PATH_TO_LARGE_FILE_STORAGE/
+export SLURM_TMPDIR=$TFDS_DATA_DIR
+export SCRATCH=/PATH_TO/learned_aggregation
+export WANDB_DIR=$SCRATCH
+pip install mmengine, seqio, wandb
+cd ../learned_optimization
+pip install -e .
+cd ../vision_transformer
+pip install -e .
+cd ../learned_aggregation
+```
+
+# Quickstart
+
+As a quickstart tutorial, we will replicate the experiments at different H values from the paper for the LAgg-A model.
+
+### H=4,k=8
+```
+python src/main.py \
+--config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
+--num_local_steps 4 --num_grads 8 \
+--optimizer fedlagg-adafac \
+--local_learning_rate 0.5
+```
+
+### H=8,k=8
+```
+python src/main.py \
+--config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
+--num_local_steps 8 --num_grads 8 \
+--optimizer fedlagg-adafac \
+--local_learning_rate 0.5
+```
+
+### H=16,k=8
+```
+python src/main.py \
+--config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
+--num_local_steps 4 --num_grads 8 \
+--optimizer fedlagg-adafac \
+--local_learning_rate 0.5
+```
+
+# Config file structure
 
 Using MMengine's config file parser, we can write config files directly in Python and use an inheritance config structure to avoid redundant configurations. This can be achieved by specifying config files to inherit from using the 
 ```_base_=['my_config.py']``` 

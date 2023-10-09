@@ -101,8 +101,12 @@ def progress_or_reset_inner_opt_state_fedlopt(
             local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
             local_opt_state = local_opt.init(p)
 
+            # print(data.keys())
+            # exit(0)
             images = jnp.array(data["image"])
             labels = jnp.array(data["label"])
+            # images = jnp.array(data["obs"])
+            # labels = jnp.array(data["target"])
 
             def split(arr, split_factor):
                 """Splits the first axis of `arr` evenly across the number of devices."""
@@ -121,6 +125,8 @@ def progress_or_reset_inner_opt_state_fedlopt(
                 s_c_batch = []
                 for i in range(num_local_steps):
                     sub_batch_dict = {}
+                    # sub_batch_dict["obs"] = s_c_images[i]
+                    # sub_batch_dict["target"] = s_c_labels[i]
                     sub_batch_dict["image"] = s_c_images[i]
                     sub_batch_dict["label"] = s_c_labels[i]
                     s_c_batch.append(FlatMap(sub_batch_dict))

@@ -19,7 +19,7 @@ def parse_args():
     # fmt: off
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
-    parser.add_argument("--optimizer", type=str, choices=["sgd,"
+    parser.add_argument("--optimizer", type=str, choices=["sgd",
                                                           "adam", 
                                                           "fedavg", 
                                                           "fedavg-slowmo", 
@@ -53,6 +53,7 @@ def parse_args():
     parser.add_argument("--test_project", type=str)
     parser.add_argument("--tfds_data_dir", type=str, default=os.getenv("SLURM_TMPDIR"))
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
+    parser.add_argument("--auto_resume", action="store_true")
     # fmt: on
 
     return parser.parse_args()
