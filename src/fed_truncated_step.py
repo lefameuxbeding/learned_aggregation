@@ -101,8 +101,6 @@ def progress_or_reset_inner_opt_state_fedlopt(
             local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
             local_opt_state = local_opt.init(p)
 
-            # print(data.keys())
-            # exit(0)
             images = jnp.array(data["image"])
             labels = jnp.array(data["label"])
             # images = jnp.array(data["obs"])

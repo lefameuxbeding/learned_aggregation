@@ -118,6 +118,13 @@ def _fedlagg(args):
         params = agg.get_params(opt_state)
         local_opt_state = local_opt.init(params)
 
+        #rename
+        tmp = {'obs':'image',
+               'target':'label',
+               'image':'image',
+               'label':'label'}
+        batch = {tmp[k]:v for k,v in batch.items()}
+
         images = jnp.array(batch["image"])
         labels = jnp.array(batch["label"])
         # images = jnp.array(batch["obs"])
