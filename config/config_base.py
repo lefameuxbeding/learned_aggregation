@@ -25,6 +25,7 @@ meta_loss_split = None
 num_runs = 10
 wandb_checkpoint_id = None
 test_project = "learned_aggregation_meta_test"
+truncation_schedule_min_length = 100
 # for slowmo
 beta = 0.99
 

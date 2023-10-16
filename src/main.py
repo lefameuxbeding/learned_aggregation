@@ -52,6 +52,7 @@ def parse_args():
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
     parser.add_argument("--auto_resume", action="store_true")
+    parser.add_argument("--truncation_schedule_min_length", type=int)
     # fmt: on
 
     return parser.parse_args()

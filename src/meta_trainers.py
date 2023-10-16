@@ -50,7 +50,7 @@ def _fedlagg_meta_trainer(args):
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
-            min_length=100, max_length=args.num_inner_steps
+            min_length=args.truncation_schedule_min_length, max_length=args.num_inner_steps
         )
         truncated_step = VectorizedFedLOptTruncatedStep(
             task_family,
