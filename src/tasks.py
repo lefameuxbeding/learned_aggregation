@@ -427,6 +427,72 @@ def wide16_imagenet_8(batch_size):
     return VisionTransformerTask(model, datasets)
 
 
+
+# study generalization to width, depth, and larger images 
+
+@gin.configurable
+def mlp128_pow6_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [128, 128, 128, 128, 128, 128])
+
+
+@gin.configurable
+def mlp128_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [128])
+
+
+@gin.configurable
+def mlp64x64x64_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [64, 64, 64])
+
+@gin.configurable
+def mlp256x256x256_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [256, 256, 256])
+
+
+@gin.configurable
+def mlp512x512x512_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [512, 512, 512])
+
+
+
+@gin.configurable
+def mlp128x128x128_imagenet_64(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(64, 64),
+    )
+    return _MLPImageTask(datasets, [128, 128, 128])
+
+
+@gin.configurable
+def mlp128x128x128_imagenet_128(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(128, 128),
+    )
+    return _MLPImageTask(datasets, [128, 128, 128])
+
+
 @gin.configurable
 def mlp128x128x128_c100_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
@@ -454,6 +520,13 @@ def transformer32_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+        "mlp128x128x128_imagenet_128":mlp128x128x128_imagenet_128,
+        "mlp128x128x128_imagenet_64":mlp128x128x128_imagenet_64,
+        "mlp512x512x512_imagenet_32":mlp512x512x512_imagenet_32,
+        'mlp256x256x256_imagenet_32':mlp256x256x256_imagenet_32,
+        "mlp64x64x64_imagenet_32":mlp64x64x64_imagenet_32,
+        "mlp128_imagenet_32":mlp128_imagenet_32,
+        "mlp128_pow6_imagenet_32":mlp128_pow6_imagenet_32,
         "mlp128x128x128_c100_32": mlp128x128x128_c100_32,
         # "VIT_Cifar100_wideshallow": VITTest.test_tasks("VIT_Cifar100_wideshallow"),
         "tall16_imagenet_32": tall16_imagenet_32,
