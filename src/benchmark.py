@@ -42,10 +42,15 @@ def benchmark(args):
             test_batch = {tmp[k]:v for k,v in test_batch.items()}
             test_loss = test_task.loss(params, key1, test_batch)
 
+            outer_valid_batch = next(test_task.datasets.outer_valid)
+            outer_valid_batch = {tmp[k]:v for k,v in outer_valid_batch.items()}
+            outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
+
             run.log(
                 {
                     "train loss": loss,
                     "test loss": test_loss,
+                    "outer valid loss": outer_valid_loss
                 }
             )
 
@@ -81,7 +86,15 @@ def sweep(args):
             test_batch = next(test_task.datasets.test)
             test_loss = test_task.loss(params, key1, test_batch)
 
-            run.log({"train loss": loss, "test loss": test_loss})
+            outer_valid_batch = next(test_task.datasets.outer_valid)
+            outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
+
+            run.log(
+                {   "train loss": loss, 
+                    "test loss": test_loss,
+                    "outer valid loss": outer_valid_loss
+                }
+            )
 
         run.finish()
 
