@@ -31,3 +31,4 @@ beta = 0.99
 
 # sweeps only
 sweep_config = dict()
+sweep_id = None

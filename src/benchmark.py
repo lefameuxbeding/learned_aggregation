@@ -75,6 +75,12 @@ def sweep(args):
         params = task.init(key1)
         opt_state = opt.init(params, num_steps=args.num_inner_steps)
 
+
+        tmp = {'obs':'image',
+                'target':'label',
+                'image':'image',
+                'label':'label'}
+
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = next(task.datasets.train)
             key, key1 = jax.random.split(key)
@@ -84,13 +90,16 @@ def sweep(args):
             params = opt.get_params(opt_state)
 
             test_batch = next(test_task.datasets.test)
+            test_batch = {tmp[k]:v for k,v in test_batch.items()}
             test_loss = test_task.loss(params, key1, test_batch)
 
             outer_valid_batch = next(test_task.datasets.outer_valid)
+            outer_valid_batch = {tmp[k]:v for k,v in outer_valid_batch.items()}
             outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
 
             run.log(
-                {   "train loss": loss, 
+                {   
+                    "train loss": loss, 
                     "test loss": test_loss,
                     "outer valid loss": outer_valid_loss
                 }
@@ -103,4 +112,4 @@ def sweep(args):
             sweep=args.sweep_config, project="learned_aggregation_meta_test"
         )
 
-    wandb.agent(args.sweep_id, sweep_fn)
+    wandb.agent(args.sweep_id, sweep_fn, project="learned_aggregation_meta_test")

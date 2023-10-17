@@ -259,7 +259,7 @@ def mlp128x128x128_c10_32(batch_size):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     datasets = image.cifar10_datasets(
         batch_size=batch_size,
-        prefetch_batches=500,
+        prefetch_batches=100,
     )
     return _MLPImageTask(datasets, [128, 128, 128])
 
