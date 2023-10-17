@@ -16,3 +16,6 @@ run_*
 eval_*
 models
 notebooks
+
+downloads
+fashion_mnist
