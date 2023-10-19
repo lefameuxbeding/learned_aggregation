@@ -22,6 +22,9 @@ from learned_optimization.learned_optimizers.adafac_mlp_lopt import (
 )
 from learned_optimization.optimizers import base as opt_base
 
+import pandas as pd
+import os
+
 
 @gin.configurable
 class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
@@ -72,6 +75,8 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
         fac_vec_v,
         gs,
     ):
+        df = pd.DataFrame()
+
         # this doesn't work with scalar parameters, so instead lets just reshape.
         if not p.shape:
             p = jnp.expand_dims(p, 0)
@@ -96,6 +101,7 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
         if self._with_avg:
             batch_avg_g = jnp.expand_dims(avg_g, axis=-1)
             inps.append(batch_avg_g)
+            df["avg_g"] = batch_avg_g.flatten() # 1
 
         if self._with_all_grads:
             for g in g_list:
@@ -103,12 +109,28 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
                 inps.append(batch_g)
 
         inps.append(jnp.expand_dims(p, axis=-1))
+        df["p"] = p.flatten() # 2
         inps.append(m)
+        flatten_m = m.reshape(-1, m.shape[-1])
+        df["m_1"] = flatten_m[:, 0] # 3
+        df["m_2"] = flatten_m[:, 1] # 4
+        df["m_3"] = flatten_m[:, 2] # 5
         inps.append(rms)
+        df["rms"] = rms.flatten() # 6
         rsqrt = lax.rsqrt(rms + 1e-6)
+        m_rsqrt = m * rsqrt
+        flatten_m_rsqrt = m_rsqrt.reshape(-1, m_rsqrt.shape[-1])
         inps.append(m * rsqrt)
+        df["m_rsqrt_1"] = flatten_m_rsqrt[:, 0] # 7
+        df["m_rsqrt_2"] = flatten_m_rsqrt[:, 1] # 8
+        df["m_rsqrt_3"] = flatten_m_rsqrt[:, 2] # 9
         inps.append(rsqrt)
+        df["rsqrt"] = rsqrt.flatten() # 10
         inps.append(fac_g)
+        flatten_fac_g = fac_g.reshape(-1, fac_g.shape[-1])
+        df["fac_g_1"] = flatten_fac_g[:, 0] # 11
+        df["fac_g_2"] = flatten_fac_g[:, 1] # 12
+        df["fac_g_3"] = flatten_fac_g[:, 2] # 13
 
         factored_dims = common.factored_dims(avg_g.shape)
         if factored_dims is not None:
@@ -128,11 +150,29 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
             # 3 possible kinds of adafactor style features.
             # Raw values
             inps.append(row_feat)
+            flatten_row_feat = row_feat.reshape(-1, row_feat.shape[-1])
+            df["row_feat_1"] = flatten_row_feat[:, 0] # 14
+            df["row_feat_2"] = flatten_row_feat[:, 1] # 15
+            df["row_feat_3"] = flatten_row_feat[:, 2] # 16
             inps.append(col_feat)
+            flatten_col_feat = col_feat.reshape(-1, col_feat.shape[-1])
+            df["col_feat_1"] = flatten_col_feat[:, 0] # 17
+            df["col_feat_2"] = flatten_col_feat[:, 1] # 18
+            df["col_feat_3"] = flatten_col_feat[:, 2] # 19
 
             # 1/sqrt
             inps.append(lax.rsqrt(row_feat + 1e-8))
+            row_feat_rsqrt = lax.rsqrt(row_feat + 1e-8)
+            flatten_row_feat_rsqrt = row_feat_rsqrt.reshape(-1, row_feat_rsqrt.shape[-1])
+            df["row_feat_rsqrt_1"] = flatten_row_feat_rsqrt[:, 0] # 20
+            df["row_feat_rsqrt_2"] = flatten_row_feat_rsqrt[:, 1] # 21
+            df["row_feat_rsqrt_3"] = flatten_row_feat_rsqrt[:, 2] # 22
             inps.append(lax.rsqrt(col_feat + 1e-8))
+            col_feat_rsqrt = lax.rsqrt(row_feat + 1e-8)
+            flatten_col_feat_rsqrt = col_feat_rsqrt.reshape(-1, col_feat_rsqrt.shape[-1])
+            df["col_feat_rsqrt_1"] = flatten_col_feat_rsqrt[:, 0] # 23
+            df["col_feat_rsqrt_2"] = flatten_col_feat_rsqrt[:, 1] # 24
+            df["col_feat_rsqrt_3"] = flatten_col_feat_rsqrt[:, 2] # 25
 
             # multiplied by momentum
             reduced_d1 = d1 - 1 if d1 > d0 else d1
@@ -146,16 +186,36 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
                 * jnp.expand_dims(col_factor, axis=d1)
             )
             inps.append(fac_mom_mult)
+            flatten_fac_mom_mult = fac_mom_mult.reshape(-1, fac_mom_mult.shape[-1])
+            df["fac_mom_mult_1"] = flatten_fac_mom_mult[:, 0] # 26
+            df["fac_mom_mult_2"] = flatten_fac_mom_mult[:, 1] # 27
+            df["fac_mom_mult_3"] = flatten_fac_mom_mult[:, 2] # 28
         else:
             # In the non-factored case, match what RMSProp does.
             inps.append(fac_vec_v)
+            df["row_feat_1"] = fac_vec_v[:, 0] # 14
+            df["row_feat_2"] = fac_vec_v[:, 1] # 15
+            df["row_feat_3"] = fac_vec_v[:, 2] # 16
             inps.append(fac_vec_v)
+            df["col_feat_1"] = fac_vec_v[:, 0] # 17
+            df["col_feat_2"] = fac_vec_v[:, 1] # 18
+            df["col_feat_3"] = fac_vec_v[:, 2] # 19
 
             inps.append(lax.rsqrt(fac_vec_v + 1e-8))
+            fac_vec_v_rsqrt = lax.rsqrt(fac_vec_v + 1e-8)
+            df["row_feat_rsqrt_1"] = fac_vec_v_rsqrt[:, 0] # 20
+            df["row_feat_rsqrt_2"] = fac_vec_v_rsqrt[:, 1] # 21
+            df["row_feat_rsqrt_3"] = fac_vec_v_rsqrt[:, 2] # 22
             inps.append(lax.rsqrt(fac_vec_v + 1e-8))
+            df["col_feat_rsqrt_1"] = fac_vec_v_rsqrt[:, 0] # 23
+            df["col_feat_rsqrt_2"] = fac_vec_v_rsqrt[:, 1] # 24
+            df["col_feat_rsqrt_3"] = fac_vec_v_rsqrt[:, 2] # 25
 
             fac_mom_mult = m * (fac_vec_v + 1e-6) ** -0.5
             inps.append(fac_mom_mult)
+            df["fac_mom_mult_1"] = fac_mom_mult[:, 0] # 26
+            df["fac_mom_mult_2"] = fac_mom_mult[:, 1] # 27
+            df["fac_mom_mult_3"] = fac_mom_mult[:, 2] # 28
 
         # Build the weights of the NN
         last_size = jnp.concatenate(inps, axis=-1).shape[-1]
@@ -236,6 +296,9 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
             )
             stacked = jnp.tile(stacked, list(p.shape) + [1])
             inp_stack = jnp.concatenate([inp_stack, stacked], axis=-1)
+            flatten_stacked = stacked.reshape(-1, stacked.shape[-1])
+            for i in range(11):
+                df["time_" + str(i + 1)] = flatten_stacked[:, i] # 29-39
 
             # Manually run the neural network.
             net = inp_stack
@@ -311,6 +374,10 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
 
         if did_reshape:
             new_p = jnp.squeeze(new_p, 0)
+
+        df["new_p"] = new_p.flatten()
+        
+        df.to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
 
         # Finally, log some metrics out
         avg_step_size = jnp.mean(jnp.abs(step))

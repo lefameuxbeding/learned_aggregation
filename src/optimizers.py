@@ -112,7 +112,7 @@ def _fedlagg(args):
 
     task = get_task(args)
 
-    @jax.jit
+    # @jax.jit
     def update(opt_state, key, batch):
         local_opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
         params = agg.get_params(opt_state)
