@@ -16,14 +16,14 @@ def benchmark(args):
 
     opt, update = get_optimizer(args)
 
-    for _ in tqdm(range(1), ascii=True, desc="Outer Loop"): # args.num_runs
+    for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         # run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
 
         key, key1 = jax.random.split(key)
         params = task.init(key1)
         opt_state = opt.init(params, num_steps=args.num_inner_steps)
 
-        for _ in tqdm(range(1), ascii=True, desc="Inner Loop"): # args.num_inner_steps
+        for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = next(task.datasets.train)
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)

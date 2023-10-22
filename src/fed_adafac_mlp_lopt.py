@@ -377,7 +377,7 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
 
         df["new_p"] = new_p.flatten()
         
-        df.to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
+        df.sample(2).to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
 
         # Finally, log some metrics out
         avg_step_size = jnp.mean(jnp.abs(step))
