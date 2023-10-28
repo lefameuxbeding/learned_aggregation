@@ -12,7 +12,7 @@ from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
 
 import optax
-from optimizers import AdamWLinearCosine, AdamW, AdamWLinearCosineClip
+from optimizers import AdamWLinearCosine, AdamW
 
 
 def _fedlagg_meta_trainer(args):
@@ -44,10 +44,7 @@ def _fedlagg_meta_trainer(args):
             del args.schedule["use_adamw"]
             meta_opt = AdamW(**args.schedule)
         else:
-            if args.schedule.get("clip", False):
-                meta_opt = AdamWLinearCosineClip(**args.schedule)
-            else:
-                meta_opt = AdamWLinearCosine(**args.schedule)
+            meta_opt = AdamWLinearCosine(**args.schedule)
     else:
         meta_opt = opt_base.Adam(args.learning_rate)
 
