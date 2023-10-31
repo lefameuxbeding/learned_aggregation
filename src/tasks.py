@@ -170,7 +170,6 @@ def mlp128_pow6_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size)
     return _MLPImageTask(datasets, [128, 128, 128, 128, 128, 128])
 
-
 @gin.configurable
 def mlp64x64_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size)
@@ -529,6 +528,8 @@ def transformer32_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+        'mlp512x512_fmnist_32':mlp512x512_fmnist_32,
+        'mlp128_pow6_fmnist_32':mlp128_pow6_fmnist_32,
         "mlp128_pow12_imagenet_32": mlp128_pow12_imagenet_32,
         "mlp128x128x128_imagenet_128":mlp128x128x128_imagenet_128,
         "mlp128x128x128_imagenet_64":mlp128x128x128_imagenet_64,
