@@ -161,6 +161,15 @@ def mlp128x128_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size)
     return _MLPImageTask(datasets, [128, 128])
 
+@gin.configurable
+def mlp512x512_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    return _MLPImageTask(datasets, [512, 512])
+
+def mlp128_pow6_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    return _MLPImageTask(datasets, [128, 128, 128, 128, 128, 128])
+
 
 @gin.configurable
 def mlp64x64_fmnist_32(batch_size):
