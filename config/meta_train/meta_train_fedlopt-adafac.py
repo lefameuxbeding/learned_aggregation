@@ -1,7 +1,7 @@
 _base_ = ["./meta_train_base.py"]
 
 optimizer = "fedlopt-adafac"
-task = "mlp128x128x128_imagenet_64"
+task = "conv-c10"
 
 schedule = dict(
     init_value=3e-10,

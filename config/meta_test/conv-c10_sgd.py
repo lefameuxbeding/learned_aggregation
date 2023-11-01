@@ -1,7 +1,7 @@
 _base_ = ["./meta_test_base.py"]
 
-optimizer = "fedavg"
+optimizer = "sgd"
 task = "conv-c10"
 
 # values determined by sweep
-local_learning_rate = 0.5
+learning_rate = 0.5

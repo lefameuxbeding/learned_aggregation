@@ -1,7 +1,7 @@
 _base_ = ["./sweeps_base.py"]
 
 optimizer = "sgd"
-task = "image-mlp-fmst"
+task = "conv-c10"
 num_inner_steps = 1000
 
 num_local_steps = 4
@@ -10,12 +10,6 @@ sweep_config = dict(
     method="grid",
     metric=dict(name="test loss", goal="minimize"),
     parameters=dict(
-        num_grads=dict(
-            values=[
-                16,
-                32,
-            ]
-        ),
         learning_rate=dict(
             values=[
                 1,
