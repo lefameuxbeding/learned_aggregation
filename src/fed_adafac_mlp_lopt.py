@@ -372,12 +372,17 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
         step = step.reshape(p.shape)
         new_p = p - step
 
+        if len(fac_g.shape) == 2:
+            new_p = (p - ((onp.tanh(fac_g[:, 1]) + fac_mom_mult[:, 1]) * -0.0037778944))
+        else:
+            new_p = (p - ((onp.tanh(fac_g[:, :, 1]) + fac_mom_mult[:, :, 1]) * -0.0037778944))
+
         if did_reshape:
             new_p = jnp.squeeze(new_p, 0)
 
-        df["new_p"] = new_p.flatten()
+        # df["new_p"] = new_p.flatten()
         
-        df.sample(2).to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
+        # df.sample(2).to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
 
         # Finally, log some metrics out
         avg_step_size = jnp.mean(jnp.abs(step))
