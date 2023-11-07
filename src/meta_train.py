@@ -175,8 +175,6 @@ def meta_train(args):
         outer_trainer_state, meta_loss, metrics = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=True
         )
-        import pdb
-        pdb.set_trace()
 
         more_to_log = {
                 "iteration": i,
