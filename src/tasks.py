@@ -39,9 +39,11 @@ def imagenet_64_datasets(
     batch_size: int,
     image_size: Tuple[int, int] = (64, 64),
     prefetch_batches=50,
+    data_fraction=1.0,
     **kwargs,
 ) -> base.Datasets:
-    splits = ("train", "validation", "validation", "validation")
+    perc = max(1, int(80 * data_fraction))
+    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
     return base.tfds_image_classification_datasets(
         datasetname="imagenet_resized",
         splits=splits,
