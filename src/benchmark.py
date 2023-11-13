@@ -1,48 +1,12 @@
 import argparse
 
 import jax
-import jax.numpy as jnp
 import wandb
 from tqdm import tqdm
-from typing import Any, Optional, Sequence, Callable
-import haiku as hk
 
 from optimizers import get_optimizer
 from tasks import get_task
 
-
-# Could probably be integrated within tasks
-def conv_logits(
-    hidden_units: Sequence[int] = [32, 64, 64],
-    activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = jax.nn.relu,
-    initializers: Optional[hk.initializers.Initializer] = None,
-    norm_fn: Callable[[jnp.ndarray], jnp.ndarray] = lambda x: x,
-    pool: str = "avg",
-    num_classes: int = 10):
-  """Haiku function for a conv net with pooling and cross entropy loss."""
-  if not initializers:
-    initializers = {}
-
-  def _fn(batch):
-    net = batch["image"]
-    strides = [2] + [1] * (len(hidden_units) - 1)
-    for hs, ks, stride in zip(hidden_units, [3] * len(hidden_units), strides):
-      net = hk.Conv2D(hs, ks, stride=stride)(net)
-      net = activation_fn(net)
-      net = norm_fn(net)
-
-    if pool == "avg":
-      net = jnp.mean(net, [1, 2])
-    elif pool == "max":
-      net = jnp.max(net, [1, 2])
-    else:
-      raise ValueError("pool type not supported")
-
-    logits = hk.Linear(num_classes)(net)
-
-    return logits
-
-  return _fn
 
 def rename_batch(batch, label_map):
     return {label_map[k]:v for k,v in batch.items()}
@@ -103,15 +67,6 @@ def benchmark(args):
             to_log.update(test_log)
 
             run.log(to_log)
-
-        test_data = next(test_task.datasets.test)
-        mod = hk.transform(conv_logits())
-        key, key1 = jax.random.split(key)
-        test_logits = mod.apply(params, key1, test_data)
-        test_predictions = jnp.argmax(test_logits, axis=-1)
-        test_accuracy = jnp.sum((test_predictions == test_data["label"]) * 1) / test_data["label"].size
-
-        run.log({"test accuracy" : test_accuracy})
 
         run.finish()
 

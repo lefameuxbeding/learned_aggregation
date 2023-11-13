@@ -1,15 +1,18 @@
 _base_ = ["./sweeps_base.py"]
 
 optimizer = "sgd"
-task = "conv-c10"
+task = "mlp128x128_fmnist_32"
 num_inner_steps = 1000
 
-num_local_steps = 4
+num_grads = 8
 
 sweep_config = dict(
     method="grid",
     metric=dict(name="test loss", goal="minimize"),
     parameters=dict(
+        num_local_steps = dict(values=[
+            8, 16, 32
+        ]),
         learning_rate=dict(
             values=[
                 1,
