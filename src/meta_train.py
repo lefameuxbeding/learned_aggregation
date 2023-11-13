@@ -172,11 +172,11 @@ def meta_train(args):
         desc="Outer Loop",
     ):
         key, key1 = jax.random.split(key)
-        outer_trainer_state, meta_loss, _ = meta_trainer.update(
-            outer_trainer_state, key1, with_metrics=False
+        outer_trainer_state, meta_loss, metrics = meta_trainer.update(
+            outer_trainer_state, key1, with_metrics=True
         )
-        run.log(
-            {
+
+        more_to_log = {
                 "iteration": i,
                 args.task + " meta loss": meta_loss,
                 "learning rate": meta_opt.__dict__.get(
@@ -186,6 +186,10 @@ def meta_train(args):
                     - 1
                 ),
             }
+        
+        metrics.update(more_to_log)
+        run.log(
+            metrics
         )
 
         if (i + 1) % args.save_iter == 0:  # Checkpoint every 1000th iteration

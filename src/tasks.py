@@ -39,9 +39,11 @@ def imagenet_64_datasets(
     batch_size: int,
     image_size: Tuple[int, int] = (64, 64),
     prefetch_batches=50,
+    data_fraction=1.0,
     **kwargs,
 ) -> base.Datasets:
-    splits = ("train", "validation", "validation", "validation")
+    perc = max(1, int(80 * data_fraction))
+    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
     return base.tfds_image_classification_datasets(
         datasetname="imagenet_resized",
         splits=splits,
@@ -161,6 +163,14 @@ def mlp128x128_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size)
     return _MLPImageTask(datasets, [128, 128])
 
+@gin.configurable
+def mlp512x512_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    return _MLPImageTask(datasets, [512, 512])
+
+def mlp128_pow6_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    return _MLPImageTask(datasets, [128, 128, 128, 128, 128, 128])
 
 @gin.configurable
 def mlp64x64_fmnist_32(batch_size):
@@ -520,6 +530,8 @@ def transformer32_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+        'mlp512x512_fmnist_32':mlp512x512_fmnist_32,
+        'mlp128_pow6_fmnist_32':mlp128_pow6_fmnist_32,
         "mlp128_pow12_imagenet_32": mlp128_pow12_imagenet_32,
         "mlp128x128x128_imagenet_128":mlp128x128x128_imagenet_128,
         "mlp128x128x128_imagenet_64":mlp128x128x128_imagenet_64,

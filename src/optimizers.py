@@ -15,7 +15,6 @@ from tasks import get_task
 import gin
 import optax
 
-
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
     """Adam with a piecewise linear learning rate schedule."""
@@ -28,6 +27,7 @@ class AdamWLinearCosine(OptaxOptimizer):
         decay_steps=9700,
         end_value=3e-5,
         exponent=1.0,
+        clip=False,
     ):
         self.schedule_ = optax.warmup_cosine_decay_schedule(
             init_value=init_value,
@@ -37,8 +37,39 @@ class AdamWLinearCosine(OptaxOptimizer):
             end_value=end_value,
             exponent=exponent,
         )
-        opt = optax.adamw(self.schedule_)
+        if clip:
+            opt = optax.chain(
+                optax.adamw(self.schedule_),
+                optax.clip_by_global_norm(1.0),
+        )
+        else:
+            opt = optax.adamw(self.schedule_)
+
         super().__init__(opt)
+
+# @gin.configurable
+# class AdamWLinearCosine(OptaxOptimizer):
+#     """Adam with a piecewise linear learning rate schedule."""
+
+#     def __init__(
+#         self,
+#         init_value=3e-10,
+#         peak_value=3e-4,
+#         warmup_steps=300,
+#         decay_steps=9700,
+#         end_value=3e-5,
+#         exponent=1.0,
+#     ):
+#         self.schedule_ = optax.warmup_cosine_decay_schedule(
+#             init_value=init_value,
+#             peak_value=peak_value,
+#             warmup_steps=warmup_steps,
+#             decay_steps=decay_steps,
+#             end_value=end_value,
+#             exponent=exponent,
+#         )
+#         opt = optax.adamw(self.schedule_)
+#         super().__init__(opt)
 
 
 @gin.configurable
