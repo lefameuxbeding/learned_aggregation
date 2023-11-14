@@ -1,7 +1,9 @@
 _base_ = ["./meta_train_base.py"]
 
 optimizer = "fedlopt-adafac"
-task = "conv-c10"
+task = "image-mlp-fmst"
+
+num_outer_steps = 5000
 
 schedule = dict(
     init_value=3e-10,
