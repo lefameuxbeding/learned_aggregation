@@ -104,9 +104,11 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
             df["avg_g"] = batch_avg_g.flatten() # 1
 
         if self._with_all_grads:
-            for g in g_list:
+            for i, g in enumerate(g_list):
                 batch_g = jnp.expand_dims(g, axis=-1)
                 inps.append(batch_g)
+                df["g_" + str(i + 1)] = batch_g.flatten() # 1
+                
 
         inps.append(jnp.expand_dims(p, axis=-1))
         df["p"] = p.flatten() # 2
@@ -380,9 +382,9 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
         if did_reshape:
             new_p = jnp.squeeze(new_p, 0)
 
-        # df["new_p"] = new_p.flatten()
+        df["new_p"] = new_p.flatten()
         
-        # df.sample(2).to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
+        df.sample(2).to_csv("./test.csv", index=False, mode='a', header=not os.path.exists("./test.csv"))
 
         # Finally, log some metrics out
         avg_step_size = jnp.mean(jnp.abs(step))
