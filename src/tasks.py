@@ -6,8 +6,13 @@ from learned_optimization.tasks.datasets import base
 from learned_optimization.tasks.fixed.conv import _ConvTask, _cross_entropy_pool_loss
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask
 from learned_optimization.tasks.fixed.transformer_lm import _TransformerTask
-from learned_optimization.tasks.fixed.vit import VisionTransformerTask, wide16_config, tall16_config
+from learned_optimization.tasks.fixed.vit import (VisionTransformerTask, wide16_config, 
+            tall16_config, vit_p16_h128_m512_nh4_nl10_config, deit_tiny_config)
 from learned_optimization.tasks.fixed.vit_test import VITTest
+from learned_optimization.tasks.parametric.image_resnet import ParametricImageResNet
+from learned_optimization.tasks.resnet import ResNet
+from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
+
 
 
 @base.dataset_lru_cache
@@ -404,6 +409,41 @@ def tall16_imagenet_32(batch_size):
     )
     return VisionTransformerTask(model, datasets)
 
+
+
+def vit_p16_h128_m512_nh4_nl10_imagenet_32(batch_size):
+    model = vit_p16_h128_m512_nh4_nl10_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(32, 32), prefetch_batches=50
+    )
+    return VisionTransformerTask(model, datasets)
+
+
+def tall16_imagenet_64(batch_size):
+    model = tall16_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=50
+    )
+    return VisionTransformerTask(model, datasets)
+
+
+
+
+def deit_tiny_imagenet_64(batch_size):
+    model = deit_tiny_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=50
+    )
+    return VisionTransformerTask(model, datasets)
+
+
+def deit_tiny_imagenet_224(batch_size):
+    model = deit_tiny_config()
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(224, 224), prefetch_batches=25
+    )
+    return VisionTransformerTask(model, datasets)
+
 def tall16_imagenet_8(batch_size):
     model = tall16_config()
     datasets = imagenet_64_datasets(
@@ -428,7 +468,42 @@ def wide16_imagenet_8(batch_size):
     return VisionTransformerTask(model, datasets)
 
 
+# def resnet18_imagenet_32(batch_size):
+#     datasets = imagenet_64_datasets(
+#         batch_size=batch_size, image_size=(32, 32), prefetch_batches=500
+#     )
+#     resnet18 = {
+#           "blocks_per_group": (2, 2, 2, 2),
+#         #   "bottleneck": False,
+#           "initial_conv_channels":64,  
+#           "initial_conv_stride":2,
+#           "initial_conv_kernel_size":7,
+#         #   "blocks_per_group":,
+#         #   "channels_per_group":,
+#           "max_pool":True,
+#           "channels_per_group": (64, 128, 256, 512),
+#         #   "use_projection": (False, True, True, True),
+#       }
 
+#     print(resnet18)
+#     return ParametricImageResNet(datasets,**resnet18)
+
+
+
+def resnet18_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(32, 32), prefetch_batches=50
+    )
+    task = _ResnetTaskDataset(datasets,cfg=dict(batch_size=batch_size,image_size=32,
+                                initial_conv_kernel_size=7,initial_conv_stride=2,resnet_v2=False, max_pool=True,
+                                **ResNet.CONFIGS[18]))
+    # task.datsets = datasets
+    return task
+[
+        'blocks_per_group', 'use_projection', 'channels_per_group',
+        'initial_conv_kernel_size', 'initial_conv_stride', 'max_pool',
+        'resnet_v2'
+    ]
 # study generalization to width, depth, and larger images 
 
 @gin.configurable
@@ -530,6 +605,9 @@ def transformer32_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+        'resnet18_imagenet_32':resnet18_imagenet_32,
+
+
         'mlp512x512_fmnist_32':mlp512x512_fmnist_32,
         'mlp128_pow6_fmnist_32':mlp128_pow6_fmnist_32,
         "mlp128_pow12_imagenet_32": mlp128_pow12_imagenet_32,
@@ -542,6 +620,10 @@ def get_task(args, is_test=False):
         "mlp128_pow6_imagenet_32":mlp128_pow6_imagenet_32,
         "mlp128x128x128_c100_32": mlp128x128x128_c100_32,
         # "VIT_Cifar100_wideshallow": VITTest.test_tasks("VIT_Cifar100_wideshallow"),
+        "vit_p16_h128_m512_nh4_nl10_imagenet_32":vit_p16_h128_m512_nh4_nl10_imagenet_32,
+        "deit_tiny_imagenet_64":deit_tiny_imagenet_64,
+        "deit_tiny_imagenet_224":deit_tiny_imagenet_224,
+        "tall16_imagenet_64":tall16_imagenet_64,
         "tall16_imagenet_32": tall16_imagenet_32,
         "tall16_imagenet_8": tall16_imagenet_8,
         "wide16_imagenet_32": wide16_imagenet_32,

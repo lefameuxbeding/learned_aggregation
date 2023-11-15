@@ -32,6 +32,7 @@ def benchmark(args):
 
         key, key1 = jax.random.split(key)
         params = task.init(key1)
+        # print(params)
         opt_state = opt.init(params, num_steps=args.num_inner_steps)
 
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
