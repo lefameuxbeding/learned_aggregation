@@ -3,7 +3,7 @@ __pycache__
 slurm-*
 checkpoints
 wandb
-./.venv
+.venv
 
 usefull_commands.txt
 script_new_install.sh
