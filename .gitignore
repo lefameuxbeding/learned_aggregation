@@ -4,6 +4,7 @@ slurm-*
 checkpoints
 wandb
 .venv
+requirements.txt
 
 usefull_commands.txt
 script_new_install.sh
