@@ -94,7 +94,7 @@ if __name__ == "__main__":
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = os.getenv("SLURM_TMPDIR")
+    os.environ["TFDS_DATA_DIR"] = "./" # os.getenv("SLURM_TMPDIR")
     os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
     os.environ["TF_USE_NVLINK_FOR_PARALLEL_COMPILATION"] = "0"
 
@@ -120,6 +120,11 @@ if __name__ == "__main__":
 
     if cfg.wandb_checkpoint_id is not None:
         cfg.test_checkpoint = download_wandb_checkpoint(cfg)
+
+    if cfg.task in ["resnet18_imagenet_32"]:
+        cfg.needs_state = True
+    else:
+        cfg.needs_state = False
 
     args = argparse.Namespace(**cfg._cfg_dict)
 

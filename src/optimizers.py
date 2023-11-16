@@ -92,9 +92,15 @@ def _sgd(args):
     @jax.jit
     def update(opt_state, key, batch):
         params = opt.get_params(opt_state)
-        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
 
-        return opt.update(opt_state, grad, loss=loss), loss
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, batch)
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
 
     return opt, update
 
@@ -107,9 +113,15 @@ def _adam(args):
     @jax.jit
     def update(opt_state, key, batch):
         params = opt.get_params(opt_state)
-        loss, grad = jax.value_and_grad(task.loss)(params, key, batch)
 
-        return opt.update(opt_state, grad, loss=loss), loss
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, batch)
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
 
     return opt, update
 
@@ -147,7 +159,8 @@ def _fedlagg(args):
     def update(opt_state, key, batch):
         local_opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
         params = agg.get_params(opt_state)
-        local_opt_state = local_opt.init(params)
+        state = agg.get_state(opt_state)
+        local_opt_state = local_opt.init(params, model_state=state)
 
         #rename
         tmp = {'obs':'image',
@@ -188,11 +201,16 @@ def _fedlagg(args):
 
             for sub_client_batch in s_c_batch:
                 params = local_opt.get_params(l_opt_state)
-                loss, grad = jax.value_and_grad(task.loss)(
-                    params, key, sub_client_batch
-                )
-                losses.append(loss)
-                l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
+                
+                if args.needs_state:
+                    state = agg.get_state(l_opt_state)
+                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, sub_client_batch)
+                else:
+                    l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                    s = None
+                
+                losses.append(l)
+                l_opt_state = local_opt.update(l_opt_state, grad, loss=l, model_state=s)
 
             old_params = local_opt.get_params(local_opt_state)
             new_params = local_opt.get_params(l_opt_state)
@@ -200,12 +218,19 @@ def _fedlagg(args):
                 lambda old_p, new_p: new_p - old_p, old_params, new_params
             )
 
-            return jnp.mean(jnp.array(losses)), delta
+            return jnp.mean(jnp.array(losses)), delta, agg.get_state(local_opt_state) if args.needs_state else None
 
-        losses, deltas = jax.vmap(local_updates)(images, labels)
+        losses, deltas, new_state = jax.vmap(local_updates)(images, labels)
         loss = jnp.mean(jnp.array(losses))
 
-        return agg.update(opt_state, deltas, loss=loss), loss
+        if args.needs_state:
+            avg_state = jax.tree_util.tree_map(
+                lambda s, ns: jnp.mean(ns, axis=0), agg.get_state(opt_state), new_state
+            )
+        else:
+            avg_state = None
+
+        return agg.update(opt_state, deltas, loss=loss, model_state=avg_state), loss
 
     return agg, update
 
@@ -245,18 +270,31 @@ def _fedavg(args):
 
             for sub_client_batch in s_c_batch:
                 params = opt.get_params(local_opt_state)
-                l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+
+                if args.needs_state:
+                    state = opt.get_state(local_opt_state)
+                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, sub_client_batch)
+                else:
+                    l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                    s = None
+                
                 losses.append(l)
-                local_opt_state = opt.update(local_opt_state, grad, loss=l)
+                local_opt_state = opt.update(local_opt_state, grad, loss=l, model_state=s)
 
-            return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state)
+            return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state), opt.get_state(local_opt_state) if args.needs_state else None
 
-        losses, new_params = jax.vmap(local_updates)(images, labels)
+        losses, new_params, new_state = jax.vmap(local_updates)(images, labels)
         avg_params = jax.tree_util.tree_map(
             lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
         )
+        if args.needs_state:
+            avg_state = jax.tree_util.tree_map(
+                lambda s, ns: jnp.mean(ns, axis=0), opt.get_state(opt_state), new_state
+            )
+        else:
+            avg_state = None
 
-        return opt.init(avg_params), jnp.mean(jnp.array(losses))
+        return opt.init(avg_params, model_state=avg_state), jnp.mean(jnp.array(losses))
 
     return opt, update
 
@@ -299,16 +337,30 @@ def _fedavg_slowmo(args):
 
             for sub_client_batch in s_c_batch:
                 params = opt.get_params(local_opt_state)
-                l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                
+                if args.needs_state:
+                    state = opt.get_state(local_opt_state)
+                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, sub_client_batch)
+                else:
+                    l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                    s = None
+                
                 losses.append(l)
-                local_opt_state = opt.update(local_opt_state, grad, loss=l)
+                local_opt_state = opt.update(local_opt_state, grad, loss=l, model_state=s)
 
-            return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state)
+            return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state), opt.get_state(local_opt_state) if args.needs_state else None
 
-        losses, new_params = jax.vmap(local_updates)(images, labels)
+        losses, new_params, new_state = jax.vmap(local_updates)(images, labels)
         avg_params = jax.tree_util.tree_map(
             lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
         )
+
+        if args.needs_state:
+            avg_state = jax.tree_util.tree_map(
+                lambda s, ns: jnp.mean(ns, axis=0), opt.get_state(opt_state), new_state
+            )
+        else:
+            avg_state = None
 
         ##### SLOW MO UPDATE #####
 
@@ -344,7 +396,7 @@ def _fedavg_slowmo(args):
             jax.tree_util.tree_map(lambda x: args.slowmo_learning_rate, current_params),
         )
 
-        return opt.init(updated_params, momentum=momentum), jnp.mean(jnp.array(losses))
+        return opt.init(updated_params, momentum=momentum, model_state=avg_state), jnp.mean(jnp.array(losses))
 
     return opt, update
 

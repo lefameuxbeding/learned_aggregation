@@ -1,7 +1,7 @@
 _base_ = ["./meta_test_base.py"]
 
 optimizer = "sgd"
-task = "conv-c10"
+task = "resnet18_imagenet_32"
 num_inner_steps = 1000
 
 num_grads = 32

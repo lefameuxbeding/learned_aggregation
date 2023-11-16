@@ -6,6 +6,9 @@ wandb
 .venv
 requirements.txt
 
+downloads
+imagenet_resized
+
 usefull_commands.txt
 script_new_install.sh
 benchmark_*.sh
