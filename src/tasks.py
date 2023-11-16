@@ -499,6 +499,26 @@ def resnet18_imagenet_32(batch_size):
                                 **ResNet.CONFIGS[18]))
     # task.datsets = datasets
     return task
+
+
+
+def resnet50_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(32, 32), prefetch_batches=50
+    )
+    task = _ResnetTaskDataset(datasets,cfg=dict(batch_size=batch_size,image_size=32,
+                                initial_conv_kernel_size=7,initial_conv_stride=2,resnet_v2=False, max_pool=True,
+                                **ResNet.CONFIGS[50]))
+    # task.datsets = datasets
+    return task
+
+
+
+
+
+
+
+
 [
         'blocks_per_group', 'use_projection', 'channels_per_group',
         'initial_conv_kernel_size', 'initial_conv_stride', 'max_pool',
@@ -606,6 +626,7 @@ def transformer32_lm(batch_size):
 def get_task(args, is_test=False):
     tasks = {
         'resnet18_imagenet_32':resnet18_imagenet_32,
+        'resnet50_imagenet_32':resnet50_imagenet_32,
 
 
         'mlp512x512_fmnist_32':mlp512x512_fmnist_32,
