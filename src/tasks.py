@@ -165,7 +165,7 @@ def conv_fmnist_32(batch_size):
 
 @gin.configurable
 def mlp128x128_fmnist_32(batch_size):
-    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
     return _MLPImageTask(datasets, [128, 128])
 
 @gin.configurable
