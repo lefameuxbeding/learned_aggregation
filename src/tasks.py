@@ -641,8 +641,24 @@ def transformer32_lm(batch_size):
     return _TransformerTask(_cfg, name=_task_name)
 
 
+
+def transformer192_lm(batch_size):
+    _d_model = 192
+    _cfg = {
+        "num_heads": 12,
+        "d_model": _d_model,
+        "num_layers": 12,
+        "batch_size": batch_size,
+        "sequence_length": 16,
+        "dropout_rate": 0.1,
+    }
+    _task_name = "TransformerLM_LM1B_5layer_%dwidth" % _d_model
+    return _TransformerTask(_cfg, name=_task_name)
+
+
 def get_task(args, is_test=False):
     tasks = {
+        'transformer192_lm':transformer192_lm,
         'resnet18_imagenet_32':resnet18_imagenet_32,
         'resnet50_imagenet_32':resnet50_imagenet_32,
         'resnet50_imagenet_128':resnet50_imagenet_128,

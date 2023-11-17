@@ -17,7 +17,7 @@ def benchmark(args):
     key = jax.random.PRNGKey(0)
 
     task = get_task(args)
-    test_task = get_task(args, is_test=True)
+    # test_task = get_task(args, is_test=True)
 
     opt, update = get_optimizer(args)
 
@@ -46,23 +46,23 @@ def benchmark(args):
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
 
-            test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
+            # test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
             #log loss and accuracy if implemented
-            try:
-                test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
-                test_log = {
-                    "test loss": test_loss,
-                    "test accuracy": test_acc,
-                }
-            except AttributeError as e:
-                Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
-                if args.needs_state:
-                    state = opt.get_state(opt_state)
-                    test_loss = test_task.loss(params, state, key1, test_batch)
-                else:
-                    test_loss = test_task.loss(params, key1, test_batch)
+            # try:
+            #     test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
+            #     test_log = {
+            #         "test loss": test_loss,
+            #         "test accuracy": test_acc,
+            #     }
+            # except AttributeError as e:
+            #     Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
+            #     if args.needs_state:
+            #         state = opt.get_state(opt_state)
+            #         test_loss = test_task.loss(params, state, key1, test_batch)
+            #     else:
+            #         test_loss = test_task.loss(params, key1, test_batch)
 
-                test_log = {"test loss": test_loss}
+            #     test_log = {"test loss": test_loss}
 
 
             # outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
@@ -76,7 +76,7 @@ def benchmark(args):
                     "train loss": loss,
                     # "outer valid loss": outer_valid_loss
                 }
-            to_log.update(test_log)
+            # to_log.update(test_log)
 
             run.log(to_log)
 
