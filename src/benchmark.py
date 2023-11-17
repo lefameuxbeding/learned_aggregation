@@ -65,16 +65,16 @@ def benchmark(args):
                 test_log = {"test loss": test_loss}
 
 
-            outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
-            if args.needs_state:
-                state = opt.get_state(opt_state)
-                outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
-            else:
-                outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
+            # outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
+            # if args.needs_state:
+            #     state = opt.get_state(opt_state)
+            #     outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
+            # else:
+            #     outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
             
             to_log = {
                     "train loss": loss,
-                    "outer valid loss": outer_valid_loss
+                    # "outer valid loss": outer_valid_loss
                 }
             to_log.update(test_log)
 
