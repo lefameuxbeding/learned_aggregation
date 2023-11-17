@@ -17,7 +17,7 @@ def benchmark(args):
     key = jax.random.PRNGKey(0)
 
     task = get_task(args)
-    test_task = get_task(args, is_test=True)
+    # test_task = get_task(args, is_test=True)
 
     opt, update = get_optimizer(args)
 
@@ -43,11 +43,11 @@ def benchmark(args):
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
-            # key, key1 = jax.random.split(key)
-            # params = opt.get_params(opt_state)
+            key, key1 = jax.random.split(key)
+            params = opt.get_params(opt_state)
 
             # test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
-            # #log loss and accuracy if implemented
+            #log loss and accuracy if implemented
             # try:
             #     test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
             #     test_log = {

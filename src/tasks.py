@@ -165,7 +165,7 @@ def conv_fmnist_32(batch_size):
 
 @gin.configurable
 def mlp128x128_fmnist_32(batch_size):
-    datasets = image.fashion_mnist_datasets(batch_size=batch_size)
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
     return _MLPImageTask(datasets, [128, 128])
 
 @gin.configurable
@@ -482,6 +482,15 @@ def resnet18_imagenet_32(batch_size):
     # task.datsets = datasets
     return task
 
+def resnet18_imagenet_64(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=50
+    )
+    task = _ResnetTaskDataset(datasets,cfg=dict(batch_size=batch_size,image_size=64,
+                                initial_conv_kernel_size=7,initial_conv_stride=2,resnet_v2=False, max_pool=True,
+                                **ResNet.CONFIGS[18]))
+    # task.datsets = datasets
+    return task
 
 
 def resnet50_imagenet_32(batch_size):
@@ -641,10 +650,29 @@ def transformer32_lm(batch_size):
     return _TransformerTask(_cfg, name=_task_name)
 
 
+
+def transformer192_lm(batch_size):
+    _d_model = 192
+    _cfg = {
+        "num_heads": 12,
+        "d_model": _d_model,
+        "num_layers": 12,
+        "batch_size": batch_size,
+        "sequence_length": 16,
+        "dropout_rate": 0.1,
+    }
+    _task_name = "TransformerLM_LM1B_5layer_%dwidth" % _d_model
+    return _TransformerTask(_cfg, name=_task_name)
+
+
 def get_task(args, is_test=False):
     tasks = {
+        'transformer192_lm':transformer192_lm,
+        'resnet18_imagenet_64':resnet18_imagenet_64,
         'resnet18_imagenet_32':resnet18_imagenet_32,
         'resnet50_imagenet_32':resnet50_imagenet_32,
+
+
         'resnet50_imagenet_128':resnet50_imagenet_128,
         'resnet50_imagenet_64':resnet50_imagenet_64,
         'deit_tiny_imagenet_64':deit_tiny_imagenet_64,
