@@ -95,7 +95,7 @@ if __name__ == "__main__":
     print(xla_bridge.get_backend().platform)
 
     sys.path.append(os.getcwd())
-    # os.environ["TFDS_DATA_DIR"] = "./" # os.getenv("SLURM_TMPDIR")
+    os.environ["TFDS_DATA_DIR"] = "./" # os.getenv("SLURM_TMPDIR")
     os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
     os.environ["TF_USE_NVLINK_FOR_PARALLEL_COMPILATION"] = "0"
 
