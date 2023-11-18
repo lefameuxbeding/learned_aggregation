@@ -8,6 +8,7 @@ requirements.txt
 
 downloads
 imagenet_resized
+fashion_mnist
 
 usefull_commands.txt
 script_new_install.sh
