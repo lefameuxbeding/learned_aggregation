@@ -4,6 +4,9 @@ optimizer = "fedavg"
 task = "resnet18_imagenet_32"
 num_inner_steps = 1000
 
+num_grads = 8
+num_local_steps = 4
+
 sweep_config = dict(
     method="grid",
     metric=dict(name="test loss", goal="minimize"),

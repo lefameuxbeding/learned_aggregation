@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument("--num_outer_steps", type=int)
     parser.add_argument("--beta", type=float)
     parser.add_argument("--sweep_config", type=str)
-    parser.add_argument("--from_checkpoint", type=bool)
+    parser.add_argument("--from_checkpoint", action="store_true")
     parser.add_argument("--test_checkpoint", type=str)
     parser.add_argument("--use_pmap", action="store_true")
     parser.add_argument("--num_devices", type=int)
@@ -51,6 +51,8 @@ def parse_args():
     parser.add_argument("--wandb_checkpoint_id", type=str)
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
+    parser.add_argument("--tfds_data_dir", type=str, default=os.getenv("SLURM_TMPDIR"))
+    parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     parser.add_argument("--auto_resume", action="store_true")
     parser.add_argument("--truncation_schedule_min_length", type=int)
     parser.add_argument("--sweep_id", type=str)
@@ -94,12 +96,18 @@ if __name__ == "__main__":
 
     print(xla_bridge.get_backend().platform)
 
+    args = parse_args()
+
     sys.path.append(os.getcwd())
+<<<<<<< HEAD
     os.environ["TFDS_DATA_DIR"] = "./" # os.getenv("SLURM_TMPDIR")
     os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
     os.environ["TF_USE_NVLINK_FOR_PARALLEL_COMPILATION"] = "0"
+=======
+    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    os.environ["WANDB_DIR"] = args.wandb_dir
+>>>>>>> main
 
-    args = parse_args()
     cfg = Config.fromfile(args.config)
 
     # override args from the command line
@@ -108,7 +116,9 @@ if __name__ == "__main__":
             print("[INFO] Overriding config value: {}={}".format(k, v))
             cfg._cfg_dict[k] = v
 
-    cfg.name = "{}_{}{}".format(cfg.optimizer, cfg.task, cfg.name_suffix)
+    cfg.name = "{}{}_{}{}".format(
+        cfg.optimizer, cfg.hidden_size, cfg.task, cfg.name_suffix
+    )
     cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}{}".format(
         cfg.optimizer,
         cfg.hidden_size,
