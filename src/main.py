@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument("--wandb_checkpoint_id", type=str)
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
-    parser.add_argument("--tfds_data_dir", type=str, default=os.getenv("SLURM_TMPDIR"))
+    parser.add_argument("--tfds_data_dir", type=str, default="./") # os.getenv("SLURM_TMPDIR")
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     parser.add_argument("--auto_resume", action="store_true")
     parser.add_argument("--truncation_schedule_min_length", type=int)
@@ -99,14 +99,8 @@ if __name__ == "__main__":
     args = parse_args()
 
     sys.path.append(os.getcwd())
-<<<<<<< HEAD
-    os.environ["TFDS_DATA_DIR"] = "./" # os.getenv("SLURM_TMPDIR")
-    os.environ["WANDB_DIR"] = os.getenv("SCRATCH")
-    os.environ["TF_USE_NVLINK_FOR_PARALLEL_COMPILATION"] = "0"
-=======
     os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
     os.environ["WANDB_DIR"] = args.wandb_dir
->>>>>>> main
 
     cfg = Config.fromfile(args.config)
 
@@ -131,11 +125,6 @@ if __name__ == "__main__":
 
     if cfg.wandb_checkpoint_id is not None:
         cfg.test_checkpoint = download_wandb_checkpoint(cfg)
-
-    # if cfg.task in ["resnet18_imagenet_32"]:
-    #     cfg.needs_state = True
-    # else:
-    #     cfg.needs_state = False
 
     args = argparse.Namespace(**cfg._cfg_dict)
 
