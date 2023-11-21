@@ -1,6 +1,6 @@
 # Welcome to Learned Aggregation!
 
-This repository contains the code for our ICLR 2023 submission.
+This repository contains the code for our CVPR 2024 submission.
 
 # Installation
 ### Step 1
