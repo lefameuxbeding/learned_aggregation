@@ -1,7 +1,7 @@
 _base_ = ["./sweeps_base.py"]
 
 optimizer = "adam"
-task = "image-mlp-fmst"
+task = "mlp128x128_fmnist_32"
 num_inner_steps = 1000
 
 num_grads = 8

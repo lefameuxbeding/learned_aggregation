@@ -8,7 +8,6 @@ from optimizers import get_optimizer
 from tasks import get_task
 
 
-
 def rename_batch(batch, label_map):
     return {label_map[k]:v for k,v in batch.items()}
 
