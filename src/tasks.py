@@ -314,15 +314,55 @@ def mlp32x32_c10_8(batch_size):
 ###
 # Imagenet
 ###
-@gin.configurable
-def conv32x32_imagenet_64(batch_size):
-    """A 3 hidden layer convnet designed for 32x32 cifar10."""
-    base_model_fn = _cross_entropy_pool_loss([32, 32], jax.nn.relu, num_classes=10)
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size, image_size=(64, 64), prefetch_batches=200
-    )
-    return _ConvTask(base_model_fn, datasets)
 
+
+@gin.configurable
+def mlp128x128_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [128, 128])
+
+@gin.configurable
+def mlp16x16x16_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [16, 16, 16])
+
+@gin.configurable
+def mlp64x64x64_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [64, 64, 64])
+
+@gin.configurable
+def mlp256x256x256_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [256, 256, 256])
+
+@gin.configurable
+def mlp1024x1024x1024_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [1024, 1024, 1024])
+
+@gin.configurable
+def mlp4096x4096x4096_imagenet_32(batch_size):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+    )
+    return _MLPImageTask(datasets, [4096, 4096, 4096])
 
 @gin.configurable
 def mlp128x128_imagenet_64(batch_size):
@@ -342,6 +382,14 @@ def mlp64x64_imagenet_64(batch_size):
     )
     return _MLPImageTask(datasets, [64, 64])
 
+@gin.configurable
+def conv32x32_imagenet_64(batch_size):
+    """A 3 hidden layer convnet designed for 32x32 cifar10."""
+    base_model_fn = _cross_entropy_pool_loss([32, 32], jax.nn.relu, num_classes=10)
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size, image_size=(64, 64), prefetch_batches=200
+    )
+    return _ConvTask(base_model_fn, datasets)
 
 @gin.configurable
 def conv_imagenet_32(batch_size):
@@ -354,24 +402,6 @@ def conv_imagenet_32(batch_size):
         image_size=(32, 32),
     )
     return _ConvTask(base_model_fn, datasets)
-
-
-@gin.configurable
-def mlp128x128_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size,
-        image_size=(32, 32),
-    )
-    return _MLPImageTask(datasets, [128, 128])
-
-
-@gin.configurable
-def mlp128x128x128_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size,
-        image_size=(32, 32),
-    )
-    return _MLPImageTask(datasets, [128, 128, 128])
 
 
 @gin.configurable

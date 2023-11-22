@@ -11,6 +11,8 @@ from tasks import get_task
 def rename_batch(batch, label_map):
     return {label_map[k]:v for k,v in batch.items()}
 
+def count_parameters(params):
+    return sum(jnp.size(param) for param in jax.tree_leaves(params))
 
 def benchmark(args):
     key = jax.random.PRNGKey(0)
@@ -34,6 +36,8 @@ def benchmark(args):
             params, state = task.init_with_state(key1)
         else:
             params, state = task.init(key1), None
+
+        print("Model parameters (M): ", count_parameters(params)/1000000)
         
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
 
