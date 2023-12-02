@@ -1,30 +1,22 @@
 # Welcome to Learned Aggregation!
 
-This repository contains the code for our CVPR 2024 submission.
-
 # Installation
-### Step 1
-[Install jax](https://jax.readthedocs.io/en/latest/installation.html)
-### Step 2
+
 Run the following code:
 ```
-export TFDS_DATA_DIR=/PATH_TO_LARGE_FILE_STORAGE/
-export SLURM_TMPDIR=$TFDS_DATA_DIR
-export SCRATCH=/PATH_TO/learned_aggregation
-export WANDB_DIR=$SCRATCH
-pip install mmengine, seqio, wandb
-cd ../learned_optimization
-pip install -e .
-cd ../vision_transformer
-pip install -e .
-cd ../learned_aggregation
+python -m venv venv
+source venv/bin/activate
+
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install nvidia-pyindex
+python -m pip install -r requirements.txt
 ```
 
 # Quickstart
 
 As a quickstart tutorial, we will replicate the experiments at different H values from the paper for the LAgg-A model.
 
-### H=4,k=8
+### H=4, K=8
 ```
 python src/main.py \
 --config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
@@ -33,7 +25,7 @@ python src/main.py \
 --local_learning_rate 0.5
 ```
 
-### H=8,k=8
+### H=8, K=8
 ```
 python src/main.py \
 --config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \
@@ -42,7 +34,7 @@ python src/main.py \
 --local_learning_rate 0.5
 ```
 
-### H=16,k=8
+### H=16, K=8
 ```
 python src/main.py \
 --config config/meta_train/meta_train_fedlagg-adafac32_image-mlp-fmst_schedule_3e-3_10000_d3:1.py \

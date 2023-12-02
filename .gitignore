@@ -1,15 +1,12 @@
+.venv
 .vscode
 __pycache__
 slurm-*
 checkpoints
 wandb
-.venv
-requirements.txt
-
 downloads
 imagenet_resized
 fashion_mnist
-
 usefull_commands.txt
 script_new_install.sh
 benchmark_*.sh
@@ -17,7 +14,6 @@ run_sweeps_gpu*.sh
 job.sh
 setup.sh
 train_models.py
-
 run_*
 eval_*
 models
