@@ -6,8 +6,10 @@ import jax.numpy as jnp
 from haiku._src.data_structures import FlatMap
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.optimizers import optax_opts, OptaxOptimizer
+import mmengine
 
 from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
+from fed_adafac_mlp_lopt_dllr import FedAdafacMLPLOptDLLR
 from fed_mlp_lopt import FedMLPLOpt
 from slowmo import SGDSlowMo
 from tasks import get_task
@@ -47,30 +49,90 @@ class AdamWLinearCosine(OptaxOptimizer):
 
         super().__init__(opt)
 
-# @gin.configurable
-# class AdamWLinearCosine(OptaxOptimizer):
-#     """Adam with a piecewise linear learning rate schedule."""
 
-#     def __init__(
-#         self,
-#         init_value=3e-10,
-#         peak_value=3e-4,
-#         warmup_steps=300,
-#         decay_steps=9700,
-#         end_value=3e-5,
-#         exponent=1.0,
-#     ):
-#         self.schedule_ = optax.warmup_cosine_decay_schedule(
-#             init_value=init_value,
-#             peak_value=peak_value,
-#             warmup_steps=warmup_steps,
-#             decay_steps=decay_steps,
-#             end_value=end_value,
-#             exponent=exponent,
-#         )
-#         opt = optax.adamw(self.schedule_)
-#         super().__init__(opt)
+@gin.configurable
+class MuAdamWLinearCosine(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
 
+    def __init__(
+        self,
+        init_value=3e-10,
+        peak_value=3e-4,
+        warmup_steps=300,
+        decay_steps=9700,
+        end_value=3e-5,
+        exponent=1.0,
+        clip=1.0,
+        mup_lrs=None,
+    ):
+        assert mup_lrs is not None, "must provide mup_lrs"
+
+        self.schedule_ = optax.warmup_cosine_decay_schedule(
+            init_value=init_value,
+            peak_value=peak_value,
+            warmup_steps=warmup_steps,
+            decay_steps=decay_steps,
+            end_value=end_value,
+            exponent=exponent,
+        )
+
+        def init_fn(params):
+            del params
+            return optax.EmptyState()
+        
+        def update_fn(updates, state, params=None):
+            del params
+            # print(updates)
+            # print(mup_lrs)
+            # import pdb; pdb.set_trace()
+            updates = jax.tree_map(
+                lambda update, scale: update * scale,
+                updates,
+                mup_lrs
+            )
+            # jax.tree_map(lambda update, scale: update * scale, updates, dict(mup_lrs))
+            return updates, state
+        
+        opt = optax.chain(
+            optax.adamw(self.schedule_),
+            optax.GradientTransformation(init_fn, update_fn),
+            optax.clip_by_global_norm(clip),
+        )
+
+        super().__init__(opt)
+
+
+
+
+def _muadamw_schedule(args):
+
+    def fix_dict(d):
+        d = dict(d)
+        for k,v in d.items():
+            if isinstance(v, mmengine.config.config.ConfigDict):
+                d[k] = fix_dict(v)
+
+        return dict(d)
+    # import pdb; pdb.set_trace()
+
+    opt = MuAdamWLinearCosine(**fix_dict(args.muadamw_schedule_kwargs))
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, batch)
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
+
+    return opt, update
 
 @gin.configurable
 class AdamW(OptaxOptimizer):
@@ -124,6 +186,115 @@ def _adam(args):
         return opt.update(opt_state, grad, loss=l, model_state=s), l
 
     return opt, update
+
+
+def _fedlaggDLLR(args):
+    lagg_class = FedAdafacMLPLOptDLLR
+    with_all_grads = True
+    # (
+    #     True
+    #     if args.optimizer in ["fedlagg", "fedlagg-wavg", "fedlagg-adafac"]
+    #     else False
+    # )
+    with_avg = False
+    # (
+    #     True
+    #     if args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg-wavg"]
+    #     else False
+    # )
+    lagg = lagg_class(
+        num_grads=args.num_grads,
+        hidden_size=args.hidden_size,
+        with_all_grads=with_all_grads,
+        with_avg=with_avg,
+    )
+
+    with open(args.test_checkpoint, "rb") as f:
+        meta_params = pickle.load(f)
+    agg = lagg.opt_fn(meta_params)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        local_opt = optax_opts.SGD(learning_rate=opt_state.llr)
+        params = agg.get_params(opt_state)
+        state = agg.get_state(opt_state)
+        local_opt_state = local_opt.init(params, model_state=state)
+
+        #rename
+        tmp = {'obs':'image',
+               'target':'label',
+               'image':'image',
+               'label':'label'}
+        batch = {tmp[k]:v for k,v in batch.items()}
+
+        images = jnp.array(batch["image"])
+        labels = jnp.array(batch["label"])
+        # images = jnp.array(batch["obs"])
+        # labels = jnp.array(batch["target"])
+
+        def split(arr, split_factor):
+            """Splits the first axis of `arr` evenly across the number of devices."""
+            return arr.reshape(
+                split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
+            )
+
+        images = split(images, agg.num_grads)
+        labels = split(labels, agg.num_grads)
+
+        def local_updates(im, lab):
+            l_opt_state = copy.deepcopy(local_opt_state)
+            s_c_images = split(im, args.num_local_steps)
+            s_c_labels = split(lab, args.num_local_steps)
+
+            s_c_batch = []
+            for i in range(args.num_local_steps):
+                sub_batch_dict = {}
+                # sub_batch_dict["obs"] = s_c_images[i]
+                # sub_batch_dict["target"] = s_c_labels[i]
+                sub_batch_dict["image"] = s_c_images[i]
+                sub_batch_dict["label"] = s_c_labels[i]
+                s_c_batch.append(FlatMap(sub_batch_dict))
+
+            losses = []
+
+            for sub_client_batch in s_c_batch:
+                params = local_opt.get_params(l_opt_state)
+                
+                if args.needs_state:
+                    state = agg.get_state(l_opt_state)
+                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, sub_client_batch)
+                else:
+                    l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                    s = None
+                
+                losses.append(l)
+                l_opt_state = local_opt.update(l_opt_state, grad, loss=l, model_state=s)
+
+            old_params = local_opt.get_params(local_opt_state)
+            new_params = local_opt.get_params(l_opt_state)
+            delta = jax.tree_util.tree_map(
+                lambda old_p, new_p: new_p - old_p, old_params, new_params
+            )
+
+            return jnp.mean(jnp.array(losses)), delta, agg.get_state(local_opt_state) if args.needs_state else None
+
+        losses, deltas, new_state = jax.vmap(local_updates)(images, labels)
+        loss = jnp.mean(jnp.array(losses))
+
+        if args.needs_state:
+            avg_state = jax.tree_util.tree_map(
+                lambda s, ns: jnp.mean(ns, axis=0), agg.get_state(opt_state), new_state
+            )
+        else:
+            avg_state = None
+
+        return agg.update(opt_state, deltas, loss=loss, model_state=avg_state), loss
+
+    return agg, update
+
+
 
 
 def _fedlagg(args):
@@ -412,6 +583,8 @@ def get_optimizer(args):
         "fedlagg": _fedlagg,
         "fedlagg-wavg": _fedlagg,
         "fedlagg-adafac": _fedlagg,
+        "fedlagg-adafac-dllr": _fedlaggDLLR,
+        "muadamw": _muadamw_schedule,
     }
 
     return optimizers[args.optimizer](args)  # TODO Find better way to do this

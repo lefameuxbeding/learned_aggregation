@@ -13,7 +13,7 @@ from learned_optimization.tasks.parametric.image_resnet import ParametricImageRe
 from learned_optimization.tasks.resnet import ResNet
 from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
 
-
+from custom_tasks import _MuMLPImageTask
 
 @base.dataset_lru_cache
 @gin.configurable
@@ -152,6 +152,88 @@ def My_ImageMLP_FashionMnist8_Relu32(batch_size):
 
 
 ###
+
+@gin.configurable
+def mumlp1x1_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [1, 1])
+
+@gin.configurable
+def mumlp2x2_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [2, 2])
+
+@gin.configurable
+def mumlp4x4_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [4, 4])
+
+@gin.configurable
+def mumlp8x8_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [8, 8])
+
+@gin.configurable
+def mumlp16x16_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [16, 16])
+
+@gin.configurable
+def mumlp32x32_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [32, 32])
+
+@gin.configurable
+def mumlp64x64_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [64, 64])
+
+@gin.configurable
+def mumlp128x128_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [128, 128])
+
+@gin.configurable
+def mumlp256x256_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [256, 256])
+
+@gin.configurable
+def mumlp512x512_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [512, 512])
+
+@gin.configurable
+def mumlp1024x1024_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [1024, 1024])
+
+@gin.configurable
+def mumlp2048x2048_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [2048, 2048])
+
+@gin.configurable
+def mumlp4096x4096_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [4096, 4096])
+
+@gin.configurable
+def mumlp8192x8192_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [8192, 8192])
+
+@gin.configurable
+def mumlp16384x16384_fmnist_32(batch_size):
+    datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
+    return _MuMLPImageTask(datasets, [16384, 16384])
+
+
+###
+
+
+
+###
 # fmst
 ###
 
@@ -167,6 +249,9 @@ def conv_fmnist_32(batch_size):
 def mlp128x128_fmnist_32(batch_size):
     datasets = image.fashion_mnist_datasets(batch_size=batch_size,prefetch_batches=1000)
     return _MLPImageTask(datasets, [128, 128])
+
+
+
 
 @gin.configurable
 def mlp512x512_fmnist_32(batch_size):
@@ -226,6 +311,25 @@ def mlp32x32_fmnist_8(batch_size):
 ###
 # Cifar-10
 ###
+
+
+@gin.configurable
+def mumlp32x32_c10_32(batch_size):
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=500,
+    )
+    return _MuMLPImageTask(datasets, [32, 32])
+
+
+
+@gin.configurable
+def mumlp128x128_c10_32(batch_size):
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=500,
+    )
+    return _MuMLPImageTask(datasets, [128, 128])
 
 
 @gin.configurable
@@ -610,22 +714,6 @@ def mlp128_imagenet_32(batch_size):
     return _MLPImageTask(datasets, [128])
 
 
-@gin.configurable
-def mlp64x64x64_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size,
-        image_size=(32, 32),
-    )
-    return _MLPImageTask(datasets, [64, 64, 64])
-
-@gin.configurable
-def mlp256x256x256_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size,
-        image_size=(32, 32),
-    )
-    return _MLPImageTask(datasets, [256, 256, 256])
-
 
 @gin.configurable
 def mlp512x512x512_imagenet_32(batch_size):
@@ -697,6 +785,24 @@ def transformer192_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+        "mumlp128x128_c10_32":mumlp128x128_c10_32,
+        "mumlp32x32_c10_32":mumlp32x32_c10_32,
+        "mumlp1x1_fmnist_32":mumlp1x1_fmnist_32,
+        "mumlp2x2_fmnist_32":mumlp2x2_fmnist_32,
+        "mumlp4x4_fmnist_32":mumlp4x4_fmnist_32,
+        "mumlp8x8_fmnist_32":mumlp8x8_fmnist_32,
+        "mumlp16x16_fmnist_32":mumlp16x16_fmnist_32,
+        "mumlp32x32_fmnist_32":mumlp32x32_fmnist_32,
+        "mumlp64x64_fmnist_32":mumlp64x64_fmnist_32,
+        "mumlp128x128_fmnist_32":mumlp128x128_fmnist_32,
+        "mumlp256x256_fmnist_32":mumlp256x256_fmnist_32,
+        "mumlp512x512_fmnist_32":mumlp512x512_fmnist_32,
+        "mumlp1024x1024_fmnist_32":mumlp1024x1024_fmnist_32,
+        "mumlp2048x2048_fmnist_32":mumlp2048x2048_fmnist_32,
+        "mumlp4096x4096_fmnist_32":mumlp4096x4096_fmnist_32,
+        "mumlp8192x8192_fmnist_32":mumlp8192x8192_fmnist_32,
+        "mumlp16384x16384_fmnist_32":mumlp16384x16384_fmnist_32,
+
         'transformer192_lm':transformer192_lm,
         'resnet18_imagenet_64':resnet18_imagenet_64,
         'resnet18_imagenet_32':resnet18_imagenet_32,
@@ -747,7 +853,7 @@ def get_task(args, is_test=False):
         "mlp64x64_imagenet_64": mlp64x64_imagenet_64,
         "conv_imagenet_32": conv_imagenet_32,
         "mlp128x128_imagenet_32": mlp128x128_imagenet_32,
-        "mlp128x128x128_imagenet_32": mlp128x128x128_imagenet_32,
+        # "mlp128x128x128_imagenet_32": mlp128x128x128_imagenet_32,
         "small_conv_imagenet_8": small_conv_imagenet_8,
         "mlp32_imagenet_8": mlp32_imagenet_8,
         "mlp32x32_imagenet_8": mlp32x32_imagenet_8,

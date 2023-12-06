@@ -98,7 +98,9 @@ def progress_or_reset_inner_opt_state_fedlopt(
         else:
             # Otherwise we can just use loss_with_state.
 
-            local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
+            # The following line needs requires a cahnge somewhere to be backward compatible
+            # TODO: (ben) fix this
+            local_opt = optax_opts.SGD(learning_rate=inner_opt_state.llr)
             local_opt_state = local_opt.init(p)
 
             images = jnp.array(data["image"])
@@ -397,7 +399,7 @@ class VectorizedFedLOptTruncatedStep(
         self.num_local_steps = num_local_steps
 
         self.data_shape = jax.tree_util.tree_map(
-            lambda x: jax.ShapedArray(shape=x.shape, dtype=x.dtype),
+            lambda x: jax.core.ShapedArray(shape=x.shape, dtype=x.dtype),
             training.vec_get_batch(task_family, num_tasks, split="train", numpy=True),
         )
 

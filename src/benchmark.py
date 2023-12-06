@@ -7,6 +7,7 @@ from tqdm import tqdm
 from optimizers import get_optimizer
 from tasks import get_task
 
+import jax.numpy as jnp
 
 def rename_batch(batch, label_map):
     return {label_map[k]:v for k,v in batch.items()}
@@ -20,6 +21,19 @@ def benchmark(args):
     task = get_task(args)
     test_task = get_task(args, is_test=True)
 
+    key, key1 = jax.random.split(key)
+    if args.needs_state:
+        print("Using stateful model")
+        params, state = task.init_with_state(key1)
+    else:
+        params, state = task.init(key1), None
+
+    try:
+        args.muadamw_schedule_kwargs['mup_lrs'] = state['mu_mlp']['mup_lrs']
+    except KeyError as e:
+        print(e)
+        print("Ignoring if not training mu optimizers muadamw_schedule_kwargs")
+
     opt, update = get_optimizer(args)
 
 
@@ -28,28 +42,31 @@ def benchmark(args):
                     'image':'image',
                     'label':'label'}
 
+    test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
+    outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
+
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
-
-        key, key1 = jax.random.split(key)
-        if args.needs_state:
-            params, state = task.init_with_state(key1)
-        else:
-            params, state = task.init(key1), None
-
-        print("Model parameters (M): ", count_parameters(params)/1000000)
         
+        if _ == 0:
+            print("Model parameters (M): ", count_parameters(params)/1000000)
+        else:
+            key, key1 = jax.random.split(key)
+            if args.needs_state:
+                params, state = task.init_with_state(key1)
+            else:
+                params, state = task.init(key1), None
+    
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
 
-        for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
+        for inner_step in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
 
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
-
-            test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
+            
             #log loss and accuracy if implemented
             try:
                 test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
@@ -61,17 +78,16 @@ def benchmark(args):
                 Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
                 if args.needs_state:
                     state = opt.get_state(opt_state)
-                    test_loss = test_task.loss(params, state, key1, test_batch)
+                    test_loss, _ = test_task.loss_with_state(params, state, key1, test_batch)
                 else:
                     test_loss = test_task.loss(params, key1, test_batch)
 
                 test_log = {"test loss": test_loss}
 
 
-            outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
             if args.needs_state:
                 state = opt.get_state(opt_state)
-                outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
+                outer_valid_loss, _ = test_task.loss_with_state(params, state, key1, outer_valid_batch)
             else:
                 outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
             
@@ -80,6 +96,11 @@ def benchmark(args):
                     "outer valid loss": outer_valid_loss
                 }
             to_log.update(test_log)
+
+            # DONT delete the following comment
+            # if inner_step < 10:
+            #     state = opt.get_state(opt_state)
+            #     to_log.update({k + f"_iter_{inner_step}" : v for k,v in state['mu_mlp'].items() if 'act' in k})
 
             run.log(to_log)
 

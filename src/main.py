@@ -27,7 +27,9 @@ def parse_args():
                                                           "fedlopt-adafac", 
                                                           "fedlagg", 
                                                           "fedlagg-wavg", 
-                                                          "fedlagg-adafac"])
+                                                          "fedlagg-adafac",
+                                                          "fedlagg-adafac-dllr",
+                                                          "muadamw"])
     parser.add_argument("--task", type=str)
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
@@ -57,6 +59,8 @@ def parse_args():
     parser.add_argument("--truncation_schedule_min_length", type=int)
     parser.add_argument("--sweep_id", type=str)
     parser.add_argument("--needs_state", action="store_true")
+    parser.add_argument("--end_value", type=float)
+    parser.add_argument("--peak_value", type=float)
     # fmt: on
 
     return parser.parse_args()
@@ -99,7 +103,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
     os.environ["WANDB_DIR"] = args.wandb_dir
 
     cfg = Config.fromfile(args.config)
@@ -129,6 +133,7 @@ if __name__ == "__main__":
     args = argparse.Namespace(**cfg._cfg_dict)
 
     assert_args(args)
+
 
     run_types = {"benchmark": benchmark, "meta-train": meta_train, "sweep": sweep}
 

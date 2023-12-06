@@ -7,6 +7,7 @@ from learned_optimization.outer_trainers import (
 from learned_optimization.tasks import base as tasks_base
 
 from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
+from fed_adafac_mlp_lopt_dllr import FedAdafacMLPLOptDLLR
 from fed_truncated_step import VectorizedFedLOptTruncatedStep
 from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
@@ -16,27 +17,38 @@ from optimizers import AdamWLinearCosine, AdamW
 
 
 def _fedlagg_meta_trainer(args):
-    lagg_class = (
-        FedAdafacMLPLOpt
-        if args.optimizer in ["fedlopt-adafac", "fedlagg-adafac"]
-        else FedMLPLOpt
-    )
-    with_all_grads = (
-        True
-        if args.optimizer in ["fedlagg", "fedlagg-wavg", "fedlagg-adafac"]
-        else False
-    )
-    with_avg = (
-        True
-        if args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg-wavg"]
-        else False
-    )
-    lagg = lagg_class(
-        num_grads=args.num_grads,
-        hidden_size=args.hidden_size,
-        with_all_grads=with_all_grads,
-        with_avg=with_avg,
-    )
+
+    if args.optimizer == "fedlagg-adafac-dllr":
+        lagg = FedAdafacMLPLOptDLLR(
+            num_grads=args.num_grads,
+            hidden_size=args.hidden_size,
+            with_all_grads=True,
+            with_avg=False,
+        )
+    
+    else:
+
+        lagg_class = (
+            FedAdafacMLPLOpt
+            if args.optimizer in ["fedlopt-adafac", "fedlagg-adafac"]
+            else FedMLPLOpt
+        )
+        with_all_grads = (
+            True
+            if args.optimizer in ["fedlagg", "fedlagg-wavg", "fedlagg-adafac"]
+            else False
+        )
+        with_avg = (
+            True
+            if args.optimizer in ["fedlopt", "fedlopt-adafac", "fedlagg-wavg"]
+            else False
+        )
+        lagg = lagg_class(
+            num_grads=args.num_grads,
+            hidden_size=args.hidden_size,
+            with_all_grads=with_all_grads,
+            with_avg=with_avg,
+        )
 
     if args.schedule != {}:
         print("Using learning rate scheduler")
@@ -100,6 +112,7 @@ def get_meta_trainer(args):
         "fedlagg": _fedlagg_meta_trainer,
         "fedlagg-wavg": _fedlagg_meta_trainer,
         "fedlagg-adafac": _fedlagg_meta_trainer,
+        "fedlagg-adafac-dllr": _fedlagg_meta_trainer,
     }
 
     return meta_trainers[args.optimizer](args)  # TODO Find better way to do this

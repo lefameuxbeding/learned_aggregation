@@ -29,6 +29,17 @@ truncation_schedule_min_length = 100
 # for slowmo
 beta = 0.99
 
+muadamw_schedule_kwargs=dict(
+    init_value=3e-12,
+    peak_value=3e-4,
+    warmup_steps=100,
+    decay_steps=4900,
+    end_value=3e-5,
+    exponent=1.0,
+    clip=1.0,
+    mup_lrs=None,
+)
+
 # sweeps only
 sweep_config = dict()
 sweep_id = None
