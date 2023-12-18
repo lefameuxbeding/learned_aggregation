@@ -609,22 +609,13 @@ def mlp128_imagenet_32(batch_size):
     )
     return _MLPImageTask(datasets, [128])
 
-
 @gin.configurable
-def mlp64x64x64_imagenet_32(batch_size):
+def mlp128x128x128_imagenet_32(batch_size):
     datasets = imagenet_64_datasets(
         batch_size=batch_size,
         image_size=(32, 32),
     )
-    return _MLPImageTask(datasets, [64, 64, 64])
-
-@gin.configurable
-def mlp256x256x256_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size,
-        image_size=(32, 32),
-    )
-    return _MLPImageTask(datasets, [256, 256, 256])
+    return _MLPImageTask(datasets, [128, 128, 128])
 
 
 @gin.configurable
