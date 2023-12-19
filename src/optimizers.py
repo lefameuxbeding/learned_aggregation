@@ -1,5 +1,6 @@
 import copy
 import pickle
+from functools import partial
 
 import jax
 import jax.numpy as jnp
@@ -14,6 +15,43 @@ from tasks import get_task
 
 import gin
 import optax
+
+
+@partial(jax.jit, static_argnames=["k"])
+def _top_k_indices(pytree, k):
+  flat_pytree, _ = jax.tree_util.tree_flatten(pytree)
+  raveled_pytree = [jnp.ravel(x) for x in flat_pytree]
+  concat_tree = jnp.concatenate(raveled_pytree)
+  abs_tree = jnp.abs(concat_tree)
+  return jax.lax.top_k(abs_tree, k)[1]
+
+
+@partial(jax.jit, static_argnames=["k"])
+def _mask_top_k(pytree, k):
+  flat_pytree, tree_structure = jax.tree_util.tree_flatten(pytree)
+  top_k_i = _top_k_indices(pytree, k)
+
+  previous = 0
+  segments = []
+  shapes = []
+  for x in flat_pytree:
+    segments.append((previous, previous + x.size))
+    shapes.append(x.shape)
+    previous += x.size
+
+  raveled_pytree = [jnp.ravel(x) for x in flat_pytree]
+  concat_tree = jnp.concatenate(raveled_pytree)
+  masked_tree = jnp.where(jnp.isin(jnp.arange(len(concat_tree)), top_k_i), concat_tree, 0)
+
+  reshaped_tree = []
+  start = 0
+  for segment, shape in zip(segments, shapes):
+      end = segment[1]
+      reshaped_tree.append(jnp.reshape(jnp.array(masked_tree[start:end]), shape))
+      start = segment[1]
+
+  return jax.tree_util.tree_unflatten(tree_structure, reshaped_tree)
+
 
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
@@ -240,7 +278,7 @@ def _fedavg(args):
 
     task = get_task(args)
 
-    @jax.jit
+    # @jax.jit TODO Uncomment
     def update(opt_state, clients_state, key, batch):
         images = jnp.array(batch["image"])
         labels = jnp.array(batch["label"])
@@ -286,12 +324,23 @@ def _fedavg(args):
         losses, new_params, new_state = jax.vmap(local_updates)(images, labels)
 
         if args.use_top_k:
-            old_params = opt.get_params(opt_state)
-            avg_delta = jax.tree_util.tree_map(
-                lambda old_p, new_p: jnp.mean(new_p, axis=0) - old_p, old_params, new_params
+            deltas = jax.tree_util.tree_map(
+                lambda old_p, new_p: new_p - old_p, opt.get_params(opt_state), new_params
             )
+            deltas_with_error = jax.tree_util.tree_map(
+                lambda deltas, clients_state: deltas + clients_state, deltas, clients_state
+            )
+            masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, 50) # TODO change k based on args.top_k_value
+            clients_state = jax.tree_util.tree_map(
+                lambda deltas_with_error, masked_deltas: deltas_with_error - masked_deltas, deltas_with_error, masked_deltas
+            )
+            print(clients_state)
+            avg_delta = jax.tree_util.tree_map(
+                lambda deltas: jnp.mean(deltas, axis=0), masked_deltas
+            )
+            print(avg_delta)
             avg_params = jax.tree_util.tree_map(
-                lambda old_params, avg_delta : old_params + avg_delta, old_params, avg_delta
+                lambda old_params, avg_delta : old_params + avg_delta, opt.get_params(opt_state), avg_delta
             )
         else:
             avg_params = jax.tree_util.tree_map(
