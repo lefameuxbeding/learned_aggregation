@@ -12,8 +12,10 @@ from tasks import get_task
 def rename_batch(batch, label_map):
     return {label_map[k]:v for k,v in batch.items()}
 
+
 def count_parameters(params):
-    return sum(jnp.size(param) for param in jax.tree_leaves(params))
+    return sum(jnp.size(param) for param in jax.tree_util.tree_leaves(params))
+
 
 def benchmark(args):
     key = jax.random.PRNGKey(0)
@@ -38,7 +40,8 @@ def benchmark(args):
         else:
             params, state = task.init(key1), None
 
-        print("Model parameters (M): ", count_parameters(params)/1000000)
+        params_count = count_parameters(params)
+        print("Model parameters (M): ", params_count/1000000)
         
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
         clients_state = jax.tree_util.tree_map(lambda x : jnp.array([jnp.zeros_like(x) for _ in range(args.num_grads)]), params)
@@ -46,7 +49,7 @@ def benchmark(args):
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
-            opt_state, loss, clients_state = update(opt_state, clients_state, key1, batch)
+            opt_state, loss, clients_state = update(opt_state, clients_state, key1, batch, int(params_count * args.top_k_value))
 
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)

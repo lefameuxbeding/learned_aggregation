@@ -278,8 +278,8 @@ def _fedavg(args):
 
     task = get_task(args)
 
-    # @jax.jit TODO Uncomment
-    def update(opt_state, clients_state, key, batch):
+    @partial(jax.jit, static_argnames = ["top_k_value"])
+    def update(opt_state, clients_state, key, batch, top_k_value):
         images = jnp.array(batch["image"])
         labels = jnp.array(batch["label"])
 
@@ -330,15 +330,13 @@ def _fedavg(args):
             deltas_with_error = jax.tree_util.tree_map(
                 lambda deltas, clients_state: deltas + clients_state, deltas, clients_state
             )
-            masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, 50) # TODO change k based on args.top_k_value
+            masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, top_k_value)
             clients_state = jax.tree_util.tree_map(
                 lambda deltas_with_error, masked_deltas: deltas_with_error - masked_deltas, deltas_with_error, masked_deltas
             )
-            print(clients_state)
             avg_delta = jax.tree_util.tree_map(
                 lambda deltas: jnp.mean(deltas, axis=0), masked_deltas
             )
-            print(avg_delta)
             avg_params = jax.tree_util.tree_map(
                 lambda old_params, avg_delta : old_params + avg_delta, opt.get_params(opt_state), avg_delta
             )
