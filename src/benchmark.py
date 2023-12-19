@@ -41,11 +41,12 @@ def benchmark(args):
         print("Model parameters (M): ", count_parameters(params)/1000000)
         
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
+        clients_state = jax.tree_util.tree_map(lambda x : jnp.array([jnp.zeros_like(x) for _ in range(args.num_grads)]), params)
 
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
-            opt_state, loss = update(opt_state, key1, batch)
+            opt_state, loss, clients_state = update(opt_state, clients_state, key1, batch)
 
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)

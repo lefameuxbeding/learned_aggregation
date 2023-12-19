@@ -57,6 +57,8 @@ def parse_args():
     parser.add_argument("--truncation_schedule_min_length", type=int)
     parser.add_argument("--sweep_id", type=str)
     parser.add_argument("--needs_state", action="store_true")
+    parser.add_argument("--use_top_k", action="store_true")
+    parser.add_argument("--top_k_value", type=float)
     # fmt: on
 
     return parser.parse_args()

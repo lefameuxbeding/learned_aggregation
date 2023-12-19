@@ -241,7 +241,7 @@ def _fedavg(args):
     task = get_task(args)
 
     @jax.jit
-    def update(opt_state, key, batch):
+    def update(opt_state, clients_state, key, batch):
         images = jnp.array(batch["image"])
         labels = jnp.array(batch["label"])
 
@@ -284,9 +284,20 @@ def _fedavg(args):
             return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state), opt.get_state(local_opt_state) if args.needs_state else None
 
         losses, new_params, new_state = jax.vmap(local_updates)(images, labels)
-        avg_params = jax.tree_util.tree_map(
-            lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
-        )
+
+        if args.use_top_k:
+            old_params = opt.get_params(opt_state)
+            avg_delta = jax.tree_util.tree_map(
+                lambda old_p, new_p: jnp.mean(new_p, axis=0) - old_p, old_params, new_params
+            )
+            avg_params = jax.tree_util.tree_map(
+                lambda old_params, avg_delta : old_params + avg_delta, old_params, avg_delta
+            )
+        else:
+            avg_params = jax.tree_util.tree_map(
+                lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
+            )
+
         if args.needs_state:
             avg_state = jax.tree_util.tree_map(
                 lambda s, ns: jnp.mean(ns, axis=0), opt.get_state(opt_state), new_state
@@ -294,7 +305,7 @@ def _fedavg(args):
         else:
             avg_state = None
 
-        return opt.init(avg_params, model_state=avg_state), jnp.mean(jnp.array(losses))
+        return opt.init(avg_params, model_state=avg_state), jnp.mean(jnp.array(losses)), clients_state
 
     return opt, update
 
