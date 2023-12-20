@@ -12,7 +12,7 @@ num_local_steps = 4
 num_inner_steps = 1000
 learning_rate = 0.0001
 name_suffix = ""
-top_k_value = 0.1
+top_k_value = 1
 
 # meta training only
 num_outer_steps = 5000

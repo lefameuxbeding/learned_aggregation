@@ -102,11 +102,10 @@ class FedMLPLOpt(lopt_base.LearnedOptimizer):
                 is_valid: bool = False,
                 key: Optional[PRNGKey] = None,
             ) -> MLPLOptState:
-                # TODO Make sure we are feeding the correct number of sample gradients
 
                 # avg_grad = jax.tree_util.tree_map(lambda g, *gs : jnp.mean(jnp.array(gs + (g,))), grads[0], *grads[1:])
                 next_rolling_features = common.vec_rolling_mom(decays).update(
-                    opt_state.rolling_features, opt_state.params  # TODO
+                    opt_state.rolling_features, opt_state.params
                 )
 
                 training_step_feature = _tanh_embedding(opt_state.iteration)

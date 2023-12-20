@@ -193,8 +193,8 @@ def _fedlagg(args):
 
     task = get_task(args)
 
-    @jax.jit
-    def update(opt_state, key, batch):
+    @partial(jax.jit, static_argnames = ["top_k_value"])
+    def update(opt_state, clients_state, key, batch, top_k_value):
         local_opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
         params = agg.get_params(opt_state)
         state = agg.get_state(opt_state)
@@ -268,7 +268,17 @@ def _fedlagg(args):
         else:
             avg_state = None
 
-        return agg.update(opt_state, deltas, loss=loss, model_state=avg_state), loss
+        if args.use_top_k:
+            deltas_with_error = jax.tree_util.tree_map(
+                lambda deltas, clients_state: deltas + clients_state, deltas, clients_state
+            )
+            masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, top_k_value)
+            clients_state = jax.tree_util.tree_map(
+                lambda deltas_with_error, masked_deltas: deltas_with_error - masked_deltas, deltas_with_error, masked_deltas
+            )
+            return agg.update(opt_state, masked_deltas, loss=loss, model_state=avg_state), loss, clients_state
+        else:
+            return agg.update(opt_state, deltas, loss=loss, model_state=avg_state), loss, clients_state
 
     return agg, update
 
@@ -472,4 +482,4 @@ def get_optimizer(args):
         "fedlagg-adafac": _fedlagg,
     }
 
-    return optimizers[args.optimizer](args)  # TODO Find better way to do this
+    return optimizers[args.optimizer](args)

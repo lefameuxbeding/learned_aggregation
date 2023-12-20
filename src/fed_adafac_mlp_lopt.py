@@ -325,7 +325,7 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
             "adafac_mlp_lagg/magnitude/mean_abs", jnp.mean(jnp.abs(magnitude))
         )
         summary.summary("adafac_mlp_lagg/magnitude/mean", jnp.mean(magnitude))
-        # summary.summary("adafac_mlp_lagg/grad/mean_abs", jnp.mean(jnp.abs(gs)))  # TODO
+        # summary.summary("adafac_mlp_lagg/grad/mean_abs", jnp.mean(jnp.abs(gs)))
 
         return new_p
 
@@ -438,8 +438,6 @@ class FedAdafacMLPLOpt(lopt_base.LearnedOptimizer):
                 is_valid: bool = False,
                 key: Optional[PRNGKey] = None,
             ) -> AdafacMLPLOptState:
-                # TODO Make sure we geed the correct number of grads
-
                 avg_grad = jax.tree_util.tree_map(
                     lambda gs: jnp.mean(gs, axis=0), grads
                 )

@@ -28,6 +28,9 @@ from learned_optimization.outer_trainers.lopt_truncated_step import (
 )
 from learned_optimization.tasks import base as tasks_base
 
+import globals
+from optimizers import _mask_top_k
+
 
 def progress_or_reset_inner_opt_state_fedlopt(
     task_family: tasks_base.TaskFamily,
@@ -44,6 +47,7 @@ def progress_or_reset_inner_opt_state_fedlopt(
     meta_loss_with_aux_key: Optional[str] = None,
     local_learning_rate: float = 1e-1,
     num_local_steps: int = 4,
+    clients_state = None,
 ) -> Tuple[T, G, int, jnp.ndarray]:
     """Train a single step, or reset the current inner problem."""
     summary.summary(
@@ -62,11 +66,12 @@ def progress_or_reset_inner_opt_state_fedlopt(
         p, s = task_family.task_fn(task_param).init_with_state(key2)
 
         next_inner_opt_state = opt.init(p, s, num_steps=num_steps, key=key3)
+        c_s = jax.tree_util.tree_map(lambda x : jnp.array([jnp.zeros_like(x) for _ in range(globals.num_grads)]), p)
         summary.summary(
             "opt_init_num_steps", num_steps
         )  # pytype: disable=wrong-arg-types  # jax-ndarray
 
-        return next_inner_opt_state, task_param, jnp.asarray(0), jnp.asarray(0.0)
+        return next_inner_opt_state, task_param, jnp.asarray(0), jnp.asarray(0.0), c_s
 
     def false_fn(key):
         """Train one step of the inner-problem."""
@@ -159,9 +164,27 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
         summary.summary("task_loss", l)
 
-        next_inner_opt_state = opt.update(
-            inner_opt_state, deltas, loss=l, model_state=s, key=key2
-        )
+        if globals.use_top_k:
+            deltas_with_error = jax.tree_util.tree_map(
+                lambda deltas, clients_state: deltas + clients_state, deltas, clients_state
+            )
+            masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, globals.top_k_value)
+            c_s = jax.tree_util.tree_map(
+                lambda deltas_with_error, masked_deltas: deltas_with_error - masked_deltas, deltas_with_error, masked_deltas
+            )
+            next_inner_opt_state = opt.update(
+                inner_opt_state, masked_deltas, loss=l, model_state=s, key=key2
+            )
+            next_inner_opt_state = opt.update(
+                inner_opt_state, deltas, loss=l, model_state=s, key=key2
+            )
+        else:
+            next_inner_opt_state = opt.update(
+                inner_opt_state, deltas, loss=l, model_state=s, key=key2
+            )
+            c_s = clients_state
+
+
         next_inner_step = inner_step + 1
 
         return (
@@ -169,13 +192,14 @@ def progress_or_reset_inner_opt_state_fedlopt(
             task_param,
             next_inner_step,
             jnp.asarray(meta_loss, dtype=jnp.float32),
+            c_s,
         )
 
-    next_inner_opt_state, task_param, next_inner_step, meta_loss = cond_fn(
+    next_inner_opt_state, task_param, next_inner_step, meta_loss, clients_state = cond_fn(
         jnp.logical_not(is_done), false_fn, true_fn, key
     )
 
-    return next_inner_opt_state, task_param, next_inner_step, meta_loss
+    return next_inner_opt_state, task_param, next_inner_step, meta_loss, clients_state
 
 
 def _truncated_unroll_one_step_fedlopt(
@@ -191,6 +215,7 @@ def _truncated_unroll_one_step_fedlopt(
     override_num_steps: Optional[int] = None,
     local_learning_rate: float = 1e-1,
     num_local_steps: int = 4,
+    clients_state = None,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Train a given inner problem state a single step or reset it when done."""
     key1, key2 = jax.random.split(key)
@@ -205,6 +230,7 @@ def _truncated_unroll_one_step_fedlopt(
         task_param,
         next_inner_step,
         l,
+        clients_state,
     ) = progress_or_reset_inner_opt_state_fedlopt(  # pytype: disable=wrong-arg-types  # jax-ndarray
         task_family=task_family,
         opt=learned_opt.opt_fn(theta),
@@ -218,6 +244,7 @@ def _truncated_unroll_one_step_fedlopt(
         meta_loss_with_aux_key=meta_loss_with_aux_key,
         local_learning_rate=local_learning_rate,
         num_local_steps=num_local_steps,
+        clients_state=clients_state
     )
 
     next_truncation_state, is_done = trunc_sched.next_state(
@@ -246,7 +273,7 @@ def _truncated_unroll_one_step_fedlopt(
         task_param=state.task_param,
     )
 
-    return output_state, out
+    return (output_state, clients_state), out
 
 
 @functools.partial(
@@ -261,7 +288,7 @@ def _truncated_unroll_one_step_fedlopt(
     ),
 )
 @functools.partial(
-    jax.vmap, in_axes=(None, None, None, None, 0, 0, 0, None, None, None, None, None)
+    jax.vmap, in_axes=(None, None, None, None, 0, 0, 0, None, None, None, None, None, 0)
 )
 def truncated_unroll_one_step_fedlopt(
     task_family: tasks_base.TaskFamily,
@@ -276,6 +303,7 @@ def truncated_unroll_one_step_fedlopt(
     override_num_steps: Optional[int],
     local_learning_rate: float = 1e-1,
     num_local_steps: int = 4,
+    clients_state = None,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Perform one step of inner training without vectorized theta."""
     return _truncated_unroll_one_step_fedlopt(
@@ -291,6 +319,7 @@ def truncated_unroll_one_step_fedlopt(
         override_num_steps=override_num_steps,
         local_learning_rate=local_learning_rate,
         num_local_steps=num_local_steps,
+        clients_state=clients_state,
     )
 
 
@@ -306,7 +335,7 @@ def truncated_unroll_one_step_fedlopt(
     ),
 )
 @functools.partial(
-    jax.vmap, in_axes=(None, None, None, 0, 0, 0, 0, None, None, None, None, None)
+    jax.vmap, in_axes=(None, None, None, 0, 0, 0, 0, None, None, None, None, None, 0)
 )
 def truncated_unroll_one_step_vec_theta_fedlopt(
     task_family: tasks_base.TaskFamily,
@@ -321,6 +350,7 @@ def truncated_unroll_one_step_vec_theta_fedlopt(
     override_num_steps: Optional[int],
     local_learning_rate: float = 1e-1,
     num_local_steps: int = 4,
+    clients_state = None,
 ) -> Tuple[TruncatedUnrollState, truncated_step.TruncatedUnrollOut]:
     """Perform one step of inner training with vectorized theta."""
     return _truncated_unroll_one_step_fedlopt(
@@ -336,6 +366,7 @@ def truncated_unroll_one_step_vec_theta_fedlopt(
         override_num_steps=override_num_steps,
         local_learning_rate=local_learning_rate,
         num_local_steps=num_local_steps,
+        clients_state=clients_state,
     )
 
 
@@ -480,6 +511,7 @@ class VectorizedFedLOptTruncatedStep(
         outer_state,
         theta_is_vector=False,
         override_num_steps: Optional[int] = None,
+        clients_state = None,
     ):
         # per-step data changes depending on if we use a extra eval batch per step.
         if self.meta_loss_split == "same_data":
@@ -500,7 +532,7 @@ class VectorizedFedLOptTruncatedStep(
         # with a bigger batchsize representing 2 perturbations stacked together.
         # When doing this, we want to share randomness across these 2 batches
         # as they are antithetic samples.
-        # TODO(lmetz) consider passing stack_antithetic_samples in some capacity
+        # (lmetz) consider passing stack_antithetic_samples in some capacity
         # rather than guessing it here.
         num_tasks_in_state = tree_utils.first_dim(unroll_state)
         if num_tasks_in_state == self.num_tasks * 2:
@@ -521,7 +553,7 @@ class VectorizedFedLOptTruncatedStep(
             if theta_is_vector
             else truncated_unroll_one_step_fedlopt
         )
-        next_unroll_state_, ys = fn(
+        (next_unroll_state_, clients_state), ys = fn(
             self.task_family,
             self.learned_opt,
             self.trunc_sched,
@@ -534,6 +566,7 @@ class VectorizedFedLOptTruncatedStep(
             override_num_steps,
             self.local_learning_rate,
             self.num_local_steps,
+            clients_state,
         )
 
         # Should we evaluate resulting state on potentially new data?
@@ -563,7 +596,7 @@ class VectorizedFedLOptTruncatedStep(
 
         ys = ys.replace(loss=norm(ys.loss, unroll_state.task_param))
 
-        return next_unroll_state_, ys
+        return (next_unroll_state_, clients_state), ys
 
     def meta_loss_batch(
         self,

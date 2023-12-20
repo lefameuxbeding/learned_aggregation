@@ -6,6 +6,9 @@ import wandb
 from learned_optimization import checkpoints
 
 from meta_trainers import get_meta_trainer
+import globals
+from tasks import get_task
+from benchmark import count_parameters
 
 from glob import glob
 import os
@@ -160,6 +163,16 @@ def meta_train(args):
         group=args.meta_train_name,
         config=vars(args),
     )
+
+    task = get_task(args)
+    key, key1 = jax.random.split(key)
+    params = task.init(key1)
+    params_count = count_parameters(params)
+
+    globals.use_top_k = args.use_top_k
+    globals.top_k_value = int(params_count * args.top_k_value)
+    globals.num_grads = args.num_grads
+    globals.num_tasks = args.num_tasks
 
     iteration = int(
         outer_trainer_state.gradient_learner_state.theta_opt_state.iteration

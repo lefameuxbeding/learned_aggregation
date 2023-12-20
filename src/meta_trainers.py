@@ -10,8 +10,9 @@ from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
 from fed_truncated_step import VectorizedFedLOptTruncatedStep
 from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
+from fed_truncated_pes import FedTruncatedPES
 
-import optax
+import jax
 from optimizers import AdamWLinearCosine, AdamW
 
 
@@ -48,6 +49,8 @@ def _fedlagg_meta_trainer(args):
     else:
         meta_opt = opt_base.Adam(args.learning_rate)
 
+    tasks = get_task(args)
+
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
             min_length=args.truncation_schedule_min_length, max_length=args.num_inner_steps
@@ -63,6 +66,9 @@ def _fedlagg_meta_trainer(args):
             meta_loss_split=args.meta_loss_split,
         )
 
+        key0 = jax.random.PRNGKey(0)
+        p = tasks.init(key0)
+
         if args.use_pmap:
             return truncated_pes.TruncatedPESPMAP(
                 truncated_step=truncated_step,
@@ -70,11 +76,9 @@ def _fedlagg_meta_trainer(args):
                 num_devices=args.num_devices,
             )
         else:
-            return truncated_pes.TruncatedPES(
-                truncated_step=truncated_step, trunc_length=50
+            return FedTruncatedPES(
+                truncated_step=truncated_step, trunc_length=50, p=p
             )
-
-    tasks = get_task(args)
 
     if type(tasks) is list:
         gradient_estimators = [
@@ -102,4 +106,4 @@ def get_meta_trainer(args):
         "fedlagg-adafac": _fedlagg_meta_trainer,
     }
 
-    return meta_trainers[args.optimizer](args)  # TODO Find better way to do this
+    return meta_trainers[args.optimizer](args)
