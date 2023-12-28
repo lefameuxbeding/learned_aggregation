@@ -43,3 +43,7 @@ muadamw_schedule_kwargs=dict(
 # sweeps only
 sweep_config = dict()
 sweep_id = None
+
+
+llr_mode = "mean all"
+llr_init = 0.001

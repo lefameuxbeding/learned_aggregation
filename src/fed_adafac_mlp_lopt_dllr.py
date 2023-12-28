@@ -55,6 +55,8 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         num_grads=8,
         with_all_grads=True,
         with_avg=False,
+        _llr_mode='mean all',
+        _llr_init=0.001,
     ):
         super().__init__()
         self._exp_mult = exp_mult
@@ -70,6 +72,8 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         self._num_grads = num_grads
         self._with_all_grads = with_all_grads
         self._with_avg = with_avg
+        self._llr_mode = _llr_mode
+        self._llr_init = _llr_init
 
         self._mod_init, self._mod_apply = hk.without_apply_rng(hk.transform(self._mod))
 
@@ -324,7 +328,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         step = step.reshape(p.shape)
         new_p = p - step
 
-        new_llr = jnp.exp(llr * self._exp_mult)
+        new_llr = llr
 
         if did_reshape:
             new_p = jnp.squeeze(new_p, 0)
@@ -398,6 +402,11 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         mod_apply = self._mod_apply
         parent = self
 
+        _exp_mult = self._exp_mult
+        _step_mult = self._step_mult
+        _llr_mode = self._llr_mode
+        _llr_init = self._llr_init
+
         class _Opt(opt_base.Optimizer):
             """Optimizer capturing the meta params."""
 
@@ -438,7 +447,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                 mom_roll, rms_roll, fac_vec_roll = self._get_rolling()
 
                 return AdafacMLPLOptLLRState(
-                    llr=jnp.float32(0.0001),#jax.tree_map(lambda x: jnp.float32(0.0001), params),
+                    llr=jax.tree_map(lambda x: jnp.float32(0.0001), params),
                     params=params,
                     state=model_state,
                     rms_rolling=rms_roll.init(params),
@@ -447,6 +456,16 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                     iteration=jnp.asarray(0, dtype=jnp.int32),
                     num_steps=jnp.asarray(num_steps),
                 )
+            
+            def get_llr(self, flattened, _llr_init, mode=''):
+                flattened = jax.tree_map(lambda x: jnp.ravel(x), flattened)
+                if mode == 'mean all':
+                    next_llr = jnp.concatenate(jax.tree_flatten(flattened)[0]).mean()
+                    fun = lambda x: jnp.exp( next_llr * _llr_init ) * _llr_init
+                elif mode == 'mean per tensor':
+                    fun = lambda x: jnp.exp( jnp.mean(x) * _llr_init ) * _llr_init
+
+                return jax.tree_map(fun, flattened)
 
             def update(
                 self,
@@ -495,10 +514,17 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
 
                 params = {k:{kk:vv[0] for kk,vv in v.items()} for k,v in next_params.items()}
                 llr = {k:{kk:vv[1] for kk,vv in v.items()} for k,v in next_params.items()}
-                flattened = jax.tree_map(lambda x: jnp.ravel(x), llr)
-                next_llr = jnp.concatenate(jax.tree_flatten(flattened)[0]).mean()
-                # jax.tree_map(lambda x: jnp.mean(x[1]), llr),
-                summary.summary("predicted_llr", next_llr)
+
+
+                next_llr = self.get_llr(llr,
+                                        _llr_init=_llr_init,
+                                        mode=_llr_mode)
+                # print(next_llr, type(next_llr))
+                # exit(0)
+
+                # flattened = jax.tree_map(lambda x: jnp.ravel(x), llr)
+                # next_llr = jnp.concatenate(jax.tree_flatten(flattened)[0]).mean()
+                # next_llr = jnp.exp( next_llr * self._exp_mult ) * self._step_mult
 
                 next_opt_state = AdafacMLPLOptLLRState(
                     llr=next_llr,
@@ -514,3 +540,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                 return tree_utils.match_type(next_opt_state, opt_state)
 
         return _Opt(theta, self._num_grads)
+    
+    
+        
+

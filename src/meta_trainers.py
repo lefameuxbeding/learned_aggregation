@@ -24,6 +24,8 @@ def _fedlagg_meta_trainer(args):
             hidden_size=args.hidden_size,
             with_all_grads=True,
             with_avg=False,
+            _llr_mode=args.llr_mode,
+            _llr_init=args.llr_init,
         )
     
     else:

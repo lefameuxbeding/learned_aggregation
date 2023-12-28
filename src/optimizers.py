@@ -1,6 +1,6 @@
 import copy
 import pickle
-
+from optax._src import base
 import jax
 import jax.numpy as jnp
 from haiku._src.data_structures import FlatMap
@@ -188,6 +188,35 @@ def _adam(args):
     return opt, update
 
 
+@gin.configurable
+class SGDPT(OptaxOptimizer):
+  """Stochastic gradient descent."""
+
+  def __init__(self, learning_rate=1.0, per_tensor_lr=1.0):
+    self.learning_rate = learning_rate
+    self.per_tensor_lr = per_tensor_lr
+
+    def init_fn(params):
+        return params
+
+    def update_fn(updates, state, params=None):
+        del params
+        updates = jax.tree_map(lambda x,y: x*y, updates, self.per_tensor_lr)
+        return updates, state 
+
+
+    opt = optax.chain(
+                #sgd with learning rate set to 1 here will simply flip the sign
+                optax.sgd(learning_rate),
+                base.GradientTransformation(init_fn, update_fn)
+        )
+    super().__init__(opt)
+
+  @property
+  def name(self):
+    return f"SGD_lr{self.learning_rate}"
+
+
 def _fedlaggDLLR(args):
     lagg_class = FedAdafacMLPLOptDLLR
     with_all_grads = True
@@ -217,7 +246,7 @@ def _fedlaggDLLR(args):
 
     @jax.jit
     def update(opt_state, key, batch):
-        local_opt = optax_opts.SGD(learning_rate=opt_state.llr)
+        local_opt = SGDPT(learning_rate=1, per_tensor_lr=args.local_learning_rate)
         params = agg.get_params(opt_state)
         state = agg.get_state(opt_state)
         local_opt_state = local_opt.init(params, model_state=state)

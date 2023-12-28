@@ -61,6 +61,8 @@ def parse_args():
     parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--end_value", type=float)
     parser.add_argument("--peak_value", type=float)
+    parser.add_argument("--llr_mode", type=str)
+    parser.add_argument("--llr_init", type=float)
     # fmt: on
 
     return parser.parse_args()

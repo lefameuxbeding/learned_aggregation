@@ -9,6 +9,30 @@ from tasks import get_task
 
 import jax.numpy as jnp
 
+
+def flatten_dict(d, parent_key='', sep='/'):
+    """
+    Flattens a nested dictionary. Each key in the output dictionary is a concatenation
+    of the keys from all levels in the input dictionary, joined by `sep`.
+
+    Args:
+    - d (dict): The dictionary to flatten.
+    - parent_key (str, optional): The concatenated key constructed from the upper levels.
+    - sep (str, optional): The separator used to join keys.
+
+    Returns:
+    - dict: A flattened dictionary.
+    """
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            # Recursive call for nested dictionaries
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
 def rename_batch(batch, label_map):
     return {label_map[k]:v for k,v in batch.items()}
 
@@ -33,6 +57,12 @@ def benchmark(args):
     except KeyError as e:
         print(e)
         print("Ignoring if not training mu optimizers muadamw_schedule_kwargs")
+    except TypeError as e:
+        print(e)
+        print("Ignoring if not training mu optimizers muadamw_schedule_kwargs")
+
+    if 'dllr' in args.optimizer:
+        args.local_learning_rate = jax.tree_map(lambda x : args.local_learning_rate, params)
 
     opt, update = get_optimizer(args)
 
@@ -58,11 +88,16 @@ def benchmark(args):
                 params, state = task.init(key1), None
     
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
+        # print("Opt state llr: ", opt_state.llr)
+        # print(params,state)
 
         for inner_step in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
+
+            
             opt_state, loss = update(opt_state, key1, batch)
+            # print("Opt state llr: ", opt_state.llr)
 
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
@@ -96,6 +131,7 @@ def benchmark(args):
                     "outer valid loss": outer_valid_loss
                 }
             to_log.update(test_log)
+            to_log.update(flatten_dict(opt_state.llr))
 
             # DONT delete the following comment
             # if inner_step < 10:

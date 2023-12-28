@@ -27,7 +27,7 @@ from learned_optimization.outer_trainers.lopt_truncated_step import (
     vectorized_loss_and_aux,
 )
 from learned_optimization.tasks import base as tasks_base
-
+from optimizers import SGDPT
 
 def progress_or_reset_inner_opt_state_fedlopt(
     task_family: tasks_base.TaskFamily,
@@ -100,7 +100,10 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
             # The following line needs requires a cahnge somewhere to be backward compatible
             # TODO: (ben) fix this
-            local_opt = optax_opts.SGD(learning_rate=inner_opt_state.llr)
+            if type(inner_opt_state.llr) is dict:
+                local_opt = SGDPT(learning_rate=1, per_tensor_lr=inner_opt_state.llr)
+            else:
+                local_opt = optax_opts.SGD(learning_rate=inner_opt_state.llr)
             local_opt_state = local_opt.init(p)
 
             images = jnp.array(data["image"])
