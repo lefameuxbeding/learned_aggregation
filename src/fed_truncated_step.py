@@ -70,6 +70,8 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
     def false_fn(key):
         """Train one step of the inner-problem."""
+
+        to_log = []
         p = opt.get_params(inner_opt_state)
         s = opt.get_state(inner_opt_state)
         key1, key2 = jax.random.split(key)
@@ -103,6 +105,7 @@ def progress_or_reset_inner_opt_state_fedlopt(
             try:
                 if type(inner_opt_state.llr) is dict:
                     local_opt = SGDPT(learning_rate=1, per_tensor_lr=inner_opt_state.llr)
+                    to_log.append(inner_opt_state.llr)
                 else:
                     local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
             except AttributeError as e:
@@ -545,6 +548,8 @@ class VectorizedFedLOptTruncatedStep(
             self.local_learning_rate,
             self.num_local_steps,
         )
+        # import pdb
+        # pdb.set_trace()
 
         # Should we evaluate resulting state on potentially new data?
         if meta_data is not None:

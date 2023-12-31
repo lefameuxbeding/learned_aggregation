@@ -16,6 +16,9 @@ import optax
 from optimizers import AdamWLinearCosine, AdamW
 
 
+from gradient_estimators import TruncatedPESLog
+
+
 def _fedlagg_meta_trainer(args):
 
     if args.optimizer == "fedlagg-adafac-dllr":
@@ -26,6 +29,7 @@ def _fedlagg_meta_trainer(args):
             with_avg=False,
             _llr_mode=args.llr_mode,
             _llr_init=args.llr_init,
+            _llr_init_exp=args.llr_init_exp,
         )
     
     else:
@@ -84,9 +88,14 @@ def _fedlagg_meta_trainer(args):
                 num_devices=args.num_devices,
             )
         else:
-            return truncated_pes.TruncatedPES(
-                truncated_step=truncated_step, trunc_length=50
-            )
+            if args.optimizer == "fedlagg-adafac-dllr":
+                return TruncatedPESLog(
+                    truncated_step=truncated_step, trunc_length=50
+                )
+            else:
+                return truncated_pes.TruncatedPES(
+                    truncated_step=truncated_step, trunc_length=50
+                )
 
     tasks = get_task(args)
 

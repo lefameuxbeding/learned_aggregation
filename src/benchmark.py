@@ -91,11 +91,13 @@ def benchmark(args):
         # print("Opt state llr: ", opt_state.llr)
         # print(params,state)
 
+        # del opt_state.llr['log']
+
         for inner_step in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
 
-            
+            # del opt_state.llr['log']
             opt_state, loss = update(opt_state, key1, batch)
             # print("Opt state llr: ", opt_state.llr)
 
@@ -131,6 +133,7 @@ def benchmark(args):
                     "outer valid loss": outer_valid_loss
                 }
             to_log.update(test_log)
+            to_log.update({k+'_raw':v for k,v in flatten_dict(opt_state.log).items()})
             to_log.update(flatten_dict(opt_state.llr))
 
             # DONT delete the following comment

@@ -27,6 +27,7 @@ from typing import Any, Optional
 
 @flax.struct.dataclass
 class AdafacMLPLOptLLRState:
+  log: Any
   llr: Any
   params: Any
   state: Any
@@ -57,6 +58,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         with_avg=False,
         _llr_mode='mean all',
         _llr_init=0.001,
+        _llr_init_exp=0.001,
     ):
         super().__init__()
         self._exp_mult = exp_mult
@@ -74,6 +76,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         self._with_avg = with_avg
         self._llr_mode = _llr_mode
         self._llr_init = _llr_init
+        self._llr_init_exp = _llr_init_exp
 
         self._mod_init, self._mod_apply = hk.without_apply_rng(hk.transform(self._mod))
 
@@ -406,6 +409,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
         _step_mult = self._step_mult
         _llr_mode = self._llr_mode
         _llr_init = self._llr_init
+        _llr_init_exp = self._llr_init_exp
 
         class _Opt(opt_base.Optimizer):
             """Optimizer capturing the meta params."""
@@ -445,9 +449,12 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                     raise ValueError("Must specify number of steps for this lopt!")
 
                 mom_roll, rms_roll, fac_vec_roll = self._get_rolling()
-
+                
+                llr = jax.tree_map(lambda x: jnp.float32(0.0001), params)
+                # llr['log'] = jax.tree_map(lambda x: jnp.float32(0.0001), params)
                 return AdafacMLPLOptLLRState(
-                    llr=jax.tree_map(lambda x: jnp.float32(0.0001), params),
+                    log=llr,
+                    llr=llr,
                     params=params,
                     state=model_state,
                     rms_rolling=rms_roll.init(params),
@@ -457,15 +464,22 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                     num_steps=jnp.asarray(num_steps),
                 )
             
-            def get_llr(self, flattened, _llr_init, mode=''):
+            def get_llr(self, flattened, _llr_init, _llr_init_exp, mode=''):
                 flattened = jax.tree_map(lambda x: jnp.ravel(x), flattened)
+                # print(_llr_init)
+                # exit(0)
                 if mode == 'mean all':
                     next_llr = jnp.concatenate(jax.tree_flatten(flattened)[0]).mean()
-                    fun = lambda x: jnp.exp( next_llr * _llr_init ) * _llr_init
+                    to_log = jax.tree_map(lambda x: next_llr, flattened)
+                    fun = lambda x: jnp.exp( next_llr * _llr_init_exp ) * _llr_init
                 elif mode == 'mean per tensor':
-                    fun = lambda x: jnp.exp( jnp.mean(x) * _llr_init ) * _llr_init
+                    to_log = jax.tree_map(lambda x: jnp.mean(x), flattened)
+                    fun = lambda x: jnp.exp( jnp.mean(x) * _llr_init_exp ) * _llr_init
+                elif mode == 'max per tensor':
+                    to_log = jax.tree_map(lambda x: jnp.max(x), flattened)
+                    fun = lambda x: jnp.exp( jnp.max(x) * _llr_init_exp ) * _llr_init
 
-                return jax.tree_map(fun, flattened)
+                return jax.tree_map(fun, flattened), to_log
 
             def update(
                 self,
@@ -516,9 +530,10 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                 llr = {k:{kk:vv[1] for kk,vv in v.items()} for k,v in next_params.items()}
 
 
-                next_llr = self.get_llr(llr,
-                                        _llr_init=_llr_init,
-                                        mode=_llr_mode)
+                next_llr, to_log = self.get_llr(llr,
+                                                _llr_init=_llr_init,
+                                                _llr_init_exp=_llr_init_exp,
+                                                mode=_llr_mode)
                 # print(next_llr, type(next_llr))
                 # exit(0)
 
@@ -526,7 +541,10 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                 # next_llr = jnp.concatenate(jax.tree_flatten(flattened)[0]).mean()
                 # next_llr = jnp.exp( next_llr * self._exp_mult ) * self._step_mult
 
+                # next_llr['log'] = to_log
+
                 next_opt_state = AdafacMLPLOptLLRState(
+                    log=to_log,
                     llr=next_llr,
                     params=params,
                     mom_rolling=next_mom_rolling,

@@ -236,6 +236,10 @@ def _fedlaggDLLR(args):
         hidden_size=args.hidden_size,
         with_all_grads=with_all_grads,
         with_avg=with_avg,
+        _llr_mode=args.llr_mode,
+        _llr_init=args.llr_init,
+        _llr_init_exp=args.llr_init_exp,
+
     )
 
     with open(args.test_checkpoint, "rb") as f:
