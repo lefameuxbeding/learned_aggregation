@@ -26,8 +26,9 @@ einops==0.6.1
 etils==1.4.1
 flatbuffers==23.5.26
 flax==0.7.2
-flaxformer @ git+https://github.com/google/flaxformer@ea17eb012a1d340ddff017b7a534c2162aaec34c
+flaxformer @ git+https://github.com/google/flaxformer@ba6089ba5d0602041bc1869375891adc1117d705
 fonttools==4.42.0
+fsspec==2023.12.2
 gast==0.4.0
 gin-config==0.5.0
 gitdb==4.0.10
@@ -46,15 +47,15 @@ jaxlib==0.4.13+cuda11.cudnn86
 jmp==0.0.4
 keras==2.12.0
 kiwisolver==1.4.4
--e git+https://github.com/lefameuxbeding/learned_optimization@b4f12743f35c2f175314c1c44afc65ceeb278387#egg=learned_optimization
+learned_optimization @ git+https://github.com/lefameuxbeding/learned_optimization@feeb015a04c19585185cf0e2485072bb7aa464e5
 libclang==16.0.6
 Markdown==3.4.4
 markdown-it-py==3.0.0
 MarkupSafe==2.1.3
 matplotlib==3.7.2
 mdurl==0.1.2
-ml-collections==0.1.1
 ml-dtypes==0.3.1
+ml_collections==0.1.1
 mmengine==0.8.4
 msgpack==1.0.5
 mypy-extensions==1.0.0
@@ -126,7 +127,7 @@ tqdm==4.66.1
 typing_extensions==4.5.0
 tzdata==2023.3
 urllib3==1.26.16
--e git+https://github.com/google-research/vision_transformer@ac6e056f9da686895f9f0f6ac026d3b5a464e59e#egg=vit_jax
+vit_jax @ git+https://github.com/google-research/vision_transformer@10ffdebb01aa40714b175a7c3be700c872efb2f4
 wandb==0.15.7
 Werkzeug==2.3.6
 wrapt==1.14.1

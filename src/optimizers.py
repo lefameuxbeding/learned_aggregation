@@ -273,10 +273,10 @@ def _fedlagg(args):
                 lambda deltas, clients_state: deltas + clients_state, deltas, clients_state
             )
             masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, top_k_value)
-            clients_state = jax.tree_util.tree_map(
+            c_s = jax.tree_util.tree_map(
                 lambda deltas_with_error, masked_deltas: deltas_with_error - masked_deltas, deltas_with_error, masked_deltas
             )
-            return agg.update(opt_state, masked_deltas, loss=loss, model_state=avg_state), loss, clients_state
+            return agg.update(opt_state, masked_deltas, loss=loss, model_state=avg_state), loss, c_s
         else:
             return agg.update(opt_state, deltas, loss=loss, model_state=avg_state), loss, clients_state
 
@@ -367,16 +367,13 @@ def _fedavg(args):
     return opt, update
 
 
-import pdb
-
-
 def _fedavg_slowmo(args):
     opt = SGDSlowMo(learning_rate=args.local_learning_rate)
 
     task = get_task(args)
 
-    @jax.jit
-    def update(opt_state, key, batch):
+    @partial(jax.jit, static_argnames = ["top_k_value"])
+    def update(opt_state, clients_state, key, batch, top_k_value):
         images = jnp.array(batch["image"])
         labels = jnp.array(batch["label"])
 
@@ -419,9 +416,28 @@ def _fedavg_slowmo(args):
             return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state), opt.get_state(local_opt_state) if args.needs_state else None
 
         losses, new_params, new_state = jax.vmap(local_updates)(images, labels)
-        avg_params = jax.tree_util.tree_map(
-            lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
-        )
+
+        if args.use_top_k: # TODO Verify this to see if it works for slowmo
+            deltas = jax.tree_util.tree_map(
+                lambda old_p, new_p: new_p - old_p, opt.get_params(opt_state), new_params
+            )
+            deltas_with_error = jax.tree_util.tree_map(
+                lambda deltas, clients_state: deltas + clients_state, deltas, clients_state
+            )
+            masked_deltas = jax.vmap(_mask_top_k, in_axes=[0, None])(deltas_with_error, top_k_value)
+            clients_state = jax.tree_util.tree_map(
+                lambda deltas_with_error, masked_deltas: deltas_with_error - masked_deltas, deltas_with_error, masked_deltas
+            )
+            avg_delta = jax.tree_util.tree_map(
+                lambda deltas: jnp.mean(deltas, axis=0), masked_deltas
+            )
+            avg_params = jax.tree_util.tree_map(
+                lambda old_params, avg_delta : old_params + avg_delta, opt.get_params(opt_state), avg_delta
+            )
+        else:
+            avg_params = jax.tree_util.tree_map(
+                lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
+            )
 
         if args.needs_state:
             avg_state = jax.tree_util.tree_map(
@@ -464,7 +480,7 @@ def _fedavg_slowmo(args):
             jax.tree_util.tree_map(lambda x: args.slowmo_learning_rate, current_params),
         )
 
-        return opt.init(updated_params, momentum=momentum, model_state=avg_state), jnp.mean(jnp.array(losses))
+        return opt.init(updated_params, momentum=momentum, model_state=avg_state), jnp.mean(jnp.array(losses)), clients_state
 
     return opt, update
 

@@ -25,7 +25,6 @@ def benchmark(args):
 
     opt, update = get_optimizer(args)
 
-
     data_label_map = {'obs':'image',
                     'target':'label',
                     'image':'image',
@@ -105,51 +104,64 @@ def sweep(args):
 
         opt, update = get_optimizer(args)
 
+        data_label_map = {'obs':'image',
+                        'target':'label',
+                        'image':'image',
+                        'label':'label'}
+
         key, key1 = jax.random.split(key)
         if args.needs_state:
             params, state = task.init_with_state(key1)
         else:
             params, state = task.init(key1), None
         
+        params_count = count_parameters(params)
+        print("Model parameters (M): ", params_count/1000000)
+        
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
-
-
-        tmp = {'obs':'image',
-                'target':'label',
-                'image':'image',
-                'label':'label'}
+        clients_state = jax.tree_util.tree_map(lambda x : jnp.array([jnp.zeros_like(x) for _ in range(args.num_grads)]), params)
 
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
-            batch = next(task.datasets.train)
+            batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
-            opt_state, loss = update(opt_state, key1, batch)
+            opt_state, loss, clients_state = update(opt_state, clients_state, key1, batch, int(params_count * args.top_k_value))
 
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
 
-            test_batch = next(test_task.datasets.test)
-            test_batch = {tmp[k]:v for k,v in test_batch.items()}
-            if args.needs_state:
-                state = opt.get_state(opt_state)
-                test_loss = test_task.loss(params, state, key1, test_batch)
-            else:
-                test_loss = test_task.loss(params, key1, test_batch)
+            test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
+            #log loss and accuracy if implemented
+            try:
+                test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
+                test_log = {
+                    "test loss": test_loss,
+                    "test accuracy": test_acc,
+                }
+            except AttributeError as e:
+                Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
+                if args.needs_state:
+                    state = opt.get_state(opt_state)
+                    test_loss = test_task.loss(params, state, key1, test_batch)
+                else:
+                    test_loss = test_task.loss(params, key1, test_batch)
 
-            outer_valid_batch = next(test_task.datasets.outer_valid)
-            outer_valid_batch = {tmp[k]:v for k,v in outer_valid_batch.items()}
+                test_log = {"test loss": test_loss}
+
+
+            outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
             if args.needs_state:
                 state = opt.get_state(opt_state)
                 outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
             else:
                 outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
-
-            run.log(
-                {   
-                    "train loss": loss, 
-                    "test loss": test_loss,
+            
+            to_log = {
+                    "train loss": loss,
                     "outer valid loss": outer_valid_loss
                 }
-            )
+            to_log.update(test_log)
+
+            run.log(to_log)
 
         run.finish()
 

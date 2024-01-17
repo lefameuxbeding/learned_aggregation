@@ -175,9 +175,6 @@ def progress_or_reset_inner_opt_state_fedlopt(
             next_inner_opt_state = opt.update(
                 inner_opt_state, masked_deltas, loss=l, model_state=s, key=key2
             )
-            next_inner_opt_state = opt.update(
-                inner_opt_state, deltas, loss=l, model_state=s, key=key2
-            )
         else:
             next_inner_opt_state = opt.update(
                 inner_opt_state, deltas, loss=l, model_state=s, key=key2

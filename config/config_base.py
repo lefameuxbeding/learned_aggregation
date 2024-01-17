@@ -5,6 +5,7 @@ run_type = None
 optimizer = "fedavg"
 task = "small-image-mlp-fmst"
 hidden_size = 32
+slowmo_learning_rate = 0.5
 local_learning_rate = 0.5
 local_batch_size = 128
 num_grads = 8

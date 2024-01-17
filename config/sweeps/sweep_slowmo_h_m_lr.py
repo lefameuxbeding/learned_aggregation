@@ -1,8 +1,8 @@
 _base_ = ["./sweeps_base.py"]
 
 optimizer = "fedavg-slowmo"
-task = "conv-c10"
-num_inner_steps = 5000
+task = "image-mlp-fmst"
+num_inner_steps = 1000
 
 sweep_config = dict(
     method="grid",
