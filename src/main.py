@@ -21,7 +21,8 @@ def parse_args():
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
     parser.add_argument("--optimizer", type=str, choices=["sgd",
                                                           "adam", 
-                                                          "fedavg", 
+                                                          "fedavg",
+                                                          "diloco",
                                                           "fedavg-slowmo", 
                                                           "fedlopt", 
                                                           "fedlopt-adafac", 

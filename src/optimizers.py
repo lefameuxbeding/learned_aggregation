@@ -9,7 +9,7 @@ from learned_optimization.optimizers import optax_opts, OptaxOptimizer
 
 from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
 from fed_mlp_lopt import FedMLPLOpt
-from slowmo import SGDSlowMo
+from custom_optax import SGDSlowMo, AdamWDiLoCo
 from tasks import get_task
 
 import gin
@@ -401,10 +401,144 @@ def _fedavg_slowmo(args):
     return opt, update
 
 
+
+
+def _diloco(args):
+    opt = AdamWDiLoCo(adamw_kwargs=args.adamw_kwargs,num_workers=args.num_grads)
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        images = jnp.array(batch["image"])
+        labels = jnp.array(batch["label"])
+
+        def split(arr, split_factor):
+            """Splits the first axis of `arr` evenly across the number of devices."""
+            return arr.reshape(
+                split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
+            )
+
+        images = split(images, args.num_grads)
+        labels = split(labels, args.num_grads)
+
+        # set the initial stat for each worker to be the same 
+        # without modifying code outside of this function
+        # opt.local_states = opt.cond_set_local_states(opt_state)
+
+        def get_local_updates(k):
+
+            def local_updates(im, lab, local_opt=opt.opt[k],local_opt_state=opt.get_state_k(opt_state,k)):
+                # local_opt_state = copy.deepcopy(opt_state)
+                s_c_images = split(im, args.num_local_steps)
+                s_c_labels = split(lab, args.num_local_steps)
+
+                s_c_batch = []
+                for i in range(args.num_local_steps):
+                    sub_batch_dict = {}
+                    sub_batch_dict["image"] = s_c_images[i]
+                    sub_batch_dict["label"] = s_c_labels[i]
+                    s_c_batch.append(FlatMap(sub_batch_dict))
+
+                losses = []
+
+                for sub_client_batch in s_c_batch:
+                    params = local_opt.get_params(local_opt_state)
+                    
+                    if args.needs_state:
+                        state = local_opt.get_state(local_opt_state)
+                        (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, sub_client_batch)
+                    else:
+                        l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
+                        s = None
+                    
+                    losses.append(l)
+                    # import pdb; pdb.set_trace()
+                    local_opt_state = local_opt.update(local_opt_state, grad, loss=l, model_state=s)
+                
+                return jnp.mean(jnp.array(losses)), local_opt.get_params(local_opt_state), local_opt.get_state(local_opt_state) if args.needs_state else None
+            
+            return local_updates
+
+        # get local forward for each client (different adamW optimizers)
+        branches = [get_local_updates(k) for k in range(args.num_grads)]
+
+        def apply_function_based_on_index(data, index):
+            return jax.lax.switch(index, branches, *data)
+
+        losses, new_params, new_state = jax.vmap(apply_function_based_on_index)((images, labels), jnp.arange(args.num_grads))
+
+        avg_params = jax.tree_util.tree_map(
+            lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
+        )
+
+        # each local optimizer needs its own state.
+        if args.needs_state:
+            avg_state = jax.tree_util.tree_map(
+                lambda s, ns: jnp.mean(ns, axis=0), opt.get_state(1), new_state
+            )
+        else:
+            avg_state = None
+
+        ##### SLOW MO UPDATE #####
+
+        def update_momentum(
+            momentum, avg_params, current_params, beta, local_learning_rate
+        ):
+            return beta * momentum + (1 - momentum) * (
+                current_params - avg_params
+            )
+
+        def update_params(current_params, momentum, local_learning_rate):
+            return current_params - local_learning_rate * momentum
+
+        def update_params_nesterov(current_params, beta, delta, momentum, local_learning_rate):
+            return current_params - local_learning_rate * ( momentum + beta * delta )
+
+        # Get the momentum and current parameters
+        momentum = opt_state.optax_opt_state[1]["momentum"]
+        current_params = opt.get_params(opt_state)
+
+        # Update the momentum
+        momentum = jax.tree_util.tree_map(
+            update_momentum,
+            momentum,
+            avg_params,
+            current_params,
+            jax.tree_util.tree_map(lambda x: args.beta, momentum),
+            jax.tree_util.tree_map(lambda x: args.local_learning_rate, momentum),
+        )
+
+        # Update the parameters with momentum as the outer optimizer
+        # updated_params = jax.tree_util.tree_map(
+        #     update_params,
+        #     current_params,
+        #     momentum,
+        #     jax.tree_util.tree_map(lambda x: args.slowmo_learning_rate, current_params),
+        # )
+
+        # Update the parameters with nesterov momentum as the outer optimizer
+        updated_params = jax.tree_util.tree_map(
+            update_params_nesterov,
+            current_params,
+            jax.tree_util.tree_map(lambda a,b: a-b, current_params, avg_params),
+            jax.tree_util.tree_map(lambda x: args.beta, momentum),
+            momentum,
+            jax.tree_util.tree_map(lambda x: args.nesterov_learning_rate, current_params),
+        )
+
+        # update the parameters on each adamW optimizer
+        opt.update_local_states(updated_params, momentum=momentum, model_state=avg_state)
+
+        return opt.init(updated_params, momentum=momentum, model_state=avg_state), jnp.mean(jnp.array(losses))
+
+    return opt, update
+
+
 def get_optimizer(args):
     optimizers = {
         "adam": _adam,
         "sgd": _sgd,
+        "diloco": _diloco,
         "fedavg": _fedavg,
         "fedavg-slowmo": _fedavg_slowmo,
         "fedlopt": _fedlagg,
