@@ -475,6 +475,9 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                 elif mode == 'mean per tensor':
                     to_log = jax.tree_map(lambda x: jnp.mean(x), flattened)
                     fun = lambda x: jnp.exp( jnp.mean(x) * _llr_init_exp ) * _llr_init
+                elif mode == 'mean per tensor sin':
+                    to_log = jax.tree_map(lambda x: jnp.mean(x), flattened)
+                    fun = lambda x: jnp.exp( jnp.sin( jnp.mean(x) / 1.3 ) * _llr_init_exp ) * _llr_init
                 elif mode == 'max per tensor':
                     to_log = jax.tree_map(lambda x: jnp.max(x), flattened)
                     fun = lambda x: jnp.exp( jnp.max(x) * _llr_init_exp ) * _llr_init
