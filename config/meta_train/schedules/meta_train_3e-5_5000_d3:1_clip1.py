@@ -11,4 +11,4 @@ schedule = dict(
 )
 num_outer_steps = 5000
 learning_rate = 3e-5
-name_suffix = "3e-5_5000_d3:1_clip1"
+name_suffix = "_3e-5_5000_d3:1_clip1"
