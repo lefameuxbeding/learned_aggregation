@@ -6,7 +6,7 @@ from learned_optimization.tasks.datasets import base
 from learned_optimization.tasks.fixed.conv import _ConvTask, _cross_entropy_pool_loss
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask
 from learned_optimization.tasks.fixed.transformer_lm import _TransformerTask
-from learned_optimization.tasks.fixed.vit import (VisionTransformerTask, wide16_config, 
+from learned_optimization.tasks.fixed.vit import (VisionTransformerTask, wide16_config, mini16_config,
             tall16_config, vit_p16_h128_m512_nh4_nl10_config, deit_tiny_config, deit_small_config)
 from learned_optimization.tasks.fixed.vit_test import VITTest
 from learned_optimization.tasks.parametric.image_resnet import ParametricImageResNet
@@ -381,6 +381,15 @@ def mlp128x128x128_c10_32(batch_size):
         prefetch_batches=100,
     )
     return _MLPImageTask(datasets, [128, 128, 128])
+
+@gin.configurable
+def mini16_c10_32(batch_size):
+    model = mini16_config()
+    datasets = image.cifar10_datasets(
+        batch_size=batch_size,
+        prefetch_batches=100,
+    )
+    return VisionTransformerTask(model, datasets)
 
 
 @gin.configurable
@@ -796,6 +805,9 @@ def transformer192_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+
+        "mini16_c10_32":mini16_c10_32,
+
         "mumlp128x128_c10_32":mumlp128x128_c10_32,
         "mumlp32x32_c10_32":mumlp32x32_c10_32,
         "mumlp1x1_fmnist_32":mumlp1x1_fmnist_32,

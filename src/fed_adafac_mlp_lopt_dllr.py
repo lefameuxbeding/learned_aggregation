@@ -24,6 +24,28 @@ from learned_optimization.learned_optimizers.adafac_mlp_lopt import (
 from learned_optimization.optimizers import base as opt_base
 from typing import Any, Optional
 
+def split_params(param_dict, index):
+    """Recursively splits parameter dicts based on the index of elements in their lists.
+
+    Args:
+    param_dict: The original parameter dictionary to be split.
+    index: The index of the element to select in each list (0 for the first, 1 for the second).
+
+    Returns:
+    A new dictionary with the same structure as param_dict, where each list has been replaced
+    by the element at the specified index.
+    """
+    if isinstance(param_dict, dict):
+        return {k: split_params(v, index) for k, v in param_dict.items()}
+    elif isinstance(param_dict, list):
+        # Assuming all lists contain tensors or similar objects and are non-empty,
+        # replace the list with the element at the specified index.
+        return param_dict[index]
+    else:
+        # If the value is neither a dict nor a list, just return it as is.
+        # This might be the case for actual tensor objects or other leaf values.
+        return param_dict
+
 
 @flax.struct.dataclass
 class AdafacMLPLOptLLRState:
@@ -529,8 +551,12 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                     grads,
                 )
 
-                params = {k:{kk:vv[0] for kk,vv in v.items()} for k,v in next_params.items()}
-                llr = {k:{kk:vv[1] for kk,vv in v.items()} for k,v in next_params.items()}
+                # import pdb; pdb.set_trace()
+                params = split_params(next_params, 0) #jax.tree_util.tree_map(lambda x: x[0], next_params)
+                llr = split_params(next_params, 1) #jax.tree_util.tree_map(lambda x: x[1], next_params)
+                
+                # {k:{kk:vv[0] for kk,vv in v.items()} for k,v in next_params.items()}
+                # llr = {k:{kk:vv[1] for kk,vv in v.items()} for k,v in next_params.items()}
 
 
                 next_llr, to_log = self.get_llr(llr,
@@ -557,6 +583,7 @@ class FedAdafacMLPLOptDLLR(lopt_base.LearnedOptimizer):
                     state=model_state,
                     num_steps=opt_state.num_steps,
                 )
+                # import pdb; pdb.set_trace()
 
                 return tree_utils.match_type(next_opt_state, opt_state)
 
