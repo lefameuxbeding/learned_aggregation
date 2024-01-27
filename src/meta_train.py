@@ -138,7 +138,7 @@ def get_resume_ckpt(ckpt_dir, meta_train_name):
 def meta_train(args):
     meta_trainer, meta_opt = get_meta_trainer(args)
 
-    key = jax.random.PRNGKey(0)
+    key = jax.random.PRNGKey(args.seed)
     key, key1 = jax.random.split(key)
     outer_trainer_state = meta_trainer.init(key1)
 

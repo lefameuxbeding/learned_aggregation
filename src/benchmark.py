@@ -1,5 +1,5 @@
 import argparse
-
+import time
 import jax
 import wandb
 from tqdm import tqdm
@@ -14,7 +14,7 @@ def rename_batch(batch, label_map):
 
 
 def benchmark(args):
-    key = jax.random.PRNGKey(0)
+    key = jax.random.PRNGKey(args.seed)
 
     task = get_task(args)
     # test_task = get_task(args, is_test=True)
@@ -26,6 +26,9 @@ def benchmark(args):
                     'target':'label',
                     'image':'image',
                     'label':'label'}
+
+    t1 = time.time()
+
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
@@ -79,7 +82,10 @@ def benchmark(args):
             # to_log.update(test_log)
 
             run.log(to_log)
+        
 
+
+        run.log({'total run time':time.time()-t1})
         run.finish()
 
 
