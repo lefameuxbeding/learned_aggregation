@@ -1,7 +1,7 @@
 _base_ = ["./meta_train_base.py"]
 
 optimizer = "fedlopt-adafac"
-task = "image-mlp-fmst"
+task = "small-image-mlp-fmst"
 
 num_outer_steps = 10000
 
