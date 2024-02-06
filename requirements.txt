@@ -26,7 +26,6 @@ einops==0.6.1
 etils==1.4.1
 flatbuffers==23.5.26
 flax==0.7.2
-flaxformer @ git+https://github.com/google/flaxformer@ea17eb012a1d340ddff017b7a534c2162aaec34c
 fonttools==4.42.0
 gast==0.4.0
 gin-config==0.5.0
