@@ -45,7 +45,7 @@ class SGDSlowMo(OptaxOptimizer):
             params=params,
             optax_opt_state=[
                 self.opt.init(params),
-                {"momentum": copy.deepcopy(params)}
+                {"momentum": jax.tree_util.tree_map(lambda x : jax.numpy.zeros(shape=x.shape), params)} # copy.deepcopy(params)
                 if momentum is None
                 else {"momentum": momentum},
             ],
