@@ -133,8 +133,9 @@ def benchmark(args):
                     "outer valid loss": outer_valid_loss
                 }
             to_log.update(test_log)
-            to_log.update({k+'_raw':v for k,v in flatten_dict(opt_state.log).items()})
-            to_log.update(flatten_dict(opt_state.llr))
+            if 'dllr' in args.optimizer:
+                to_log.update({k+'_raw':v for k,v in flatten_dict(opt_state.log).items()})
+                to_log.update(flatten_dict(opt_state.llr))
 
             # DONT delete the following comment
             # if inner_step < 10:
