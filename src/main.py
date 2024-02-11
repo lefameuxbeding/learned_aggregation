@@ -3,6 +3,7 @@ import os
 import sys
 
 from jax.lib import xla_bridge
+import jax
 import wandb
 import os.path as osp
 
@@ -95,6 +96,7 @@ if __name__ == "__main__":
     tf.config.experimental.set_visible_devices([], "GPU")
 
     print(xla_bridge.get_backend().platform)
+    print(jax.devices())
 
     args = parse_args()
 

@@ -45,7 +45,10 @@ def benchmark(args):
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             batch = rename_batch(next(task.datasets.train), data_label_map)
             key, key1 = jax.random.split(key)
+
+            jax.profiler.start_trace("./trace") # START
             opt_state, loss = update(opt_state, key1, batch)
+            jax.profiler.stop_trace() # END
 
             key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)

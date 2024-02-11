@@ -4,4 +4,4 @@ optimizer = "fedavg"
 task = "conv-c10"
 
 # values determined by sweep
-local_learning_rate = 0.5
+local_learning_rate = 1

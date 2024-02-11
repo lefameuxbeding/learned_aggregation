@@ -299,9 +299,6 @@ def _fedavg(args):
     return opt, update
 
 
-import pdb
-
-
 def _fedavg_slowmo(args):
     opt = SGDSlowMo(learning_rate=args.local_learning_rate)
 
