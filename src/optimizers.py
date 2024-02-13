@@ -236,7 +236,7 @@ def _fedavg(args):
     def update(opt_state, batch):
         splitted_batch = jax.tree_util.tree_map(lambda x : x.reshape((args.num_grads, args.num_local_steps, args.local_batch_size) + x.shape[1:]), batch)
 
-        losses, new_params, new_state = jax.vmap(local_steps, in_axes=(None, 0))(copy.deepcopy(opt_state), splitted_batch)
+        losses, new_params, new_state = jax.pmap(local_steps, in_axes=(None, 0))(copy.deepcopy(opt_state), splitted_batch) # TODO Adjust pmap based on args
         avg_params = jax.tree_util.tree_map(lambda p, nps: jnp.mean(nps, axis=0), local_opt.get_params(opt_state), new_params)
         if args.needs_state:
             avg_state = jax.tree_util.tree_map(lambda s, ns: jnp.mean(ns, axis=0), local_opt.get_state(opt_state), new_state)

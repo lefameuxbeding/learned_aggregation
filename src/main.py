@@ -45,7 +45,6 @@ def parse_args():
     parser.add_argument("--from_checkpoint", action="store_true")
     parser.add_argument("--test_checkpoint", type=str)
     parser.add_argument("--use_pmap", action="store_true")
-    parser.add_argument("--num_devices", type=int)
     parser.add_argument("--num_tasks", type=int)
     parser.add_argument("--name_suffix", type=str)
     parser.add_argument("--slowmo_learning_rate", type=float)
@@ -124,6 +123,7 @@ if __name__ == "__main__":
         cfg.local_learning_rate,
         cfg.name_suffix,
     )
+    cfg.num_devices = len(jax.devices())
 
     if cfg.wandb_checkpoint_id is not None:
         cfg.test_checkpoint = download_wandb_checkpoint(cfg)
