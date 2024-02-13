@@ -15,6 +15,7 @@ from tasks import get_task
 import gin
 import optax
 
+
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
     """Adam with a piecewise linear learning rate schedule."""
@@ -46,30 +47,6 @@ class AdamWLinearCosine(OptaxOptimizer):
             opt = optax.adamw(self.schedule_)
 
         super().__init__(opt)
-
-# @gin.configurable
-# class AdamWLinearCosine(OptaxOptimizer):
-#     """Adam with a piecewise linear learning rate schedule."""
-
-#     def __init__(
-#         self,
-#         init_value=3e-10,
-#         peak_value=3e-4,
-#         warmup_steps=300,
-#         decay_steps=9700,
-#         end_value=3e-5,
-#         exponent=1.0,
-#     ):
-#         self.schedule_ = optax.warmup_cosine_decay_schedule(
-#             init_value=init_value,
-#             peak_value=peak_value,
-#             warmup_steps=warmup_steps,
-#             decay_steps=decay_steps,
-#             end_value=end_value,
-#             exponent=exponent,
-#         )
-#         opt = optax.adamw(self.schedule_)
-#         super().__init__(opt)
 
 
 @gin.configurable
@@ -236,67 +213,39 @@ def _fedlagg(args):
 
 
 def _fedavg(args):
-    opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
-
+    local_opt = optax_opts.SGD(learning_rate=args.local_learning_rate)
     task = get_task(args)
 
-    @jax.jit
-    def update(opt_state, key, batch):
-        images = jnp.array(batch["image"])
-        labels = jnp.array(batch["label"])
+    def local_step(local_opt_state, local_batch):
+        params = local_opt.get_params(local_opt_state)
 
-        def split(arr, split_factor):
-            """Splits the first axis of `arr` evenly across the number of devices."""
-            return arr.reshape(
-                split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
-            )
-
-        images = split(images, args.num_grads)
-        labels = split(labels, args.num_grads)
-
-        def local_updates(im, lab):
-            local_opt_state = copy.deepcopy(opt_state)
-            s_c_images = split(im, args.num_local_steps)
-            s_c_labels = split(lab, args.num_local_steps)
-
-            s_c_batch = []
-            for i in range(args.num_local_steps):
-                sub_batch_dict = {}
-                sub_batch_dict["image"] = s_c_images[i]
-                sub_batch_dict["label"] = s_c_labels[i]
-                s_c_batch.append(FlatMap(sub_batch_dict))
-
-            losses = []
-
-            for sub_client_batch in s_c_batch:
-                params = opt.get_params(local_opt_state)
-
-                if args.needs_state:
-                    state = opt.get_state(local_opt_state)
-                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, sub_client_batch)
-                else:
-                    l, grad = jax.value_and_grad(task.loss)(params, key, sub_client_batch)
-                    s = None
-                
-                losses.append(l)
-                local_opt_state = opt.update(local_opt_state, grad, loss=l, model_state=s)
-
-            return jnp.mean(jnp.array(losses)), opt.get_params(local_opt_state), opt.get_state(local_opt_state) if args.needs_state else None
-
-        losses, new_params, new_state = jax.vmap(local_updates)(images, labels)
-        avg_params = jax.tree_util.tree_map(
-            lambda p, nps: jnp.mean(nps, axis=0), opt.get_params(opt_state), new_params
-        )
         if args.needs_state:
-            avg_state = jax.tree_util.tree_map(
-                lambda s, ns: jnp.mean(ns, axis=0), opt.get_state(opt_state), new_state
-            )
+            state = local_opt.get_state(local_opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, None, local_batch)
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, None, local_batch)
+            s = None
+
+        return local_opt.update(local_opt_state, grad, loss=l, model_state=s), l
+    
+    def local_steps(init_local_opt_state, client_batch):
+        final_local_opt_state, local_losses = jax.lax.scan(local_step, init_local_opt_state, client_batch)
+
+        return jnp.mean(local_losses), local_opt.get_params(final_local_opt_state), local_opt.get_state(final_local_opt_state) if args.needs_state else None
+
+    def update(opt_state, batch):
+        splitted_batch = jax.tree_util.tree_map(lambda x : x.reshape((args.num_grads, args.num_local_steps, args.local_batch_size) + x.shape[1:]), batch)
+
+        losses, new_params, new_state = jax.vmap(local_steps, in_axes=(None, 0))(copy.deepcopy(opt_state), splitted_batch)
+        avg_params = jax.tree_util.tree_map(lambda p, nps: jnp.mean(nps, axis=0), local_opt.get_params(opt_state), new_params)
+        if args.needs_state:
+            avg_state = jax.tree_util.tree_map(lambda s, ns: jnp.mean(ns, axis=0), local_opt.get_state(opt_state), new_state)
         else:
             avg_state = None
 
-        return opt.init(avg_params, model_state=avg_state), jnp.mean(jnp.array(losses))
+        return local_opt.init(avg_params, model_state=avg_state), jnp.mean(losses)
 
-    return opt, update
+    return local_opt, update
 
 
 def _fedavg_slowmo(args):

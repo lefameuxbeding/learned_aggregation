@@ -9,25 +9,26 @@ from optimizers import get_optimizer
 from tasks import get_task
 
 
-def rename_batch(batch, label_map):
+def rename_batch(batch):
+    label_map = {'obs':'image',
+                    'target':'label',
+                    'image':'image',
+                    'label':'label'}
+    
     return {label_map[k]:v for k,v in batch.items()}
+
 
 def count_parameters(params):
     return sum(jnp.size(param) for param in jax.tree_leaves(params))
 
+
 def benchmark(args):
     key = jax.random.PRNGKey(0)
-
     task = get_task(args)
     test_task = get_task(args, is_test=True)
-
     opt, update = get_optimizer(args)
+    jitted_update = jax.jit(update)
 
-
-    data_label_map = {'obs':'image',
-                    'target':'label',
-                    'image':'image',
-                    'label':'label'}
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
@@ -37,26 +38,20 @@ def benchmark(args):
             params, state = task.init_with_state(key1)
         else:
             params, state = task.init(key1), None
-
         print("Model parameters (M): ", count_parameters(params)/1000000)
         
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
 
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
-            batch = rename_batch(next(task.datasets.train), data_label_map)
-            key, key1 = jax.random.split(key)
-
-            jax.profiler.start_trace("./trace") # START
-            opt_state, loss = update(opt_state, key1, batch)
-            jax.profiler.stop_trace() # END
-
-            key, key1 = jax.random.split(key)
+            # update
+            batch = rename_batch(next(task.datasets.train))
+            opt_state, loss = jitted_update(opt_state, batch)
             params = opt.get_params(opt_state)
 
-            test_batch = rename_batch(next(test_task.datasets.test), data_label_map)
-            #log loss and accuracy if implemented
+            #test loss and accuracy if implemented
             try:
-                test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
+                test_batch = rename_batch(next(test_task.datasets.test))
+                test_loss, test_acc = test_task.loss_and_accuracy(params, None, test_batch)
                 test_log = {
                     "test loss": test_loss,
                     "test accuracy": test_acc,
@@ -65,26 +60,26 @@ def benchmark(args):
                 Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
                 if args.needs_state:
                     state = opt.get_state(opt_state)
-                    test_loss = test_task.loss(params, state, key1, test_batch)
+                    test_loss = test_task.loss(params, state, None, test_batch)
                 else:
-                    test_loss = test_task.loss(params, key1, test_batch)
+                    test_loss = test_task.loss(params, None, test_batch)
 
                 test_log = {"test loss": test_loss}
 
-
-            outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid), data_label_map)
+            # valid loss
+            outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid))
             if args.needs_state:
                 state = opt.get_state(opt_state)
-                outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
+                outer_valid_loss = test_task.loss(params, state, None, outer_valid_batch)
             else:
-                outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
+                outer_valid_loss = test_task.loss(params, None, outer_valid_batch)
             
+            # log
             to_log = {
                     "train loss": loss,
                     "outer valid loss": outer_valid_loss
                 }
             to_log.update(test_log)
-
             run.log(to_log)
 
         run.finish()
