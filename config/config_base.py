@@ -12,11 +12,12 @@ num_local_steps = 4
 num_inner_steps = 1000
 learning_rate = 0.0001
 name_suffix = ""
+needs_state = False # For models storing inside state such as resnets
+num_devices = 1
 
 # meta training only
 num_outer_steps = 5000
 from_checkpoint = False
-num_devices = 1
 use_pmap = False
 auto_resume = False
 meta_loss_split = None

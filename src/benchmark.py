@@ -19,7 +19,7 @@ def rename_batch(batch):
 
 
 def count_parameters(params):
-    return sum(jnp.size(param) for param in jax.tree_leaves(params))
+    return sum(jnp.size(param) for param in jax.tree_util.tree_leaves(params))
 
 
 def benchmark(args):
@@ -27,8 +27,6 @@ def benchmark(args):
     task = get_task(args)
     test_task = get_task(args, is_test=True)
     opt, update = get_optimizer(args)
-    jitted_update = jax.jit(update)
-
 
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
@@ -45,34 +43,38 @@ def benchmark(args):
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
             # update
             batch = rename_batch(next(task.datasets.train))
-            opt_state, loss = jitted_update(opt_state, batch)
+            key, key1 = jax.random.split(key)
+            opt_state, loss = update(opt_state, key1, batch)
             params = opt.get_params(opt_state)
 
             #test loss and accuracy if implemented
             try:
                 test_batch = rename_batch(next(test_task.datasets.test))
-                test_loss, test_acc = test_task.loss_and_accuracy(params, None, test_batch)
+                key, key1 = jax.random.split(key)
+                test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
                 test_log = {
                     "test loss": test_loss,
                     "test accuracy": test_acc,
                 }
             except AttributeError as e:
                 Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
+                key, key1 = jax.random.split(key)
                 if args.needs_state:
                     state = opt.get_state(opt_state)
-                    test_loss = test_task.loss(params, state, None, test_batch)
+                    test_loss = test_task.loss(params, state, key1, test_batch)
                 else:
-                    test_loss = test_task.loss(params, None, test_batch)
+                    test_loss = test_task.loss(params, key1, test_batch)
 
                 test_log = {"test loss": test_loss}
 
             # valid loss
             outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid))
+            key, key1 = jax.random.split(key)
             if args.needs_state:
                 state = opt.get_state(opt_state)
-                outer_valid_loss = test_task.loss(params, state, None, outer_valid_batch)
+                outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
             else:
-                outer_valid_loss = test_task.loss(params, None, outer_valid_batch)
+                outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
             
             # log
             to_log = {
