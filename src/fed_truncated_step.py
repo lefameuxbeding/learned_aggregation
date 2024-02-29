@@ -1,8 +1,9 @@
 # Adapted from https://github.com/google/learned_optimization/blob/main/learned_optimization/outer_trainers/lopt_truncated_step.py
 
-import copy
 import functools
 from typing import Any, Callable, Optional, Tuple
+
+import globals
 
 import gin
 import jax
@@ -99,57 +100,74 @@ def progress_or_reset_inner_opt_state_fedlopt(
             # Otherwise we can just use loss_with_state.
 
             local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
-            local_opt_state = local_opt.init(p)
 
-            images = jnp.array(data["image"])
-            labels = jnp.array(data["label"])
-            # images = jnp.array(data["obs"])
-            # labels = jnp.array(data["target"])
+            def local_step(local_opt_state_and_key, local_batch):
+                local_opt_state, key = local_opt_state_and_key
+                params = local_opt.get_params(local_opt_state)
+                key, key1 = jax.random.split(key)
 
-            def split(arr, split_factor):
-                """Splits the first axis of `arr` evenly across the number of devices."""
-                return arr.reshape(
-                    split_factor, arr.shape[0] // split_factor, *arr.shape[1:]
-                )
+                if globals.needs_state:
+                    state = local_opt.get_state(local_opt_state)
+                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, local_batch)
+                else:
+                    l, grad = jax.value_and_grad(task.loss)(params, key1, local_batch)
+                    s = None
 
-            images = split(images, opt.num_grads)
-            labels = split(labels, opt.num_grads)
-
-            def local_updates(im, lab):
-                l_opt_state = copy.deepcopy(local_opt_state)
-                s_c_images = split(im, num_local_steps)
-                s_c_labels = split(lab, num_local_steps)
-
-                s_c_batch = []
-                for i in range(num_local_steps):
-                    sub_batch_dict = {}
-                    # sub_batch_dict["obs"] = s_c_images[i]
-                    # sub_batch_dict["target"] = s_c_labels[i]
-                    sub_batch_dict["image"] = s_c_images[i]
-                    sub_batch_dict["label"] = s_c_labels[i]
-                    s_c_batch.append(FlatMap(sub_batch_dict))
-
-                losses = []
-
-                for sub_client_batch in s_c_batch:
-                    params = local_opt.get_params(l_opt_state)
-                    loss, grad = jax.value_and_grad(task.loss)(
-                        params, key, sub_client_batch
-                    )
-                    losses.append(loss)
-                    l_opt_state = local_opt.update(l_opt_state, grad, loss=loss)
-
-                old_params = local_opt.get_params(local_opt_state)
-                new_params = local_opt.get_params(l_opt_state)
+                return (local_opt.update(local_opt_state, grad, loss=l, model_state=s), key), l
+            
+            @functools.partial(jax.pmap, in_axes=(None, 0, 0), out_axes=(None, 0, None, None), axis_name="num_grads")
+            def pmap_local_updates(init_local_opt_state, key, client_batch):
+                (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
                 delta = jax.tree_util.tree_map(
-                    lambda old_p, new_p: new_p - old_p, old_params, new_params
+                    lambda new_p, old_p: new_p - old_p,
+                    local_opt.get_params(final_local_opt_state),
+                    local_opt.get_params(init_local_opt_state),
                 )
 
-                return jnp.mean(jnp.array(losses)), delta
+                return (
+                    jax.lax.pmean(jnp.mean(local_losses), axis_name="num_grads"),
+                    delta,
+                    jax.lax.pmean(delta, axis_name="num_grads"),
+                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="num_grads") if globals.needs_state else None
+                )
 
-            losses, deltas = jax.vmap(local_updates)(images, labels)
+            @functools.partial(jax.vmap, in_axes=(None, 0, 0))
+            def vmap_local_updates(init_local_opt_state, key, client_batch):
+                (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
 
-            l = jnp.mean(jnp.array(losses))
+                return (
+                    jnp.mean(local_losses),
+                    jax.tree_util.tree_map(
+                        lambda new_p, old_p: new_p - old_p,
+                        local_opt.get_params(final_local_opt_state),
+                        local_opt.get_params(init_local_opt_state),
+                    ),
+                    local_opt.get_state(final_local_opt_state) if globals.needs_state else None,
+                )
+
+            splitted_batches = jax.tree_util.tree_map(lambda x : x.reshape((globals.num_grads, globals.num_local_steps, globals.local_batch_size) + x.shape[1:]), data)
+            init_local_opt_state = local_opt.init(p, model_state=s)
+            jax.debug.print("TEST", init_local_opt_state) # TODO
+            jax.debug.print("GRADS", globals.num_grads)
+
+            keys = jax.random.split(key2, globals.num_grads)
+            if globals.use_pmap:
+                assert globals.num_devices == globals.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
+                l, deltas, avg_delta, avg_state = pmap_local_updates(init_local_opt_state, keys, splitted_batches)
+            else:
+                losses, deltas, new_state = vmap_local_updates(init_local_opt_state, keys, splitted_batches)
+                l = jnp.mean(losses)
+                avg_delta = jax.tree_util.tree_map(
+                        lambda ds: jnp.mean(ds, axis=0), deltas
+                )
+                if globals.needs_state:
+                    avg_state = jax.tree_util.tree_map(
+                        lambda s, ns: jnp.mean(ns, axis=0),
+                        local_opt.get_state(init_local_opt_state),
+                        new_state,
+                    )
+                else:
+                    avg_state = None
 
             meta_loss = l
 
@@ -159,9 +177,7 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
         summary.summary("task_loss", l)
 
-        next_inner_opt_state = opt.update(
-            inner_opt_state, deltas, loss=l, model_state=s, key=key2
-        )
+        next_inner_opt_state = opt.update(inner_opt_state, deltas, avg_delta, loss=l, model_state=avg_state if globals.needs_state else s, key=key2)
         next_inner_step = inner_step + 1
 
         return (

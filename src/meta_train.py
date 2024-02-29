@@ -6,6 +6,7 @@ import wandb
 from learned_optimization import checkpoints
 
 from meta_trainers import get_meta_trainer
+import globals
 
 from glob import glob
 import os
@@ -141,6 +142,14 @@ def meta_train(args):
     key = jax.random.PRNGKey(0)
     key, key1 = jax.random.split(key)
     outer_trainer_state = meta_trainer.init(key1)
+
+    # Set up globals used in truncated step for meta-training
+    globals.needs_state = args.needs_state
+    globals.num_grads = args.num_grads
+    globals.num_local_steps = args.num_local_steps
+    globals.local_batch_size = args.local_batch_size
+    globals.use_pmap = args.use_pmap
+    globals.num_devices = args.num_devices
 
     if args.from_checkpoint:
         dirname = osp.join("checkpoints", args.meta_train_name)

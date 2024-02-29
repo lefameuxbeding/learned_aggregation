@@ -63,16 +63,9 @@ def _fedlagg_meta_trainer(args):
             meta_loss_split=args.meta_loss_split,
         )
 
-        if args.use_pmap:
-            return truncated_pes.TruncatedPESPMAP(
-                truncated_step=truncated_step,
-                trunc_length=50,
-                num_devices=args.num_devices,
-            )
-        else:
-            return truncated_pes.TruncatedPES(
-                truncated_step=truncated_step, trunc_length=50
-            )
+        return truncated_pes.TruncatedPES(
+            truncated_step=truncated_step, trunc_length=50
+        )
 
     tasks = get_task(args)
 
