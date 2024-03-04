@@ -89,16 +89,14 @@ def benchmark(args):
 
 def sweep(args):
     def sweep_fn(args=args):
-        key = jax.random.PRNGKey(0)
-
         run = wandb.init(
             project="learned_aggregation_meta_test", group=args.name, config=vars(args)
         )
         args = argparse.Namespace(**run.config)
 
+        key = jax.random.PRNGKey(0)
         task = get_task(args)
         test_task = get_task(args, is_test=True)
-
         opt, update = get_optimizer(args)
 
         key, key1 = jax.random.split(key)
@@ -109,43 +107,49 @@ def sweep(args):
         
         opt_state = opt.init(params, model_state=state, num_steps=args.num_inner_steps)
 
-
-        tmp = {'obs':'image',
-                'target':'label',
-                'image':'image',
-                'label':'label'}
-
         for _ in tqdm(range(args.num_inner_steps), ascii=True, desc="Inner Loop"):
-            batch = next(task.datasets.train)
+            # update
+            batch = rename_batch(next(task.datasets.train))
             key, key1 = jax.random.split(key)
             opt_state, loss = update(opt_state, key1, batch)
-
-            key, key1 = jax.random.split(key)
             params = opt.get_params(opt_state)
 
-            test_batch = next(test_task.datasets.test)
-            test_batch = {tmp[k]:v for k,v in test_batch.items()}
-            if args.needs_state:
-                state = opt.get_state(opt_state)
-                test_loss = test_task.loss(params, state, key1, test_batch)
-            else:
-                test_loss = test_task.loss(params, key1, test_batch)
+            #test loss and accuracy if implemented
+            try:
+                test_batch = rename_batch(next(test_task.datasets.test))
+                key, key1 = jax.random.split(key)
+                test_loss, test_acc = test_task.loss_and_accuracy(params, key1, test_batch)
+                test_log = {
+                    "test loss": test_loss,
+                    "test accuracy": test_acc,
+                }
+            except AttributeError as e:
+                Warning("test_task does not have loss_and_accuracy method, defaulting to loss")
+                key, key1 = jax.random.split(key)
+                if args.needs_state:
+                    state = opt.get_state(opt_state)
+                    test_loss = test_task.loss(params, state, key1, test_batch)
+                else:
+                    test_loss = test_task.loss(params, key1, test_batch)
 
-            outer_valid_batch = next(test_task.datasets.outer_valid)
-            outer_valid_batch = {tmp[k]:v for k,v in outer_valid_batch.items()}
+                test_log = {"test loss": test_loss}
+
+            # valid loss
+            outer_valid_batch = rename_batch(next(test_task.datasets.outer_valid))
+            key, key1 = jax.random.split(key)
             if args.needs_state:
                 state = opt.get_state(opt_state)
                 outer_valid_loss = test_task.loss(params, state, key1, outer_valid_batch)
             else:
                 outer_valid_loss = test_task.loss(params, key1, outer_valid_batch)
-
-            run.log(
-                {   
-                    "train loss": loss, 
-                    "test loss": test_loss,
+            
+            # log
+            to_log = {
+                    "train loss": loss,
                     "outer valid loss": outer_valid_loss
                 }
-            )
+            to_log.update(test_log)
+            run.log(to_log)
 
         run.finish()
 
