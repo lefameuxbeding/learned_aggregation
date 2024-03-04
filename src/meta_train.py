@@ -151,6 +151,9 @@ def meta_train(args):
     globals.use_pmap = args.use_pmap
     globals.num_devices = args.num_devices
 
+    if args.use_pmap:
+        assert args.num_devices == args.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
+
     if args.from_checkpoint:
         dirname = osp.join("checkpoints", args.meta_train_name)
         ckpt = open(osp.join(dirname, "latest"), "r").readline().strip()

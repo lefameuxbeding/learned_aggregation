@@ -28,6 +28,9 @@ def benchmark(args):
     test_task = get_task(args, is_test=True)
     opt, update = get_optimizer(args)
 
+    if args.use_pmap:
+        assert args.num_devices == args.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
+
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
         run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
 

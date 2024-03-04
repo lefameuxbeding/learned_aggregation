@@ -185,7 +185,6 @@ def _fedlagg(args):
 
         keys = jax.random.split(key, args.num_grads)
         if args.use_pmap:
-            assert args.num_devices == args.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
             loss, deltas, avg_delta, avg_state = pmap_local_updates(init_local_opt_state, keys, splitted_batches)
         else:
             losses, deltas, new_state = vmap_local_updates(init_local_opt_state, keys, splitted_batches)
@@ -254,7 +253,6 @@ def _fedavg(args):
 
         keys = jax.random.split(key, args.num_grads)
         if args.use_pmap:
-            assert args.num_devices == args.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
             loss, avg_params, avg_state = pmap_local_updates(opt_state, keys, splitted_batches)
         else:
             losses, new_params, new_state = vmap_local_updates(opt_state, keys, splitted_batches)
@@ -325,7 +323,6 @@ def _fedavg_slowmo(args):
 
         keys = jax.random.split(key, args.num_grads)
         if args.use_pmap:
-            assert args.num_devices == args.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
             loss, avg_params, avg_state = pmap_local_updates(opt_state, keys, splitted_batches)
         else:
             losses, new_params, new_state = vmap_local_updates(opt_state, keys, splitted_batches)
