@@ -108,12 +108,12 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
                 if globals.needs_state:
                     state = local_opt.get_state(local_opt_state)
-                    (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, local_batch)
+                    (l, model_s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, local_batch)
                 else:
                     l, grad = jax.value_and_grad(task.loss)(params, key1, local_batch)
-                    s = None
+                    model_s = s
 
-                return (local_opt.update(local_opt_state, grad, loss=l, model_state=s), key), l
+                return (local_opt.update(local_opt_state, grad, loss=l, model_state=model_s), key), l
             
             @functools.partial(jax.pmap, in_axes=(None, 0, 0), out_axes=(None, 0, None, None), axis_name="num_grads")
             def pmap_local_updates(init_local_opt_state, key, client_batch):
@@ -128,7 +128,7 @@ def progress_or_reset_inner_opt_state_fedlopt(
                     jax.lax.pmean(jnp.mean(local_losses), axis_name="num_grads"),
                     delta,
                     jax.lax.pmean(delta, axis_name="num_grads"),
-                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="num_grads") if globals.needs_state else None
+                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="num_grads") if globals.needs_state else s
                 )
 
             @functools.partial(jax.vmap, in_axes=(None, 0, 0))
@@ -142,17 +142,14 @@ def progress_or_reset_inner_opt_state_fedlopt(
                         local_opt.get_params(final_local_opt_state),
                         local_opt.get_params(init_local_opt_state),
                     ),
-                    local_opt.get_state(final_local_opt_state) if globals.needs_state else None,
+                    local_opt.get_state(final_local_opt_state) if globals.needs_state else s,
                 )
 
             splitted_batches = jax.tree_util.tree_map(lambda x : x.reshape((globals.num_grads, globals.num_local_steps, globals.local_batch_size) + x.shape[1:]), data)
             init_local_opt_state = local_opt.init(p, model_state=s)
-            jax.debug.print("TEST", init_local_opt_state) # TODO
-            jax.debug.print("GRADS", globals.num_grads)
 
             keys = jax.random.split(key2, globals.num_grads)
             if globals.use_pmap:
-                assert globals.num_devices == globals.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
                 l, deltas, avg_delta, avg_state = pmap_local_updates(init_local_opt_state, keys, splitted_batches)
             else:
                 losses, deltas, new_state = vmap_local_updates(init_local_opt_state, keys, splitted_batches)
@@ -162,12 +159,12 @@ def progress_or_reset_inner_opt_state_fedlopt(
                 )
                 if globals.needs_state:
                     avg_state = jax.tree_util.tree_map(
-                        lambda s, ns: jnp.mean(ns, axis=0),
+                        lambda os, ns: jnp.mean(ns, axis=0),
                         local_opt.get_state(init_local_opt_state),
                         new_state,
                     )
                 else:
-                    avg_state = None
+                    avg_state = s
 
             meta_loss = l
 
@@ -177,7 +174,7 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
         summary.summary("task_loss", l)
 
-        next_inner_opt_state = opt.update(inner_opt_state, deltas, avg_delta, loss=l, model_state=avg_state if globals.needs_state else s, key=key2)
+        next_inner_opt_state = opt.update(inner_opt_state, deltas, avg_delta, loss=l, model_state=avg_state, key=key2)
         next_inner_step = inner_step + 1
 
         return (
