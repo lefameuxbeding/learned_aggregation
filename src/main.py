@@ -30,6 +30,7 @@ def parse_args():
                                                           "fedlagg-wavg", 
                                                           "fedlagg-adafac"])
     parser.add_argument("--task", type=str)
+    parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
     parser.add_argument("--learning_rate", type=float)
