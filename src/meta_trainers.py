@@ -10,7 +10,7 @@ from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
 from fed_truncated_step import VectorizedFedLOptTruncatedStep
 from fed_mlp_lopt import FedMLPLOpt
 from tasks import get_task
-
+import jax
 import optax
 from optimizers import AdamWLinearCosine, AdamW
 
@@ -57,14 +57,16 @@ def _fedlagg_meta_trainer(args):
             lagg,
             trunc_sched,
             num_tasks=args.num_tasks,
-            random_initial_iteration_offset=args.num_inner_steps,
+            random_initial_iteration_offset=50,#args.num_inner_steps,
             local_learning_rate=args.local_learning_rate,
             num_local_steps=args.num_local_steps,
             meta_loss_split=args.meta_loss_split,
         )
 
         return truncated_pes.TruncatedPES(
-            truncated_step=truncated_step, trunc_length=50
+            truncated_step=truncated_step, 
+            trunc_length=50, 
+            steps_per_jit=50
         )
 
     tasks = get_task(args)
@@ -80,7 +82,7 @@ def _fedlagg_meta_trainer(args):
         ]
 
     meta_trainer = gradient_learner.SingleMachineGradientLearner(
-        lagg, gradient_estimators, meta_opt
+        lagg, gradient_estimators, meta_opt, device=jax.local_devices(0)[0]
     )
 
     return meta_trainer, meta_opt

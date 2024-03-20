@@ -100,8 +100,8 @@ if __name__ == "__main__":
     args = parse_args()
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
-    os.environ["WANDB_DIR"] = args.wandb_dir
+    # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    # os.environ["WANDB_DIR"] = args.wandb_dir
 
     cfg = Config.fromfile(args.config)
 

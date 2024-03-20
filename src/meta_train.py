@@ -143,6 +143,10 @@ def meta_train(args):
     key, key1 = jax.random.split(key)
     outer_trainer_state = meta_trainer.init(key1)
 
+    # import pprint
+    # pprint.pprint(jax.tree_map(lambda x:x.shape if type(x) != int else x,outer_trainer_state.__dict__))
+    # exit(0)
+
     # Set up globals used in truncated step for meta-training
     globals.needs_state = args.needs_state
     globals.num_grads = args.num_grads
@@ -187,6 +191,7 @@ def meta_train(args):
         outer_trainer_state, meta_loss, metrics = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=True
         )
+        # exit(0) 
 
         more_to_log = {
                 "iteration": i,

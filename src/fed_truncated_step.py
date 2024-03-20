@@ -8,6 +8,11 @@ import globals
 import gin
 import jax
 import jax.numpy as jnp
+
+from jax.sharding import Mesh, PartitionSpec as P
+from jax.experimental import mesh_utils
+from jax.experimental.shard_map import shard_map
+
 from haiku._src.data_structures import FlatMap
 from learned_optimization import summary, training, tree_utils
 from learned_optimization.learned_optimizers import base as lopt_base
@@ -100,7 +105,8 @@ def progress_or_reset_inner_opt_state_fedlopt(
             # Otherwise we can just use loss_with_state.
 
             local_opt = optax_opts.SGD(learning_rate=local_learning_rate)
-
+            
+            @functools.partial(jax.jit)
             def local_step(local_opt_state_and_key, local_batch):
                 local_opt_state, key = local_opt_state_and_key
                 params = local_opt.get_params(local_opt_state)
@@ -115,15 +121,44 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
                 return (local_opt.update(local_opt_state, grad, loss=l, model_state=model_s), key), l
             
-            @functools.partial(jax.pmap, in_axes=(None, 0, 0), out_axes=(None, 0, None, None), axis_name="num_grads")
-            def pmap_local_updates(init_local_opt_state, key, client_batch):
+            devices = mesh_utils.create_device_mesh((globals.num_devices,1))
+            mesh = Mesh(devices, ('i', 'j'))
+            @functools.partial(jax.jit)
+            @functools.partial(shard_map, 
+                               mesh=mesh, 
+                               in_specs=(P(),P(None,'i'),P('i',None),), 
+                               out_specs=(P(None),
+                                          P('i'),
+                                          P(None),
+                                          P(None),)
+                               )
+            def shard_map_local_updates(init_local_opt_state, key, client_batch):
+                key = jnp.squeeze(key)
+                client_batch = jax.tree_map(lambda x : jnp.squeeze(x, axis=0), client_batch)
+
+
                 (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
+
                 delta = jax.tree_util.tree_map(
                     lambda new_p, old_p: new_p - old_p,
                     local_opt.get_params(final_local_opt_state),
                     local_opt.get_params(init_local_opt_state),
                 )
+                return (
+                    jax.lax.pmean(jnp.mean(local_losses), axis_name="i"),
+                    jax.tree_map(lambda x:jnp.expand_dims(x,0), delta),
+                    jax.lax.pmean(delta, axis_name="i"),
+                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="i") if globals.needs_state else s
+                )
 
+            @functools.partial(jax.pmap, in_axes=(None, 0, 0), out_axes=(None, 0, None, None), axis_name="num_grads")
+            def pmap_local_updates(init_local_opt_state, key, client_batch):
+                (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
+                delta = jax.tree_map(
+                    lambda new_p, old_p: new_p - old_p,
+                    local_opt.get_params(final_local_opt_state),
+                    local_opt.get_params(init_local_opt_state),
+                )
                 return (
                     jax.lax.pmean(jnp.mean(local_losses), axis_name="num_grads"),
                     delta,
@@ -150,7 +185,7 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
             keys = jax.random.split(key2, globals.num_grads)
             if globals.use_pmap:
-                l, deltas, avg_delta, avg_state = pmap_local_updates(init_local_opt_state, keys, splitted_batches)
+                l, deltas, avg_delta, avg_state = shard_map_local_updates(init_local_opt_state, keys, splitted_batches)
             else:
                 losses, deltas, new_state = vmap_local_updates(init_local_opt_state, keys, splitted_batches)
                 l = jnp.mean(losses)
@@ -165,7 +200,6 @@ def progress_or_reset_inner_opt_state_fedlopt(
                     )
                 else:
                     avg_state = s
-
             meta_loss = l
 
         if axis_name:
@@ -410,7 +444,7 @@ class VectorizedFedLOptTruncatedStep(
         self.num_local_steps = num_local_steps
 
         self.data_shape = jax.tree_util.tree_map(
-            lambda x: jax.ShapedArray(shape=x.shape, dtype=x.dtype),
+            lambda x: jax.core.ShapedArray(shape=x.shape, dtype=x.dtype),
             training.vec_get_batch(task_family, num_tasks, split="train", numpy=True),
         )
 

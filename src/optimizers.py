@@ -9,6 +9,10 @@ from learned_optimization.optimizers import OptaxOptimizer
 from learned_optimization.optimizers import base as opt_base
 from learned_optimization.optimizers import optax_opts
 
+from jax.sharding import Mesh, PartitionSpec as P
+from jax.experimental import mesh_utils
+from jax.experimental.shard_map import shard_map
+
 from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
 from fed_mlp_lopt import FedMLPLOpt
 from slowmo import SGDSlowMo
@@ -293,6 +297,38 @@ def _fedavg_slowmo(args):
             s = None
 
         return (opt.update(local_opt_state, grad, loss=l, model_state=s), key), l
+    
+
+    devices = mesh_utils.create_device_mesh((2,1))
+    mesh = Mesh(devices, ('i', 'j'))
+    @functools.partial(jax.jit)
+    @functools.partial(shard_map, 
+                        mesh=mesh, 
+                        in_specs=(P(),P(None,'i'),P('i',None),), 
+                        out_specs=(P(None),
+                                    P(None),
+                                    P(None),)
+                        )
+    def shard_map_local_updates(init_local_opt_state, key, client_batch):
+        key = jnp.squeeze(key)
+        # print('init_local_opt_state',jax.tree_map(lambda x: x.shape, init_local_opt_state))
+        # print('key',jax.tree_map(lambda x: x.shape, key))
+        # print('client_batch',jax.tree_map(lambda x: x.shape, client_batch))
+        client_batch = jax.tree_map(lambda x : jnp.squeeze(x, axis=0), client_batch)
+
+
+        (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
+
+        return (
+            jax.lax.pmean(jnp.mean(local_losses), axis_name="i"),
+            jax.lax.pmean(
+                opt.get_params(final_local_opt_state), axis_name="i"
+            ),
+            jax.lax.pmean(
+                opt.get_state(final_local_opt_state), axis_name="i"
+            ) if args.needs_state else None
+        )
+
 
     @functools.partial(jax.pmap, in_axes=(None, 0, 0), out_axes=(None, None, None), axis_name="num_grads")
     def pmap_local_updates(init_local_opt_state, key, client_batch):
@@ -323,7 +359,11 @@ def _fedavg_slowmo(args):
 
         keys = jax.random.split(key, args.num_grads)
         if args.use_pmap:
-            loss, avg_params, avg_state = pmap_local_updates(opt_state, keys, splitted_batches)
+            loss, avg_params, avg_state = shard_map_local_updates(opt_state, keys, splitted_batches)
+            # print('loss',jax.tree_map(lambda x: x.shape, loss))
+            # print('avg_params',jax.tree_map(lambda x: x.shape, avg_params))
+            # print('avg_state',jax.tree_map(lambda x: x.shape, avg_state))
+            # exit(0)
         else:
             losses, new_params, new_state = vmap_local_updates(opt_state, keys, splitted_batches)
             loss = jnp.mean(losses)
