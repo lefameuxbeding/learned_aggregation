@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("--test_checkpoint", type=str)
     parser.add_argument("--use_pmap", action="store_true")
     parser.add_argument("--num_tasks", type=int)
+    parser.add_argument("--num_devices", type=int)
     parser.add_argument("--name_suffix", type=str)
     parser.add_argument("--slowmo_learning_rate", type=float)
     parser.add_argument("--wandb_checkpoint_id", type=str)
