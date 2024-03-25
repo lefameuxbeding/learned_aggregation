@@ -125,8 +125,9 @@ def progress_or_reset_inner_opt_state_fedlopt(
             mesh = Mesh(devices, ('i', 'j'))
             @functools.partial(jax.jit)
             @functools.partial(shard_map, 
-                               mesh=mesh, 
-                               in_specs=(P(),P(None,'i'),P('i',None),), 
+                               mesh=mesh,
+                               check_rep=False, 
+                               in_specs=(P(),P('i',None),P('i',None),), 
                                out_specs=(P(None),
                                           P('i'),
                                           P(None),
@@ -537,9 +538,9 @@ class VectorizedFedLOptTruncatedStep(
         from jax.experimental import mesh_utils
         from jax.sharding import PositionalSharding
 
-        shardingi = PositionalSharding(mesh_utils.create_device_mesh((1,1,2,1,1,1)))
+        shardingi = PositionalSharding(mesh_utils.create_device_mesh((1,1,globals.num_devices,1,1,1)))
 
-        shardingl = PositionalSharding(mesh_utils.create_device_mesh((1,1,2)))
+        shardingl = PositionalSharding(mesh_utils.create_device_mesh((1,1,globals.num_devices)))
 
         tr_batch = {
             'image':jax.device_put(tr_batch['image'],shardingi),

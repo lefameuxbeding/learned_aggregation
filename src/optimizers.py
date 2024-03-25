@@ -299,12 +299,13 @@ def _fedavg_slowmo(args):
         return (opt.update(local_opt_state, grad, loss=l, model_state=s), key), l
     
 
-    devices = mesh_utils.create_device_mesh((2,1))
+    devices = mesh_utils.create_device_mesh((args.num_devices,1))
     mesh = Mesh(devices, ('i', 'j'))
     @functools.partial(jax.jit)
     @functools.partial(shard_map, 
-                        mesh=mesh, 
-                        in_specs=(P(),P(None,'i'),P('i',None),), 
+                        mesh=mesh,
+                        check_rep=False,
+                        in_specs=(P(),P('i',None),P('i',None),),
                         out_specs=(P(None),
                                     P(None),
                                     P(None),)
