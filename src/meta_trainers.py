@@ -50,7 +50,8 @@ def _fedlagg_meta_trainer(args):
 
     def grad_est_fn(task_family):
         trunc_sched = truncation_schedule.LogUniformLengthSchedule(
-            min_length=args.truncation_schedule_min_length, max_length=args.num_inner_steps
+            min_length=args.truncation_schedule_min_length, 
+            max_length=args.num_inner_steps
         )
         truncated_step = VectorizedFedLOptTruncatedStep(
             task_family,
@@ -64,9 +65,13 @@ def _fedlagg_meta_trainer(args):
         )
 
         return truncated_pes.TruncatedPES(
+            # num_devices=2,
             truncated_step=truncated_step, 
-            trunc_length=50, 
-            steps_per_jit=50
+            trunc_length=50,
+            std=0.01,
+            steps_per_jit=10,
+            stack_antithetic_samples= False, #default
+            sign_delta_loss_scalar= None, #default
         )
 
     tasks = get_task(args)
@@ -82,7 +87,10 @@ def _fedlagg_meta_trainer(args):
         ]
 
     meta_trainer = gradient_learner.SingleMachineGradientLearner(
-        lagg, gradient_estimators, meta_opt, device=jax.local_devices(0)[0]
+        meta_init=lagg, 
+        gradient_estimators=gradient_estimators, 
+        theta_opt=meta_opt, 
+        device=jax.local_devices(0)[0]
     )
 
     return meta_trainer, meta_opt

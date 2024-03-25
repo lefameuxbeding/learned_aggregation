@@ -4,7 +4,7 @@ import functools
 from typing import Any, Callable, Optional, Tuple
 
 import globals
-
+import time
 import gin
 import jax
 import jax.numpy as jnp
@@ -491,15 +491,67 @@ class VectorizedFedLOptTruncatedStep(
             unroll_state = unroll_state.replace(inner_step=inner_step)
 
         return unroll_state
+    
+    def timing_decorator(func):
 
+
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            print(f"{func.__name__} took {end_time - start_time} seconds to complete.")
+            return result
+
+        return wrapper
+
+
+    @timing_decorator
     def get_batch(self, steps: Optional[int] = None):
+        """Get a batch of data for training. This is used within the gradient estimator
+        to sample data for the inner training loop."""
         if steps is not None:
             data_shape = (steps, self.num_tasks)
         else:
             data_shape = (self.num_tasks,)
-        tr_batch = training.get_batches(
-            self.task_family, data_shape, numpy=True, split="train"
-        )
+
+        def convert_to_zeros(outer_batch_size, data_size):
+            def zero_element(key, x): 
+                shape = (outer_batch_size,) + x.shape  # Construct new shape
+                return jnp.zeros(shape, dtype=x.dtype)#, device=jax.devices()) #('gpu')[0])    # Zeros with correct shape
+
+            return FlatMap({key: zero_element(key, val) for key, val in data_size.items()})
+        
+        tr_batch = convert_to_zeros(steps, self.data_shape)
+
+        # tr_batch = jax.device_put(tr_batch,device=jax.devices('gpu')[0])
+
+
+        # tr_batch = training.get_batches(
+        #     self.task_family, data_shape, numpy=True, split="train"
+        # )
+        print(jax.tree_map(lambda x: x.shape, tr_batch))
+        # print(jax.tree_map(lambda x: type(x), tr_batch))
+        # print(jax.local_devices(0))
+        # tr_batch = jax.tree_map(lambda x: jnp.array(x), tr_batch)
+
+        from jax.experimental import mesh_utils
+        from jax.sharding import PositionalSharding
+
+        shardingi = PositionalSharding(mesh_utils.create_device_mesh((1,1,2,1,1,1)))
+
+        shardingl = PositionalSharding(mesh_utils.create_device_mesh((1,1,2)))
+
+        tr_batch = {
+            'image':jax.device_put(tr_batch['image'],shardingi),
+            'label':jax.device_put(tr_batch['label'],shardingl)
+        }
+
+
+
+        # print(jax.tree_map(lambda x: x.shape, tr_batch))
+        # print(self.data_shape)
+        # print(data_shape)
+        # exit(0)
 
         if self.meta_loss_split == "same_data" or self.meta_loss_split is None:
             return tr_batch
