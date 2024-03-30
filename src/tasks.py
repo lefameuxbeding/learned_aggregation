@@ -12,7 +12,20 @@ from learned_optimization.tasks.fixed.vit_test import VITTest
 from learned_optimization.tasks.parametric.image_resnet import ParametricImageResNet
 from learned_optimization.tasks.resnet import ResNet
 from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
+from fast_imagenet import fast_imagenet_datasets
 
+@gin.configurable
+def mlp128x128_fastinet_32(batch_size):
+    """A 2 hidden layer, 128 hidden unit MLP designed for 28x28 fashion mnist."""
+    h5_path = "/mnt/raid0/imagenet_hdf5/ilsvrc2012.hdf5"
+    datasets = fast_imagenet_datasets(h5_path, 
+        batch_size, 
+        workers=48, 
+        distributed=False,
+        image_size=(32,32,),
+        output_channel=(3,)
+    )
+    return _MLPImageTask(datasets, [128, 128])
 
 
 @base.dataset_lru_cache
@@ -49,14 +62,14 @@ def imagenet_64_datasets(
 ) -> base.Datasets:
     perc = max(1, int(80 * data_fraction))
     splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
-    return base.tfds_image_classification_datasets(
+    return base.preload_tfds_image_classification_datasets(
         datasetname="imagenet_resized",
         splits=splits,
         batch_size=batch_size,
         image_size=image_size,
         stack_channels=1,
         prefetch_batches=prefetch_batches,
-        shuffle_buffer_size=10000,
+        # shuffle_buffer_size=10000,
         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
         convert_to_black_and_white=False,
@@ -240,11 +253,12 @@ def conv_c10_32(batch_size):
 
 
 @gin.configurable
-def mlp128x128_c10_32(batch_size):
+def mlp128x128_c10_32(batch_size,**kwargs):
     """A 3 hidden layer convnet designed for 32x32 cifar10."""
     datasets = image.cifar10_datasets(
         batch_size=batch_size,
-        prefetch_batches=500,
+        prefetch_batches=20,
+        **kwargs
     )
     return _MLPImageTask(datasets, [128, 128])
 
@@ -314,6 +328,15 @@ def mlp32x32_c10_8(batch_size):
 ###
 # Imagenet
 ###
+@gin.configurable
+def mlp128x128x128_imagenet_32(batch_size,**kwargs):
+    datasets = imagenet_64_datasets(
+        batch_size=batch_size,
+        image_size=(32, 32),
+        prefetch_batches=40,
+        **kwargs
+    )
+    return _MLPImageTask(datasets, [128, 128, 128])
 
 
 @gin.configurable
@@ -609,13 +632,6 @@ def mlp128_imagenet_32(batch_size):
     )
     return _MLPImageTask(datasets, [128])
 
-@gin.configurable
-def mlp128x128x128_imagenet_32(batch_size):
-    datasets = imagenet_64_datasets(
-        batch_size=batch_size,
-        image_size=(32, 32),
-    )
-    return _MLPImageTask(datasets, [128, 128, 128])
 
 
 @gin.configurable
@@ -688,6 +704,8 @@ def transformer192_lm(batch_size):
 
 def get_task(args, is_test=False):
     tasks = {
+        
+        'mlp128x128_fastinet_32':mlp128x128_fastinet_32,
         'transformer192_lm':transformer192_lm,
         'resnet18_imagenet_64':resnet18_imagenet_64,
         'resnet18_imagenet_32':resnet18_imagenet_32,
@@ -820,13 +838,21 @@ def get_task(args, is_test=False):
             if ("_c10" in k or "imagenet" in k or "_fmnist" in k)
         }
     )
-    batch_size = args.num_grads * args.num_local_steps * args.local_batch_size
+    batch_size = args.meta_training_batch_size
+
     if is_test:
         batch_size = test_batch_size[args.task]
 
     task = tasks[args.task]
 
     if type(task) is list:
-        return [task(batch_size) for task in task]
+        return [task(batch_size,
+                     batch_shape=args.batch_shape,
+                     label_sharding=args.label_sharding,
+                     image_sharding=args.image_sharding,) \
+                for task in task]
     else:
-        return tasks[args.task](batch_size)
+        return tasks[args.task](batch_size,
+                                batch_shape=args.batch_shape,
+                                label_sharding=args.label_sharding,
+                                image_sharding=args.image_sharding,)

@@ -54,14 +54,17 @@ def _fedlagg_meta_trainer(args):
             max_length=args.num_inner_steps
         )
         truncated_step = VectorizedFedLOptTruncatedStep(
-            task_family,
-            lagg,
-            trunc_sched,
+            task_family=task_family,
+            learned_opt=lagg,
+            trunc_sched=trunc_sched,
             num_tasks=args.num_tasks,
-            random_initial_iteration_offset=50,#args.num_inner_steps,
-            local_learning_rate=args.local_learning_rate,
-            num_local_steps=args.num_local_steps,
             meta_loss_split=args.meta_loss_split,
+            random_initial_iteration_offset=50,#args.num_inner_steps,
+            outer_data_split="train",
+            meta_loss_with_aux_key=None,
+            local_learning_rate=args.local_learning_rate,
+            task_name=task_family.datasets.extra_info['name'],
+            num_local_steps=args.num_local_steps,
         )
 
         return truncated_pes.TruncatedPES(
@@ -69,7 +72,7 @@ def _fedlagg_meta_trainer(args):
             truncated_step=truncated_step, 
             trunc_length=50,
             std=0.01,
-            steps_per_jit=10,
+            steps_per_jit=args.steps_per_jit,
             stack_antithetic_samples= False, #default
             sign_delta_loss_scalar= None, #default
         )

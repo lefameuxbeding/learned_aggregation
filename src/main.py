@@ -13,6 +13,8 @@ import tensorflow as tf
 
 from mmengine.config import Config
 
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -38,6 +40,7 @@ def parse_args():
     parser.add_argument("--local_batch_size", type=int)
     parser.add_argument("--num_grads", type=int)
     parser.add_argument("--num_local_steps", type=int)
+    parser.add_argument("--steps_per_jit", type=int)
     parser.add_argument("--num_runs", type=int)
     parser.add_argument("--num_inner_steps", type=int)
     parser.add_argument("--num_outer_steps", type=int)
@@ -131,8 +134,24 @@ if __name__ == "__main__":
 
     args = argparse.Namespace(**cfg._cfg_dict)
 
+
     assert_args(args)
 
-    run_types = {"benchmark": benchmark, "meta-train": meta_train, "sweep": sweep}
 
+    args.meta_training_batch_size = args.num_grads \
+                                    * args.num_local_steps \
+                                    * args.local_batch_size \
+                                    * args.num_tasks \
+                                    * args.steps_per_jit
+    
+
+
+    args.batch_shape = (args.steps_per_jit, args.num_tasks, args.num_grads * args.num_local_steps * args.local_batch_size)
+    args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+    args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+    
+    run_types = {"benchmark": benchmark, "meta-train": meta_train, "sweep": sweep}
     run_types[args.run_type](args)
+
+
+

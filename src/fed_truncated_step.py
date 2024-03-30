@@ -120,31 +120,69 @@ def progress_or_reset_inner_opt_state_fedlopt(
                     model_s = s
 
                 return (local_opt.update(local_opt_state, grad, loss=l, model_state=model_s), key), l
+
+            
+            
+            @functools.partial(jax.jit)
+            def k_local_step(local_opt_state_and_key, local_batch):
+                pass
+
+            @functools.partial(jax.vmap, in_axes=(None, 0, 0))
+            def vmap_local_updates_k(init_local_opt_state, key, client_batch):
+                return jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
             
             devices = mesh_utils.create_device_mesh((globals.num_devices,1))
             mesh = Mesh(devices, ('i', 'j'))
             @functools.partial(jax.jit)
             @functools.partial(shard_map, 
+<<<<<<< HEAD
                                mesh=mesh,
                                check_rep=False, 
                                in_specs=(P(),P('i',None),P('i',None),), 
                                out_specs=(P(None),
+=======
+                               mesh=mesh, 
+                               in_specs=(P(),P('i',None),P('i',None),), 
+                               out_specs=(P('i'),
+>>>>>>> 1d97d71 (added speed changes)
                                           P('i'),
-                                          P(None),
-                                          P(None),)
+                                          P('i'),
+                                        #   P(None),
+                                          )
                                )
             def shard_map_local_updates(init_local_opt_state, key, client_batch):
                 key = jnp.squeeze(key)
-                client_batch = jax.tree_map(lambda x : jnp.squeeze(x, axis=0), client_batch)
-
-
-                (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
+                # client_batch = jax.tree_map(lambda x : jnp.squeeze(x, axis=0), client_batch)
+                # print('client_batch',jax.tree_map(lambda x: x.shape, client_batch))
+                (final_local_opt_state, _), local_losses = vmap_local_updates_k(init_local_opt_state, key, client_batch)
+                # (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
+                # print('local_losses',jax.tree_map(lambda x: x.shape, local_losses))
 
                 delta = jax.tree_util.tree_map(
                     lambda new_p, old_p: new_p - old_p,
                     local_opt.get_params(final_local_opt_state),
                     local_opt.get_params(init_local_opt_state),
                 )
+                # print('delta',jax.tree_map(lambda x: x.shape, delta))
+
+                # mean = jax.lax.pmean(jnp.mean(local_losses), axis_name="i")
+                # mean_delta = jax.lax.pmean(jax.tree_map(lambda x:jnp.mean(x,axis=0),delta), axis_name="i")
+                
+                #jax.lax.pmean(delta, axis_name="i")
+                # print('mean', mean)
+                # print('mean1',jnp.mean(local_losses))
+                # print('mean delta',jax.tree_map(lambda x: x.shape, mean_delta))
+                # print('mean delta1',jax.tree_map(lambda x: x.shape,jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="i")))
+                # exit(0)
+                return (local_losses, delta, local_opt.get_state(final_local_opt_state) if globals.needs_state else s)
+                return (
+                    mean,
+                    delta,
+                    mean_delta,
+                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="i") \
+                        if globals.needs_state else s
+                )
+
                 return (
                     jax.lax.pmean(jnp.mean(local_losses), axis_name="i"),
                     jax.tree_map(lambda x:jnp.expand_dims(x,0), delta),
@@ -186,7 +224,24 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
             keys = jax.random.split(key2, globals.num_grads)
             if globals.use_pmap:
-                l, deltas, avg_delta, avg_state = shard_map_local_updates(init_local_opt_state, keys, splitted_batches)
+                losses, deltas, new_state = shard_map_local_updates(init_local_opt_state, keys, splitted_batches)
+                # print('avg_delta',jax.tree_map(lambda x: x.shape, deltas))
+                # print('losses',jax.tree_map(lambda x: x.shape, losses))
+                # print('deltas',jax.tree_map(lambda x: x.shape, deltas))
+                # print('new_state',jax.tree_map(lambda x: x.shape, new_state))
+                l = jnp.mean(losses)
+                avg_delta = jax.tree_util.tree_map(
+                        lambda ds: jnp.mean(ds, axis=0), deltas
+                )
+                if globals.needs_state:
+                    avg_state = jax.tree_util.tree_map(
+                        lambda os, ns: jnp.mean(ns, axis=0),
+                        local_opt.get_state(init_local_opt_state),
+                        new_state,
+                    )
+                else:
+                    avg_state = s
+                # exit(0)
             else:
                 losses, deltas, new_state = vmap_local_updates(init_local_opt_state, keys, splitted_batches)
                 l = jnp.mean(losses)
@@ -386,6 +441,18 @@ def truncated_unroll_one_step_vec_theta_fedlopt(
         num_local_steps=num_local_steps,
     )
 
+class Timer:
+    def __init__(self,name):
+        self.name = name
+        
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.time()
+        self.interval = self.end - self.start
+        print(f"{self.name} took {self.interval} seconds to complete.")
 
 @gin.configurable
 class VectorizedFedLOptTruncatedStep(
@@ -444,10 +511,21 @@ class VectorizedFedLOptTruncatedStep(
         self.local_learning_rate = local_learning_rate
         self.num_local_steps = num_local_steps
 
-        self.data_shape = jax.tree_util.tree_map(
-            lambda x: jax.core.ShapedArray(shape=x.shape, dtype=x.dtype),
-            training.vec_get_batch(task_family, num_tasks, split="train", numpy=True),
-        )
+        # a = training.vec_get_batch(task_family, num_tasks, split="train", numpy=True)
+
+        # print(type(a))
+
+        # print(jax.tree_map(lambda x: x.shape, a))
+
+        # exit(0)
+
+        # self.data_shape = jax.tree_util.tree_map(
+        #     lambda x: jax.core.ShapedArray(shape=x.shape, dtype=x.dtype),
+        #     a
+        # )
+        print(self._task_name)
+        # exit(0)
+        self.timings = []
 
     def outer_init(self, key):
         return self.learned_opt.init(key)
@@ -500,13 +578,25 @@ class VectorizedFedLOptTruncatedStep(
             start_time = time.time()
             result = func(*args, **kwargs)
             end_time = time.time()
-            print(f"{func.__name__} took {end_time - start_time} seconds to complete.")
+            diff = end_time - start_time
+            # print(f"{func.__name__} took {diff} seconds to complete.")
+            args[0].timings.append(diff)
             return result
 
         return wrapper
+    
+    def convert_to_zeros(outer_batch_size, data_size):
+        def zero_element(key, x): 
+            shape = (outer_batch_size,) + x.shape  # Construct new shape
+            return jnp.zeros(shape, dtype=x.dtype)#, device=jax.devices()) #('gpu')[0])    # Zeros with correct shape
+
+        return FlatMap({key: zero_element(key, val) for key, val in data_size.items()})
 
 
-    @timing_decorator
+
+
+
+    # @timing_decorator
     def get_batch(self, steps: Optional[int] = None):
         """Get a batch of data for training. This is used within the gradient estimator
         to sample data for the inner training loop."""
@@ -515,58 +605,26 @@ class VectorizedFedLOptTruncatedStep(
         else:
             data_shape = (self.num_tasks,)
 
-        def convert_to_zeros(outer_batch_size, data_size):
-            def zero_element(key, x): 
-                shape = (outer_batch_size,) + x.shape  # Construct new shape
-                return jnp.zeros(shape, dtype=x.dtype)#, device=jax.devices()) #('gpu')[0])    # Zeros with correct shape
-
-            return FlatMap({key: zero_element(key, val) for key, val in data_size.items()})
-        
-        tr_batch = convert_to_zeros(steps, self.data_shape)
-
-        # tr_batch = jax.device_put(tr_batch,device=jax.devices('gpu')[0])
-
-
-        # tr_batch = training.get_batches(
-        #     self.task_family, data_shape, numpy=True, split="train"
-        # )
-        print(jax.tree_map(lambda x: x.shape, tr_batch))
-        # print(jax.tree_map(lambda x: type(x), tr_batch))
-        # print(jax.local_devices(0))
-        # tr_batch = jax.tree_map(lambda x: jnp.array(x), tr_batch)
-
-        from jax.experimental import mesh_utils
-        from jax.sharding import PositionalSharding
-
-        shardingi = PositionalSharding(mesh_utils.create_device_mesh((1,1,globals.num_devices,1,1,1)))
-
-        shardingl = PositionalSharding(mesh_utils.create_device_mesh((1,1,globals.num_devices)))
-
-        tr_batch = {
-            'image':jax.device_put(tr_batch['image'],shardingi),
-            'label':jax.device_put(tr_batch['label'],shardingl)
-        }
-
-
-
-        # print(jax.tree_map(lambda x: x.shape, tr_batch))
-        # print(self.data_shape)
-        # print(data_shape)
-        # exit(0)
+        tr_batch = next(self.task_family.datasets.split("train"))
 
         if self.meta_loss_split == "same_data" or self.meta_loss_split is None:
             return tr_batch
         else:
+            print('in outer abtch')
             outer_batch = training.get_batches(
                 self.task_family, data_shape, numpy=True, split=self.meta_loss_split
             )
             return (tr_batch, outer_batch)
+        
+
+
 
     def get_outer_batch(self, steps: Optional[int] = None):
         if steps is not None:
             data_shape = (steps, self.num_tasks)
         else:
             data_shape = (self.num_tasks,)
+
         return training.get_batches(
             self.task_family, data_shape, numpy=True, split=self.outer_data_split
         )
@@ -581,6 +639,7 @@ class VectorizedFedLOptTruncatedStep(
         theta_is_vector=False,
         override_num_steps: Optional[int] = None,
     ):
+    
         # per-step data changes depending on if we use a extra eval batch per step.
         if self.meta_loss_split == "same_data":
             # use same batch of data

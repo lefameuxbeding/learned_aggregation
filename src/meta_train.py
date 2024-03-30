@@ -136,6 +136,28 @@ def get_resume_ckpt(ckpt_dir, meta_train_name):
     return ckpt_path
 
 
+import csv
+
+def save_timings_to_csv(timings, filename, column_name):
+    """
+    Saves the timings to a CSV file.
+
+    :param timings: List of execution times.
+    :param filename: Name of the file to save the data.
+    :param column_name: Name of the column under which timings are saved.
+    """
+    # Calculate and print the average timing
+    average_timing = sum(timings) / len(timings)
+    print(f"Average timing: {average_timing} seconds")
+
+    # Save the timings to a CSV file
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([column_name])  # Write the header
+        for timing in timings:
+            writer.writerow([timing])
+
+
 def meta_train(args):
     meta_trainer, meta_opt = get_meta_trainer(args)
 
@@ -156,7 +178,7 @@ def meta_train(args):
     globals.num_devices = args.num_devices
 
     if args.use_pmap:
-        assert args.num_devices == args.num_grads, "The number of devices for pmap should be equal to the number of clients (gradients)"
+        assert args.num_grads % args.num_devices == 0, "The number of devices for parallelism should be a divisor of the number of clients (gradients)"
 
     if args.from_checkpoint:
         dirname = osp.join("checkpoints", args.meta_train_name)
@@ -191,7 +213,18 @@ def meta_train(args):
         outer_trainer_state, meta_loss, metrics = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=True
         )
+
+        # ts = meta_trainer.gradient_estimators[0].truncated_step
+        # if len(ts.timings) >= 200:
+        #     save_timings_to_csv(ts.timings, 
+        #                         ts._task_name + '_spj:10_nt:{}_bs:{}_ls:{}_k:{}.csv'.format(args.num_tasks,
+        #                                                                          args.local_batch_size, 
+        #                                                                          args.num_local_steps, 
+        #                                                                          args.num_grads), 
+        #                         ts._task_name)
+        #     exit(0)
         # exit(0) 
+        # print()
 
         more_to_log = {
                 "iteration": i,

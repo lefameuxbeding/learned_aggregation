@@ -21,6 +21,8 @@ from_checkpoint = False
 use_pmap = False
 auto_resume = False
 meta_loss_split = None
+steps_per_jit = 10
+num_tasks = 8
 
 # meta testing only
 num_runs = 10
