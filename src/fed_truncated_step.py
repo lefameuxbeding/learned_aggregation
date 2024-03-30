@@ -135,19 +135,11 @@ def progress_or_reset_inner_opt_state_fedlopt(
             mesh = Mesh(devices, ('i', 'j'))
             @functools.partial(jax.jit)
             @functools.partial(shard_map, 
-<<<<<<< HEAD
-                               mesh=mesh,
-                               check_rep=False, 
-                               in_specs=(P(),P('i',None),P('i',None),), 
-                               out_specs=(P(None),
-=======
                                mesh=mesh, 
                                in_specs=(P(),P('i',None),P('i',None),), 
                                out_specs=(P('i'),
->>>>>>> 1d97d71 (added speed changes)
                                           P('i'),
                                           P('i'),
-                                        #   P(None),
                                           )
                                )
             def shard_map_local_updates(init_local_opt_state, key, client_batch):
