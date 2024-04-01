@@ -121,12 +121,6 @@ def progress_or_reset_inner_opt_state_fedlopt(
 
                 return (local_opt.update(local_opt_state, grad, loss=l, model_state=model_s), key), l
 
-            
-            
-            @functools.partial(jax.jit)
-            def k_local_step(local_opt_state_and_key, local_batch):
-                pass
-
             @functools.partial(jax.vmap, in_axes=(None, 0, 0))
             def vmap_local_updates_k(init_local_opt_state, key, client_batch):
                 return jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
@@ -143,44 +137,14 @@ def progress_or_reset_inner_opt_state_fedlopt(
                                           )
                                )
             def shard_map_local_updates(init_local_opt_state, key, client_batch):
-                key = jnp.squeeze(key)
-                # client_batch = jax.tree_map(lambda x : jnp.squeeze(x, axis=0), client_batch)
-                # print('client_batch',jax.tree_map(lambda x: x.shape, client_batch))
                 (final_local_opt_state, _), local_losses = vmap_local_updates_k(init_local_opt_state, key, client_batch)
-                # (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
-                # print('local_losses',jax.tree_map(lambda x: x.shape, local_losses))
 
                 delta = jax.tree_util.tree_map(
                     lambda new_p, old_p: new_p - old_p,
                     local_opt.get_params(final_local_opt_state),
                     local_opt.get_params(init_local_opt_state),
                 )
-                # print('delta',jax.tree_map(lambda x: x.shape, delta))
-
-                # mean = jax.lax.pmean(jnp.mean(local_losses), axis_name="i")
-                # mean_delta = jax.lax.pmean(jax.tree_map(lambda x:jnp.mean(x,axis=0),delta), axis_name="i")
-                
-                #jax.lax.pmean(delta, axis_name="i")
-                # print('mean', mean)
-                # print('mean1',jnp.mean(local_losses))
-                # print('mean delta',jax.tree_map(lambda x: x.shape, mean_delta))
-                # print('mean delta1',jax.tree_map(lambda x: x.shape,jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="i")))
-                # exit(0)
                 return (local_losses, delta, local_opt.get_state(final_local_opt_state) if globals.needs_state else s)
-                return (
-                    mean,
-                    delta,
-                    mean_delta,
-                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="i") \
-                        if globals.needs_state else s
-                )
-
-                return (
-                    jax.lax.pmean(jnp.mean(local_losses), axis_name="i"),
-                    jax.tree_map(lambda x:jnp.expand_dims(x,0), delta),
-                    jax.lax.pmean(delta, axis_name="i"),
-                    jax.lax.pmean(local_opt.get_state(final_local_opt_state), axis_name="i") if globals.needs_state else s
-                )
 
             @functools.partial(jax.pmap, in_axes=(None, 0, 0), out_axes=(None, 0, None, None), axis_name="num_grads")
             def pmap_local_updates(init_local_opt_state, key, client_batch):
@@ -214,13 +178,10 @@ def progress_or_reset_inner_opt_state_fedlopt(
             splitted_batches = jax.tree_util.tree_map(lambda x : x.reshape((globals.num_grads, globals.num_local_steps, globals.local_batch_size) + x.shape[1:]), data)
             init_local_opt_state = local_opt.init(p, model_state=s)
 
+
             keys = jax.random.split(key2, globals.num_grads)
             if globals.use_pmap:
                 losses, deltas, new_state = shard_map_local_updates(init_local_opt_state, keys, splitted_batches)
-                # print('avg_delta',jax.tree_map(lambda x: x.shape, deltas))
-                # print('losses',jax.tree_map(lambda x: x.shape, losses))
-                # print('deltas',jax.tree_map(lambda x: x.shape, deltas))
-                # print('new_state',jax.tree_map(lambda x: x.shape, new_state))
                 l = jnp.mean(losses)
                 avg_delta = jax.tree_util.tree_map(
                         lambda ds: jnp.mean(ds, axis=0), deltas
@@ -502,21 +463,10 @@ class VectorizedFedLOptTruncatedStep(
         self._task_name = task_name
         self.local_learning_rate = local_learning_rate
         self.num_local_steps = num_local_steps
-
-        # a = training.vec_get_batch(task_family, num_tasks, split="train", numpy=True)
-
-        # print(type(a))
-
-        # print(jax.tree_map(lambda x: x.shape, a))
-
-        # exit(0)
-
         # self.data_shape = jax.tree_util.tree_map(
         #     lambda x: jax.core.ShapedArray(shape=x.shape, dtype=x.dtype),
-        #     a
+        #     training.vec_get_batch(task_family, num_tasks, split="train", numpy=True)
         # )
-        print(self._task_name)
-        # exit(0)
         self.timings = []
 
     def outer_init(self, key):
@@ -571,7 +521,7 @@ class VectorizedFedLOptTruncatedStep(
             result = func(*args, **kwargs)
             end_time = time.time()
             diff = end_time - start_time
-            # print(f"{func.__name__} took {diff} seconds to complete.")
+            print(f"{func.__name__} took {diff} seconds to complete.")
             args[0].timings.append(diff)
             return result
 
@@ -588,7 +538,7 @@ class VectorizedFedLOptTruncatedStep(
 
 
 
-    # @timing_decorator
+    @timing_decorator
     def get_batch(self, steps: Optional[int] = None):
         """Get a batch of data for training. This is used within the gradient estimator
         to sample data for the inner training loop."""
