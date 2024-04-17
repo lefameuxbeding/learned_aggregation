@@ -1,6 +1,7 @@
 import pickle
 import os.path as osp
 from tqdm import tqdm
+import numpy as np
 import jax
 import wandb
 from learned_optimization import checkpoints
@@ -194,7 +195,7 @@ def meta_train(args):
             )
 
     run = wandb.init(
-        project="learned_aggregation_meta_train",
+        project=args.train_project,
         group=args.meta_train_name,
         config=vars(args),
     )
@@ -202,33 +203,28 @@ def meta_train(args):
     iteration = int(
         outer_trainer_state.gradient_learner_state.theta_opt_state.iteration
     )
-    for i in tqdm(
+    pbar = tqdm(
         range(iteration, args.num_outer_steps),
         initial=iteration,
         total=args.num_outer_steps,
         ascii=True,
         desc="Outer Loop",
-    ):
+    )
+    logging_task_name = args.task[0] if len(args.task) == 1 else "multi-task-with_" + args.task[0]
+    for i in pbar:
         key, key1 = jax.random.split(key)
         outer_trainer_state, meta_loss, metrics = meta_trainer.update(
             outer_trainer_state, key1, with_metrics=True
         )
 
-        # ts = meta_trainer.gradient_estimators[0].truncated_step
-        # if len(ts.timings) >= 200:
-        #     save_timings_to_csv(ts.timings, 
-        #                         ts._task_name + '_spj:10_nt:{}_bs:{}_ls:{}_k:{}.csv'.format(args.num_tasks,
-        #                                                                          args.local_batch_size, 
-        #                                                                          args.num_local_steps, 
-        #                                                                          args.num_grads), 
-        #                         ts._task_name)
-        #     exit(0)
-        # exit(0) 
-        # print()
+        pbar.set_postfix({
+            "Data time":round(np.mean(meta_trainer.gradient_estimators[0].truncated_step.timings[-50 // args.steps_per_jit:]),4),
+            "meta loss":round(float(meta_loss),2)
+        })
 
         more_to_log = {
                 "iteration": i,
-                args.task + " meta loss": meta_loss,
+                logging_task_name + " meta loss": meta_loss,
                 "learning rate": meta_opt.__dict__.get(
                     "schedule_", lambda x: args.learning_rate
                 )(
