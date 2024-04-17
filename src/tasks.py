@@ -260,10 +260,10 @@ def get_task(args, is_test=False):
         else:
             if args.meta_loss_split is not None:
                 batch_size = (args.meta_training_batch_size,1,4096,1,)
-                prefetch_batches = (20,1,20,1)
+                prefetch_batches = (args.prefetch_batches,1,args.prefetch_batches,1)
             else:
                 batch_size = (args.meta_training_batch_size,1,1,1,)
-                prefetch_batches = (50,1,1,1)
+                prefetch_batches = (args.prefetch_batches,1,1,1)
 
 
         ds_kwargs = dict(prefetch_batches=prefetch_batches,
@@ -318,29 +318,3 @@ def get_task(args, is_test=False):
         return created_tasks[0]
     else:
         return created_tasks
-    
-    # return  tasks[args.task]()
-
-
-
-    # print(tasks.keys())
-    # exit(0)
-
-    # if is_test:
-    #     batch_size = test_batch_size[args.task]
-
-    task = tasks[args.task]
-
-    if type(task) is list:
-        return [task(batch_size,
-                     prefetch_batches=prefetch_batches,
-                     batch_shape=args.batch_shape,
-                     label_sharding=args.label_sharding,
-                     image_sharding=args.image_sharding,) \
-                for task in task]
-    else:
-        return tasks[args.task](batch_size,
-                                prefetch_batches=prefetch_batches,
-                                batch_shape=args.batch_shape,
-                                label_sharding=args.label_sharding,
-                                image_sharding=args.image_sharding,)

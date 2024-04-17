@@ -24,6 +24,7 @@ meta_loss_split = None
 steps_per_jit = 10
 num_tasks = 8
 train_project = "learned_aggregation_meta_train"
+prefetch_batches = 20
 
 # meta testing only
 num_runs = 10

@@ -78,6 +78,7 @@ def parse_args():
     parser.add_argument("--use_bf16", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--test_interval", type=int)
+    parser.add_argument("--prefetch_batches", type=int)
     # fmt: on
 
     return parser.parse_args()
