@@ -4,6 +4,9 @@ import sys
 
 from jax.lib import xla_bridge
 import jax
+from jax import lax
+import numpy as np
+import jax.numpy as jnp
 import wandb
 import os.path as osp
 
@@ -16,8 +19,14 @@ from mmengine.config import Config
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
+def comma_separated_strings(string):
+    # This function will be used to parse the comma-separated string into a list
+    return string.split(',')
+
 def parse_args():
     parser = argparse.ArgumentParser()
+
+    
 
     # fmt: off
     parser.add_argument("--config", type=str, required=True)
@@ -30,8 +39,10 @@ def parse_args():
                                                           "fedlopt-adafac", 
                                                           "fedlagg", 
                                                           "fedlagg-wavg", 
-                                                          "fedlagg-adafac"])
-    parser.add_argument("--task", type=str)
+                                                          "fedlagg-adafac",
+                                                          'small_fc_mlp',
+                                                          'mup_small_fc_mlp'])
+    parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
@@ -50,17 +61,23 @@ def parse_args():
     parser.add_argument("--test_checkpoint", type=str)
     parser.add_argument("--use_pmap", action="store_true")
     parser.add_argument("--num_tasks", type=int)
+    parser.add_argument("--gradient_accumulation_steps", type=int)
     parser.add_argument("--num_devices", type=int)
     parser.add_argument("--name_suffix", type=str)
     parser.add_argument("--slowmo_learning_rate", type=float)
     parser.add_argument("--wandb_checkpoint_id", type=str)
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
+    parser.add_argument("--train_project", type=str)
     parser.add_argument("--tfds_data_dir", type=str, default="./") # os.getenv("SLURM_TMPDIR")
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     parser.add_argument("--auto_resume", action="store_true")
     parser.add_argument("--truncation_schedule_min_length", type=int)
     parser.add_argument("--sweep_id", type=str)
+    parser.add_argument("--lo_clip_grad", action="store_true")
+    parser.add_argument("--use_bf16", action="store_true")
+    parser.add_argument("--skip_test", action="store_true")
+    parser.add_argument("--test_interval", type=int)
     # fmt: on
 
     return parser.parse_args()
@@ -95,11 +112,40 @@ def download_wandb_checkpoint(cfg):
     return osp.join("/tmp", ckpts[0].name)
 
 
+
+def test_bf16_support_on_gpu():
+    # Check if there is any GPU available
+    gpus = jax.devices()#[device for device in jax.devices() if 'gpu' in device.device_kind.lower()]
+    if not gpus:
+        print("No GPU devices found.")
+        return
+    
+    # Select the first GPU device
+    gpu = gpus[0]
+    jax.devices().append(gpu)
+    print(f"Testing on GPU: {gpu}")
+
+    try:
+        # Create test data in BF16
+        a = lax.convert_element_type(np.array([1.0, 2.0, 3.0]), jnp.bfloat16)
+        b = lax.convert_element_type(np.array([1.0, 2.0, 3.0]), jnp.bfloat16)
+        
+        # Perform an addition operation on GPU
+        result = lax.add(a, b)
+
+        # Print the results to verify
+        print("BF16 operation successful on GPU. Result:", result)
+    except Exception as e:
+        print(f"Failed to perform BF16 operations on GPU: {e}")
+
+
 if __name__ == "__main__":
     tf.config.experimental.set_visible_devices([], "GPU")
 
     print(xla_bridge.get_backend().platform)
     print(jax.devices())
+
+
 
     args = parse_args()
 
@@ -121,7 +167,7 @@ if __name__ == "__main__":
     cfg.meta_train_name = "{}{}_{}_K{}_H{}_{}{}".format(
         cfg.optimizer,
         cfg.hidden_size,
-        cfg.task,
+        cfg.task[0] if len(cfg.task) == 1 else "multi-task-with"+cfg.task[0],
         cfg.num_grads,
         cfg.num_local_steps,
         cfg.local_learning_rate,
@@ -133,22 +179,50 @@ if __name__ == "__main__":
         cfg.test_checkpoint = download_wandb_checkpoint(cfg)
 
     args = argparse.Namespace(**cfg._cfg_dict)
-
-
     assert_args(args)
 
-
-    args.meta_training_batch_size = args.num_grads \
-                                    * args.num_local_steps \
-                                    * args.local_batch_size \
-                                    * args.num_tasks \
-                                    * args.steps_per_jit
-    
+    if args.use_bf16 and test_bf16_support_on_gpu():
+        print('setting bf 16 as default supported')
+        jax.config.update('jax_default_matmul_precision', 'bfloat16')
 
 
-    args.batch_shape = (args.steps_per_jit, args.num_tasks, args.num_grads * args.num_local_steps * args.local_batch_size)
-    args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
-    args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+    if args.run_type == "benchmark":
+        
+
+        
+        if args.optimizer == 'small_fc_mlp' or args.optimizer == 'mup_small_fc_mlp':
+            args.meta_testing_batch_size = args.local_batch_size
+            args.batch_shape = (args.local_batch_size,)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices,1,1,1)))
+        else:
+            args.batch_shape = (args.num_grads * args.num_local_steps * args.local_batch_size,)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices,1,1,1))) 
+
+            args.meta_testing_batch_size = args.num_grads \
+                                            * args.num_local_steps \
+                                            * args.local_batch_size
+    else:
+        
+        if args.optimizer == 'small_fc_mlp' or args.optimizer == 'mup_small_fc_mlp':
+            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.local_batch_size)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+            args.meta_training_batch_size = args.local_batch_size \
+                                            * args.num_tasks \
+                                            * args.steps_per_jit
+        else:
+            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.num_grads * args.num_local_steps * args.local_batch_size)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+
+            args.meta_training_batch_size = args.num_grads \
+                                            * args.num_local_steps \
+                                            * args.local_batch_size \
+                                            * args.num_tasks \
+                                            * args.steps_per_jit
+
     
     run_types = {"benchmark": benchmark, "meta-train": meta_train, "sweep": sweep}
     run_types[args.run_type](args)

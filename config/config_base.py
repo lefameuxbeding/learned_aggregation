@@ -23,14 +23,17 @@ auto_resume = False
 meta_loss_split = None
 steps_per_jit = 10
 num_tasks = 8
+train_project = "learned_aggregation_meta_train"
 
 # meta testing only
 num_runs = 10
 wandb_checkpoint_id = None
+gradient_accumulation_steps = 1
 test_project = "learned_aggregation_meta_test"
 truncation_schedule_min_length = 100
 # for slowmo
 beta = 0.99
+test_interval = 50
 
 # sweeps only
 sweep_config = dict()
