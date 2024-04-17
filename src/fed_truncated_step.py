@@ -183,15 +183,11 @@ def progress_or_reset_inner_opt_state_fedlopt(
             if globals.use_pmap:
                 losses, deltas, new_state = shard_map_local_updates(init_local_opt_state, keys, splitted_batches)
                 l = jnp.mean(losses)
-                avg_delta = jax.tree_util.tree_map(
-                        lambda ds: jnp.mean(ds, axis=0), deltas
+                avg_delta = jax.tree_map(
+                    lambda ds: jnp.mean(ds, axis=0), deltas
                 )
                 if globals.needs_state:
-                    avg_state = jax.tree_util.tree_map(
-                        lambda os, ns: jnp.mean(ns, axis=0),
-                        local_opt.get_state(init_local_opt_state),
-                        new_state,
-                    )
+                    avg_state = jax.tree_map(lambda ns: jnp.mean(ns, axis=0),new_state)
                 else:
                     avg_state = s
                 # exit(0)
@@ -514,27 +510,16 @@ class VectorizedFedLOptTruncatedStep(
         return unroll_state
     
     def timing_decorator(func):
-
-
         def wrapper(*args, **kwargs):
             start_time = time.time()
             result = func(*args, **kwargs)
             end_time = time.time()
             diff = end_time - start_time
-            print(f"{func.__name__} took {diff} seconds to complete.")
+            # print(f"{func.__name__} took {diff} seconds to complete.")
             args[0].timings.append(diff)
             return result
 
         return wrapper
-    
-    def convert_to_zeros(outer_batch_size, data_size):
-        def zero_element(key, x): 
-            shape = (outer_batch_size,) + x.shape  # Construct new shape
-            return jnp.zeros(shape, dtype=x.dtype)#, device=jax.devices()) #('gpu')[0])    # Zeros with correct shape
-
-        return FlatMap({key: zero_element(key, val) for key, val in data_size.items()})
-
-
 
 
 
@@ -552,10 +537,11 @@ class VectorizedFedLOptTruncatedStep(
         if self.meta_loss_split == "same_data" or self.meta_loss_split is None:
             return tr_batch
         else:
-            print('in outer abtch')
-            outer_batch = training.get_batches(
-                self.task_family, data_shape, numpy=True, split=self.meta_loss_split
-            )
+            # print('in outer abtch')
+            outer_batch = next(self.task_family.datasets.split(self.meta_loss_split))
+            # training.get_batches(
+            #     self.task_family, data_shape, numpy=True, split=self.meta_loss_split
+            # )
             return (tr_batch, outer_batch)
         
 
@@ -636,6 +622,8 @@ class VectorizedFedLOptTruncatedStep(
             self.local_learning_rate,
             self.num_local_steps,
         )
+        # print("after first unroll")
+        # exit(0)
 
         # Should we evaluate resulting state on potentially new data?
         if meta_data is not None:
