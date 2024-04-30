@@ -218,7 +218,7 @@ def meta_train(args):
         )
 
         pbar.set_postfix({
-            "Data time":round(np.mean(meta_trainer.gradient_estimators[0].truncated_step.timings[-50 // args.steps_per_jit:]),4),
+            "Data time":round(np.mean(meta_trainer.gradient_estimators[0].truncated_step.timings[-50 // args.steps_per_jit:]),7),
             "meta loss":round(float(meta_loss),2)
         })
 

@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
     parser.add_argument("--optimizer", type=str, choices=["sgd",
-                                                          "adam", 
+                                                          "adam", "adamw",
                                                           "fedavg", 
                                                           "fedavg-slowmo", 
                                                           "fedlopt", 
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         
 
         
-        if args.optimizer == 'small_fc_mlp' or args.optimizer == 'mup_small_fc_mlp':
+        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw']:
             args.meta_testing_batch_size = args.local_batch_size
             args.batch_shape = (args.local_batch_size,)
             args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))

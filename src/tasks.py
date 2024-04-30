@@ -119,7 +119,22 @@ def add_MLP_tasks(tasks, image_datasets, widths, depths):
                                                                                             ds,
                                                                                             dict(hidden_sizes=[mlp_width] * mlp_depth))
 
-
+def add_sweepable_MLP_tasks(tasks, image_datasets, widths, depths):
+    for k,ds in image_datasets.items():
+        for mlp_width in widths:
+            for mlp_depth in depths:
+                for iname,input_mult in [('2**2',2**2)]:
+                    for oname,output_mult in [('2**5',2**5)]:
+                        for hname,hidden_mult in [('2**1',2**1),('2**-2',2**-2),('2**-4',2**-4),('2**-3',2**-3),('2**5',2**-5),('2**6',2**-6),('2**8',2**-8)]:
+                        
+                            tasks['mumlp-w{}-d{}-i{}-o{}-h{}_{}'.format(mlp_width,mlp_depth,iname,oname,hname,k)] = functools.partial(func_create_func, 
+                                                                                                                                        _MuMLPImageTask, 
+                                                                                                                                        ds,
+                                                                                                                                        dict(hidden_sizes=[mlp_width] * mlp_depth,
+                                                                                                                                        output_mult=output_mult,
+                                                                                                                                        input_mult=input_mult,
+                                                                                                                                        hidden_mult=hidden_mult))
+                
 def add_transformer_lm_tasks(tasks, lm_datasets, widths, depths):
     for k,ds in lm_datasets.items():
         for w,heads in widths:
@@ -299,10 +314,16 @@ def get_task(args, is_test=False):
                     image_datasets=IMAGE_DATASET_REGISTY, 
                     widths=[2**i for i in range(16)], 
                     depths=[3,6,12])
+        
+        add_sweepable_MLP_tasks(tasks, 
+                                image_datasets=IMAGE_DATASET_REGISTY, 
+                                widths=[128,512], 
+                                depths=[3])
+        # print(tasks.keys())
 
         add_transformer_lm_tasks(tasks, 
                                 lm_datasets=LANGUAGE_DATASET_REGISTY, 
-                                widths=[(128,2),(192,3),(384,6),(768,12)], 
+                                widths=[(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16)], 
                                 depths=[3,6,12])
         
         add_vision_transformer_tasks(tasks,

@@ -17,7 +17,9 @@ from fed_adafac_mlp_lopt import FedAdafacMLPLOpt
 from fed_mlp_lopt import FedMLPLOpt
 from slowmo import SGDSlowMo
 from tasks import get_task
-
+import globals
+from learned_optimization.learned_optimizers.adafac_mlp_lopt import AdafacMLPLOpt
+from mup_adafac_mlp_lopt import MuAdafacMLPLOpt
 
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
@@ -109,6 +111,27 @@ def _adam(args):
 
     return opt, update
 
+def _AdamW(args):
+    opt = AdamWLinearCosine(**args.adamw_schedule)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, s
+
+    return opt, update
 
 def _fedlagg(args):
     lagg_class = (
@@ -148,6 +171,7 @@ def _fedlagg(args):
             state = local_opt.get_state(local_opt_state)
             (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, local_batch)
         else:
+            print(type(task))
             l, grad = jax.value_and_grad(task.loss)(params, key1, local_batch)
             s = None
 
@@ -170,6 +194,31 @@ def _fedlagg(args):
         )
 
     @functools.partial(jax.vmap, in_axes=(None, 0, 0))
+    def vmap_local_updates_k(init_local_opt_state, key, client_batch):
+        return jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
+    
+    devices = mesh_utils.create_device_mesh((globals.num_devices,1))
+    mesh = Mesh(devices, ('i', 'j'))
+    @functools.partial(jax.jit)
+    @functools.partial(shard_map, 
+                        mesh=mesh, 
+                        in_specs=(P(),P('i',None),P('i',None),), 
+                        out_specs=(P('i'),
+                                    P('i'),
+                                    P('i'),
+                                    )
+                        )
+    def shard_map_local_updates(init_local_opt_state, key, client_batch):
+        (final_local_opt_state, _), local_losses = vmap_local_updates_k(init_local_opt_state, key, client_batch)
+
+        delta = jax.tree_util.tree_map(
+            lambda new_p, old_p: new_p - old_p,
+            local_opt.get_params(final_local_opt_state),
+            local_opt.get_params(init_local_opt_state),
+        )
+        return (local_losses, delta, local_opt.get_state(final_local_opt_state) if globals.needs_state else None)
+
+    @functools.partial(jax.vmap, in_axes=(None, 0, 0))
     def vmap_local_updates(init_local_opt_state, key, client_batch):
         (final_local_opt_state, _), local_losses = jax.lax.scan(local_step, (init_local_opt_state, key), client_batch)
 
@@ -189,7 +238,16 @@ def _fedlagg(args):
 
         keys = jax.random.split(key, args.num_grads)
         if args.use_pmap:
-            loss, deltas, avg_delta, avg_state = pmap_local_updates(init_local_opt_state, keys, splitted_batches)
+            losses, deltas, new_state = shard_map_local_updates(init_local_opt_state, keys, splitted_batches)
+
+            loss = jnp.mean(losses)
+            avg_delta = jax.tree_map(
+                lambda ds: jnp.mean(ds, axis=0), deltas
+            )
+            if globals.needs_state:
+                avg_state = jax.tree_map(lambda ns: jnp.mean(ns, axis=0),new_state)
+            else:
+                avg_state = None
         else:
             losses, deltas, new_state = vmap_local_updates(init_local_opt_state, keys, splitted_batches)
             loss = jnp.mean(losses)
@@ -413,8 +471,106 @@ def _fedavg_slowmo(args):
     return opt, update
 
 
+def _default_lopt(args):
+    if 'mup' in args.optimizer:
+        lopt = MuAdafacMLPLOpt(exp_mult=0.001,
+                        step_mult=0.001,
+                        hidden_size=args.hidden_size,
+                        hidden_layers=2,
+                        initial_momentum_decays=(0.9, 0.99, 0.999),
+                        initial_rms_decays=(0.999,),
+                        initial_adafactor_decays=(0.9, 0.99, 0.999),
+                        concat_weights=True,
+                        make_separate_weights=False,
+                        split_weights=False,
+                        mup_lrs=args.runtime_mup_lrs)
+    else:
+        lopt = AdafacMLPLOpt(exp_mult=0.001,
+                        step_mult=0.001,
+                        hidden_size=args.hidden_size,
+                        hidden_layers=2,
+                        initial_momentum_decays=(0.9, 0.99, 0.999),
+                        initial_rms_decays=(0.999,),
+                        initial_adafactor_decays=(0.9, 0.99, 0.999),
+                        concat_weights=True,
+                        make_separate_weights=False,
+                        split_weights=False)
+
+    with open(args.test_checkpoint, "rb") as f:
+        meta_params = pickle.load(f)
+    lopt = lopt.opt_fn(meta_params)
+    task = get_task(args)
+
+    def grad_step(carry, batch):
+        params, state, key1, grad = carry
+
+
+        print('batch in scal',jax.tree_map(lambda x: x.shape, batch))
+        (nl, ns), ngrad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, batch)
+        # grad = jax.tree_map(jnp.add, ngrad, grad)
+        # s = jax.tree_map(jnp.add, ns, s)
+        # l = jax.tree_map(jnp.add, nl, l)
+        new_accumulated_grads = jax.tree_map(jnp.add, grad, ngrad)
+
+        return (params, state, key1, new_accumulated_grads),  (nl, ns)
+
+    @functools.partial(jax.jit)
+    def update(opt_state, key, batch):
+        state = lopt.get_state(opt_state)
+        params = lopt.get_params(opt_state)
+        key, key1 = jax.random.split(key)
+        gas = args.gradient_accumulation_steps
+
+
+        # batch = jax.tree_map(lambda x:x.reshape((gas,x.shape[0]//gas,) + x.shape[1:]), batch)
+
+        # for i in range(args.gradient_accumulation_steps):
+        #     iterbatch = jax.tree_map(lambda x: x[i], batch)
+        #     if i == 0:
+        #         (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, iterbatch)
+        #     else:
+        #         (nl, ns), ngrad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, iterbatch)
+        #         grad = jax.tree_map(jnp.add, ngrad, grad)
+        #         s = jax.tree_map(jnp.add, ns, s)
+        #         l = jax.tree_map(jnp.add, nl, l)
+            
+        # grad = jax.tree_map(lambda x: x / gas, grad)
+        # s = jax.tree_map(lambda x: x / gas, s)
+        # l = jax.tree_map(lambda x: x / gas, l)
+            
+
+
+        # print('before scan',jax.tree_map(lambda x: x.shape, batch))
+        # grad = jax.tree_map(lambda x: jnp.zeros(x), params)
+        # (_,_,_,grad),(l, s) = jax.lax.scan(grad_step,(params, state, key1, grad), batch)
+
+        # print('grad',jax.tree_map(lambda x: x.shape, grad))
+        # print('l',jax.tree_map(lambda x: x.shape, l))
+        # print('s',jax.tree_map(lambda x: x.shape, s))
+        # l = jax.tree_map(lambda x: jnp.mean(x,axis=0), l)
+        # s = jax.tree_map(lambda x: jnp.mean(x,axis=0), s)
+
+        # #compute the mean
+        # grad = jax.tree_map(lambda x: x/gas, grad)
+
+        # print('grad',jax.tree_map(lambda x: x.shape, grad))
+        # print('l',jax.tree_map(lambda x: x.shape, l))
+        # print('s',jax.tree_map(lambda x: x.shape, s))
+
+        (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key1, batch)
+
+
+        
+        return lopt.update(opt_state, grad, l, s), l, grad
+
+    return lopt, update
+
+
+
+
 def get_optimizer(args):
     optimizers = {
+        "adamw": _AdamW,
         "adam": _adam,
         "sgd": _sgd,
         "fedavg": _fedavg,
@@ -424,6 +580,8 @@ def get_optimizer(args):
         "fedlagg": _fedlagg,
         "fedlagg-wavg": _fedlagg,
         "fedlagg-adafac": _fedlagg,
+        "small_fc_mlp":_default_lopt,
+        "mup_small_fc_mlp":_default_lopt,
     }
 
     return optimizers[args.optimizer](args)  # TODO Find better way to do this
