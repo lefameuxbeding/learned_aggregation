@@ -21,9 +21,12 @@ import jax
 import functools
 import ml_collections
 from typing import Tuple
+from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Tuple
+from learned_optimization import profile
 
 from learned_optimization.tasks.datasets import image
 from learned_optimization.tasks.datasets import base
+from learned_optimization.tasks.datasets.base import Datasets, ThreadSafeIterator, LazyIterator, _image_map_fn
 from learned_optimization.tasks.fixed.conv import _ConvTask, _cross_entropy_pool_loss
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask
 from learned_optimization.tasks.fixed.transformer_lm import _TransformerTask
@@ -34,9 +37,310 @@ from learned_optimization.tasks.parametric.image_resnet import ParametricImageRe
 from learned_optimization.tasks.resnet import ResNet
 from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
 
+
+
 from fast_imagenet import fast_imagenet_datasets
 from custom_tasks import  _MuTransformerTask, _MuMLPImageTask
 from learned_optimization.tasks.datasets.language import _make_datasets, get_32k_sentence_piece_vocab
+import functools
+
+from flax.training import prefetch_iterator
+import jax
+import jax.numpy as jnp
+from learned_optimization import profile
+import numpy as onp
+import tensorflow_datasets as tfds
+import warnings
+import warnings
+
+Batch = Any
+
+import os
+import time
+import h5py
+import io
+from PIL import Image
+import multiprocessing
+
+
+class Timer:
+    def __init__(self, func):
+        self.func = func
+    
+    def __call__(self, *args, **kwargs):
+        start_time = time.time()
+        result = self.func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Executing {self.func.__name__} took {end_time - start_time:.4f} seconds.")
+        return result
+
+
+def process_batch(encoded_images):
+    """Process a batch of encoded images into numpy arrays."""
+    return [onp.array(Image.open(io.BytesIO(img_data)).convert('RGB')) for img_data in encoded_images]
+
+class H5Data:
+    _instance = None
+
+    @Timer
+    def __new__(cls, h5_path, num_workers=24):
+        if cls._instance is None:
+            print("Creating the dataset instance")
+            cls._instance = super(H5Data, cls).__new__(cls)
+            
+            # Read the encoded images and labels from the H5 file
+            with h5py.File(h5_path, 'r') as file:
+                encoded_images = file['encoded_images'][:]
+                targets = file['targets'][:]
+            
+            # Determine the number of workers
+            if num_workers is None:
+                num_workers = multiprocessing.cpu_count()
+            
+            # Create batches of encoded images
+            batch_size = len(encoded_images) // num_workers
+            image_batches = [encoded_images[i:i + batch_size] for i in range(0, len(encoded_images), batch_size)]
+
+            # Use multiprocessing to process the batches
+            with multiprocessing.Pool(num_workers) as pool:
+                image_arrays = pool.map(process_batch, image_batches)
+            
+            # Flatten the list of lists to a single list
+            cls._instance.data = onp.array([img for sublist in image_arrays for img in sublist])
+            cls._instance.labels = onp.squeeze(targets)
+
+        return cls._instance
+    
+    
+def parse_split(split_string, data_array, index_array):
+    # Extract the range from the string after removing 'train[' and ']'
+    range_part = split_string[len('train['):-1]
+
+    # Split the range on ':'
+    parts = range_part.split(':')
+    num_samples = len(data_array)
+    
+    # Determine start index
+    start = parts[0].strip()
+    if start.endswith('%'):
+        start_index = int(float(start.rstrip('%')) / 100 * num_samples)
+    else:
+        start_index = int(start) if start else 0
+
+    # Determine end index
+    end = parts[1].strip() if len(parts) > 1 else ''
+    if end.endswith('%'):
+        end_index = int(float(end.rstrip('%')) / 100 * num_samples)
+    else:
+        end_index = int(end) if end else num_samples
+
+    # Return the appropriate slice of the data array
+    return data_array[start_index:end_index], index_array[start_index:end_index]
+
+    
+class PreloadImageNetDatasetH5():
+    
+    def __init__(self, split, h5_path, num_workers):
+        self.split = split
+        self.h5_path = h5_path
+        self.n_train = 1281167
+        self.n_val = 50000
+        self.n_test = 100000
+        self.data = H5Data(h5_path=h5_path, num_workers=num_workers)
+        
+    def preload(self):
+        im, lab = self.preload_helper()
+        return {'image':im, 'label':lab}
+    
+    def preload_helper(self):
+        if self.split.startswith('train'):
+            s = self.split.split('train')[-1]
+            if s == '':
+                return H5Data._instance.data[:self.n_train], H5Data._instance.labels[:self.n_train]
+            else:
+                return parse_split(split_string=self.split, 
+                                   data_array=H5Data._instance.data[:self.n_train], 
+                                   index_array=H5Data._instance.labels[:self.n_train])
+        elif self.split.lower() == 'validation':
+            return H5Data._instance.data[self.n_train:self.n_train + self.n_val], H5Data._instance.labels[self.n_train:self.n_train + self.n_val]
+        elif self.split.lower() == 'test':
+            return H5Data._instance.data[self.n_train + self.n_val:], H5Data._instance.labels[self.n_train + self.n_val:]
+        else:
+            raise NotImplemented('not implemented for split'+str(self.split))
+        
+
+
+def custom_preload_tfds_image_classification_datasets(
+    datasetname: str,
+    h5_path: str,
+    splits: Tuple[str, str, str, str],
+    batch_size: Tuple[int, int, int, int],
+    image_size: Tuple[int, int],
+    stack_channels: int = 1,
+    prefetch_batches: Tuple[int, int, int, int] = (20,1,1,1),
+    normalize_mean: Optional[Tuple[int, int, int]] = None,
+    normalize_std: Optional[Tuple[int, int, int]] = None,
+    convert_to_black_and_white: Optional[bool] = False,
+    batch_shape=None,
+    label_sharding=None,
+    image_sharding=None,
+) -> Datasets:
+  """Load an image dataset with tfds by first loading into host ram.
+
+  Args:
+    datasetname: name of the dataset to be loaded with tfds.
+    splits: tfds style splits for different subsets of data. (train,
+      inner-valid, outer-valid, and test set)
+    batch_size: batch size of iterators
+    image_size: target size to resize images to.
+    stack_channels: stack the channels in case of 1d outputs (e.g. mnist)
+    prefetch_batches: number of batches to prefetch
+    normalize_mean: mean RGB value to subtract off of images to normalize imgs
+    normalize_std: std RGB of dataset to normalize imgs
+    convert_to_black_and_white: conver a color image to black and white.
+
+  Returns:
+    A Datasets object containing data iterators.
+  """
+  assert len(splits) == len(prefetch_batches), 'number of splits and prefetch_batches should be the same'
+  assert len(splits) == len(batch_size), 'number of splits and batch_size should be the same'
+  prefetch_batches = {splits[i]:prefetch_batches[i] for i in range(len(splits))}
+  batch_size = {splits[i]:batch_size[i] for i in range(len(splits))}
+
+  cfg = {
+      "batch_size": batch_size,
+      "image_size": image_size,
+      "stack_channels": stack_channels,
+      "prefetch_batches": prefetch_batches,
+      "aug_flip_left_right": False,
+      "aug_flip_up_down": False,
+      "normalize_mean": normalize_mean,
+      "normalize_std": normalize_std,
+      "convert_to_black_and_white": convert_to_black_and_white,
+  }
+
+  def make_python_iter(split: str) -> Iterator[Batch]:
+    # load the entire dataset into memory
+    with profile.Profile(f"tfds.load({datasetname})"):
+        #   dataset = _cached_tfds_load(datasetname, split=split, batch_size=-1)
+      dataset = PreloadImageNetDatasetH5(split, h5_path=h5_path, num_workers=24)
+      dataset = dataset.preload()
+    data = tfds.as_numpy(_image_map_fn(cfg, dataset))
+
+    # import pdb; pdb.set_trace()
+    print(jax.tree_map(lambda x:x.shape if type(x) != int else x, data))
+
+    # use a python iterator as this is faster than TFDS.
+    def generator_fn():
+
+      def iter_fn():
+        
+        if batch_size[split] > data["image"].shape[0]:
+          warnings.warn('For {} split {}, batch size ({}) is larger than dataset size ({}). Possible'
+                ' duplicate samples in batch/'.format(
+                    datasetname,split,batch_size[split],data["image"].shape[0]), Warning)
+          batches = 1
+          idx = onp.arange(batch_size[split]) % data["image"].shape[0]
+        else:
+          batches = data["image"].shape[0] // batch_size[split]
+          idx = onp.arange(data["image"].shape[0])
+
+        if 'train' in split:
+            print('using infinite iterator for training')
+            #infinite iterator
+            while True:
+                idxs = onp.random.choice(range(0, data["image"].shape[0]), size=batch_size[split], replace=False)
+                
+                def index_into(idxs, x):
+                  #TODO fix hacky label check
+                  sharding = image_sharding if len(x.shape) > 1 else label_sharding
+                  temp_batch_shape = batch_shape + x.shape[1:] if len(batch_shape) > 1 \
+                                           else (batch_size[split],) + x.shape[1:]
+
+                  return jnp.reshape(jax.device_put(x[idxs], device=sharding), temp_batch_shape)
+
+
+
+                yield jax.tree_util.tree_map(functools.partial(index_into, idxs), data)
+        else:
+            print('using epoch based iterator for testing')
+            while True:
+              # every epoch shuffle indicies
+              onp.random.shuffle(idx)
+
+              for bi in range(0, batches):
+                idxs = idx[bi * batch_size[split]:(bi + 1) * batch_size[split]]
+
+                def index_into(idxs, x):
+                  #TODO fix hacky label check
+                  sharding = image_sharding if len(x.shape) > 1 else label_sharding
+                  temp_batch_shape = batch_shape + x.shape[1:] if len(batch_shape) > 1 \
+                                           else (batch_size[split],) + x.shape[1:]
+
+                  return jnp.reshape(jax.device_put(x[idxs], device=sharding), temp_batch_shape)
+
+
+
+                yield jax.tree_util.tree_map(functools.partial(index_into, idxs), data)
+      
+      return prefetch_iterator.PrefetchIterator(iter_fn(), prefetch_batches[split])
+      
+    return ThreadSafeIterator(LazyIterator(generator_fn))
+
+  builder = tfds.builder(datasetname)
+  num_classes = builder.info.features["label"].num_classes
+
+  if stack_channels == 1:
+    output_channel = builder.info.features["image"].shape[-1:]
+  else:
+    output_channel = (stack_channels,)
+
+  if convert_to_black_and_white:
+    output_channel = (1,)
+
+  abstract_batch = {
+      "image":
+          jax.core.ShapedArray(
+              (batch_size[splits[0]],) + image_size + output_channel, dtype=jnp.float32),
+      "label":
+          jax.core.ShapedArray((batch_size[splits[0]],), dtype=jnp.int32)
+  }
+  return Datasets(
+      *[make_python_iter(split) for split in splits],
+      extra_info={"num_classes": num_classes, 'name':datasetname},
+      abstract_batch=abstract_batch)
+
+
+@base.dataset_lru_cache
+@gin.configurable
+def imagenet_64_datasets(
+    batch_size: int,
+    image_size: Tuple[int, int] = (64, 64),
+    # prefetch_batches=[20,1,1,1],
+    data_fraction=1.0,
+    **kwargs,
+) -> base.Datasets:
+
+    assert image_size in [(32,32),(64,64),(128,128),(225,225)]
+    h5_path = os.path.join(os.environ["TFDS_DATA_DIR"],'imagenet_{}x{}x3_JPEG.h5'.format(image_size[0],image_size[1]))
+    perc = max(1, int(80 * data_fraction))
+    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
+    return custom_preload_tfds_image_classification_datasets(
+        datasetname="imagenet_resized",
+        h5_path=h5_path,
+        splits=splits,
+        batch_size=batch_size,
+        image_size=image_size,
+        stack_channels=1,
+        # prefetch_batches=prefetch_batches,
+        # shuffle_buffer_size=10000,
+        normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
+        normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
+        convert_to_black_and_white=False,
+        # cache=True,
+        **kwargs,
+    )
+
 
 @gin.configurable
 def mlp128x128_fastinet_32(batch_size):
@@ -75,31 +379,31 @@ def imagenet_datasets(
     )
 
 
-@base.dataset_lru_cache
-@gin.configurable
-def imagenet_64_datasets(
-    batch_size: int,
-    image_size: Tuple[int, int] = (64, 64),
-    # prefetch_batches=[20,1,1,1],
-    data_fraction=1.0,
-    **kwargs,
-) -> base.Datasets:
-    perc = max(1, int(80 * data_fraction))
-    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
-    return base.preload_tfds_image_classification_datasets(
-        datasetname="imagenet_resized",
-        splits=splits,
-        batch_size=batch_size,
-        image_size=image_size,
-        stack_channels=1,
-        # prefetch_batches=prefetch_batches,
-        # shuffle_buffer_size=10000,
-        normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
-        normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
-        convert_to_black_and_white=False,
-        # cache=True,
-        **kwargs,
-    )
+# @base.dataset_lru_cache
+# @gin.configurable
+# def imagenet_64_datasets(
+#     batch_size: int,
+#     image_size: Tuple[int, int] = (64, 64),
+#     # prefetch_batches=[20,1,1,1],
+#     data_fraction=1.0,
+#     **kwargs,
+# ) -> base.Datasets:
+#     perc = max(1, int(80 * data_fraction))
+#     splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
+#     return base.preload_tfds_image_classification_datasets(
+#         datasetname="imagenet_resized",
+#         splits=splits,
+#         batch_size=batch_size,
+#         image_size=image_size,
+#         stack_channels=1,
+#         # prefetch_batches=prefetch_batches,
+#         # shuffle_buffer_size=10000,
+#         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
+#         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
+#         convert_to_black_and_white=False,
+#         # cache=True,
+#         **kwargs,
+#     )
 
 def func_create_func(task_fun, ds_args, model_args):
     ds_fun = ds_args['fun']
