@@ -192,6 +192,38 @@ def deit_small_config():
   config.representation_size = None
   return config
 
+def vit_w1024_d3():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 1024
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 384 * 4
+  config.transformer.num_heads = 8
+  config.transformer.num_layers = 3
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
+
+def vit_w2048_d3():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 2048
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 384 * 4
+  config.transformer.num_heads = 16
+  config.transformer.num_layers = 3
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
 
 
 def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
@@ -202,7 +234,7 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         d=12
         name = 'vit-w{}-d{}_{}'.format(w,d,k)
         tasks[name] = functools.partial(func_create_func, 
-                                        _TransformerTask, 
+                                        VisionTransformerTask, 
                                         ds,
                                         dict(cfg=deit_small_config()))
         
@@ -211,9 +243,27 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         d=12
         name = 'vit-w{}-d{}_{}'.format(w,d,k)
         tasks[name] = functools.partial(func_create_func, 
-                                        _TransformerTask, 
+                                        VisionTransformerTask, 
                                         ds,
                                         dict(cfg=deit_tiny_config()))
+        
+
+        w=1024
+        d=3
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        VisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w1024_d3()))
+        
+
+        w=2048
+        d=3
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        VisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w2048_d3()))
         
 
 
@@ -230,7 +280,7 @@ def add_resnet_tasks(tasks, image_datasets, widths, depths):
         d=50
         name = 'resnet50-w{}-d{}_{}'.format(w,d,k)
         tasks[name] = functools.partial(func_create_func, 
-                                        _TransformerTask, 
+                                        _ResnetTaskDataset, 
                                         ds,
                                         dict(cfg=cfg))
         
@@ -244,7 +294,7 @@ def add_resnet_tasks(tasks, image_datasets, widths, depths):
         d=18
         name = 'resnet50-w{}-d{}_{}'.format(w,d,k)
         tasks[name] = functools.partial(func_create_func, 
-                                        _TransformerTask, 
+                                        _ResnetTaskDataset, 
                                         ds,
                                         dict(cfg=cfg))
 
@@ -322,8 +372,8 @@ def get_task(args, is_test=False):
         # print(tasks.keys())
 
         add_transformer_lm_tasks(tasks, 
-                                lm_datasets=LANGUAGE_DATASET_REGISTY, 
-                                widths=[(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16)], 
+                                lm_datasets=LANGUAGE_DATASET_REGISTY,
+                                widths=[(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
                                 depths=[3,6,12])
         
         add_vision_transformer_tasks(tasks,
