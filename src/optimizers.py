@@ -19,6 +19,7 @@ from slowmo import SGDSlowMo
 from tasks import get_task
 import globals
 from learned_optimization.learned_optimizers.adafac_mlp_lopt import AdafacMLPLOpt
+from learned_optimization.research.general_lopt import prefab
 from mup_adafac_mlp_lopt import MuAdafacMLPLOpt
 
 @gin.configurable
@@ -566,6 +567,27 @@ def _default_lopt(args):
     return lopt, update
 
 
+def _velo(args):
+    lopt = prefab.LearnedOptimizer(args.num_inner_steps)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = lopt.get_params(opt_state)
+
+        if args.needs_state:
+            state = lopt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return lopt.update(opt_state, grad, loss=l, model_state=s), l, s
+
+    return lopt, update
 
 
 def get_optimizer(args):
@@ -582,6 +604,7 @@ def get_optimizer(args):
         "fedlagg-adafac": _fedlagg,
         "small_fc_mlp":_default_lopt,
         "mup_small_fc_mlp":_default_lopt,
+        "velo": _velo,
     }
 
     return optimizers[args.optimizer](args)  # TODO Find better way to do this
