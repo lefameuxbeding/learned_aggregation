@@ -35,6 +35,8 @@ truncation_schedule_min_length = 100
 # for slowmo
 beta = 0.99
 test_interval = 50
+adafac_step_mult=0.001
+
 
 # sweeps only
 sweep_config = dict()

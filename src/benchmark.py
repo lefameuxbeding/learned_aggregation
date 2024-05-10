@@ -96,7 +96,7 @@ def benchmark(args):
 
     key, key1 = jax.random.split(key)
     params, state = get_params_and_state(args.needs_state, task, key1)
-        
+    
     if state is not None:
         import pprint
         # print('params')
@@ -110,10 +110,17 @@ def benchmark(args):
                         prefix='')
         pprint.pprint(jax.tree_map(lambda x: x, lrs))
         # exit(0)
+        print(args.task)
+        if 'muvit' in args.task[0]:
+            args.runtime_mup_lrs = state
+        else:
+            assert len(lrs) == len(params), "Number of learning rates should be equal to number of parameters"
+            assert set(lrs.keys()) == set(params.keys()), "Learning rates should have the same keys as parameters"
+            args.runtime_mup_lrs = lrs
 
-        assert len(lrs) == len(params), "Number of learning rates should be equal to number of parameters"
-        assert set(lrs.keys()) == set(params.keys()), "Learning rates should have the same keys as parameters"
-        args.runtime_mup_lrs = lrs
+    # print(state)
+    # print(jax.tree_map(lambda x:1.0 ,params))
+    # exit(0)
 
     opt, update = get_optimizer(args)
 

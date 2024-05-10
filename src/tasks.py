@@ -37,7 +37,7 @@ from learned_optimization.tasks.parametric.image_resnet import ParametricImageRe
 from learned_optimization.tasks.resnet import ResNet
 from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
 
-
+from mu_vit import MuVisionTransformerTask
 
 from fast_imagenet import fast_imagenet_datasets
 from custom_tasks import  _MuTransformerTask, _MuMLPImageTask
@@ -249,7 +249,8 @@ def custom_preload_tfds_image_classification_datasets(
             print('using infinite iterator for training')
             #infinite iterator
             while True:
-                idxs = onp.random.choice(range(0, data["image"].shape[0]), size=batch_size[split], replace=False)
+                idxs = onp.random.permutation(idx)[:batch_size[split]]
+                # onp.random.choice(range(0, data["image"].shape[0]), size=batch_size[split], replace=False)
                 
                 def index_into(idxs, x):
                   #TODO fix hacky label check
@@ -503,7 +504,7 @@ def vit_w1024_d3():
   config.patches = ml_collections.ConfigDict({"size": (16, 16)})
   config.hidden_size = 1024
   config.transformer = ml_collections.ConfigDict()
-  config.transformer.mlp_dim = 384 * 4
+  config.transformer.mlp_dim = 1024 * 4
   config.transformer.num_heads = 8
   config.transformer.num_layers = 3
   config.transformer.attention_dropout_rate = 0.0
@@ -520,7 +521,7 @@ def vit_w2048_d3():
   config.patches = ml_collections.ConfigDict({"size": (16, 16)})
   config.hidden_size = 2048
   config.transformer = ml_collections.ConfigDict()
-  config.transformer.mlp_dim = 384 * 4
+  config.transformer.mlp_dim = 2048 * 4
   config.transformer.num_heads = 16
   config.transformer.num_layers = 3
   config.transformer.attention_dropout_rate = 0.0
@@ -529,6 +530,21 @@ def vit_w2048_d3():
   config.representation_size = None
   return config
 
+def get_h14_config():
+  """Returns the ViT-H/14 configuration."""
+  config = ml_collections.ConfigDict()
+  config.model_name = 'ViT-H_14'
+  config.patches = ml_collections.ConfigDict({'size': (14, 14)})
+  config.hidden_size = 1280
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 5120
+  config.transformer.num_heads = 16
+  config.transformer.num_layers = 32
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.1
+  config.classifier = 'token'
+  config.representation_size = None
+  return config
 
 def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
     for k,ds in image_datasets.items():
@@ -568,6 +584,51 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
                                         VisionTransformerTask, 
                                         ds,
                                         dict(cfg=vit_w2048_d3()))
+        
+
+        w=192
+        d=3
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=deit_tiny_config()))
+        
+
+        w=2048
+        d=3
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w2048_d3()))
+        
+
+        w=1024
+        d=3
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w1024_d3()))
+        
+        w=1280
+        d=32
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=get_h14_config()))
+        
+        w=1280
+        d=32
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        VisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=get_h14_config()))
+        
+        
         
 
 

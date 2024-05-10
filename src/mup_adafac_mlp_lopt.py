@@ -396,6 +396,7 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
 
       def __init__(self, theta):
         self.theta = theta
+        self.mup_lrs = None
 
       def _get_rolling(self):
         mom_decay = param_to_decay(
@@ -449,9 +450,22 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
           # Apply gradient clipping
           grad, _ = clipping.update(grad, None)
         # print(model_state)
+
+        # print('grad',jax.tree_map(lambda x: x.shape, grad))
         
+        # if self.mup_lrs is None:
+        #   lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
+        #                   prefix='')
+        #   if lrs == {}:
+        #     lrs = model_state
+
+        #   self.mup_lrs = lrs
+
+        # lrs = self.mup_lrs
         lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
-                         prefix='')
+                        prefix='')
+        if lrs == {}:
+          lrs = model_state
 
 
         # assert parent.mup_lrs != None, "mup_lrs not registered"

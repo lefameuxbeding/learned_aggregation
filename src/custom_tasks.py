@@ -457,3 +457,5 @@ class _MuMLPImageTask(_MLPImageTask):
     accuracy = jnp.mean(correct_predictions.astype(jnp.float32))
     
     return loss, accuracy
+  
+

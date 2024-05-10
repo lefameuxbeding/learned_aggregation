@@ -79,6 +79,7 @@ def parse_args():
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--test_interval", type=int)
     parser.add_argument("--prefetch_batches", type=int)
+    parser.add_argument("--adafac_step_mult", type=float)
     # fmt: on
 
     return parser.parse_args()

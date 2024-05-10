@@ -474,7 +474,7 @@ def _fedavg_slowmo(args):
 def _default_lopt(args):
     if 'mup' in args.optimizer:
         lopt = MuAdafacMLPLOpt(exp_mult=0.001,
-                        step_mult=0.001,
+                        step_mult=args.adafac_step_mult,
                         hidden_size=args.hidden_size,
                         hidden_layers=2,
                         initial_momentum_decays=(0.9, 0.99, 0.999),
