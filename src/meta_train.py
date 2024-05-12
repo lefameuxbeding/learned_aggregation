@@ -187,18 +187,33 @@ def meta_train(args):
         outer_trainer_state = checkpoints.load_state(
             osp.join(dirname, "{}.ckpt".format(ckpt)), outer_trainer_state
         )
+        run = wandb.init(
+            project=args.train_project,
+            group=args.meta_train_name,
+            config=vars(args),
+        )
     elif args.auto_resume:
         ckpt = get_resume_ckpt("checkpoints", args.meta_train_name)
         if ckpt is not None:
             outer_trainer_state = checkpoints.load_state(
                 "{}.ckpt".format(ckpt), outer_trainer_state
             )
-
-    run = wandb.init(
-        project=args.train_project,
-        group=args.meta_train_name,
-        config=vars(args),
-    )
+        # print('resume ckpt', ckpt)
+        # exit(0)
+        run = wandb.init(
+            project=args.train_project,
+            group=args.meta_train_name,
+            config=vars(args),
+            resume='must',
+            id=ckpt.split('/')[1][:8]
+        )
+        # print(run)
+    else:
+        run = wandb.init(
+            project=args.train_project,
+            group=args.meta_train_name,
+            config=vars(args),
+        )
 
     iteration = int(
         outer_trainer_state.gradient_learner_state.theta_opt_state.iteration
