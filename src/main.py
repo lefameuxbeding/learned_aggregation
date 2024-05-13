@@ -41,7 +41,8 @@ def parse_args():
                                                           "fedlagg-wavg", 
                                                           "fedlagg-adafac",
                                                           'small_fc_mlp',
-                                                          'mup_small_fc_mlp'])
+                                                          'mup_small_fc_mlp',
+                                                          "velo"])
     parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--name", type=str)
@@ -69,7 +70,7 @@ def parse_args():
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
     parser.add_argument("--train_project", type=str)
-    parser.add_argument("--tfds_data_dir", type=str, default="./") # os.getenv("SLURM_TMPDIR")
+    parser.add_argument("--tfds_data_dir", type=str, default="/network/scratch/b/benjamin.therien/data/tensorflow_datasets") # os.getenv("SLURM_TMPDIR")
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     parser.add_argument("--auto_resume", action="store_true")
     parser.add_argument("--truncation_schedule_min_length", type=int)
@@ -151,8 +152,8 @@ if __name__ == "__main__":
     args = parse_args()
 
     sys.path.append(os.getcwd())
-    # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
-    # os.environ["WANDB_DIR"] = args.wandb_dir
+    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    os.environ["WANDB_DIR"] = args.wandb_dir
 
     cfg = Config.fromfile(args.config)
 
@@ -191,7 +192,7 @@ if __name__ == "__main__":
         
 
         
-        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw']:
+        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', "velo"]:
             args.meta_testing_batch_size = args.local_batch_size
             args.batch_shape = (args.local_batch_size,)
             args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
