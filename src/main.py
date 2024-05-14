@@ -40,8 +40,14 @@ def parse_args():
                                                           "fedlagg", 
                                                           "fedlagg-wavg", 
                                                           "fedlagg-adafac",
+<<<<<<< HEAD
                                                           'small_fc_mlp', 'velo',
                                                           'mup_small_fc_mlp'])
+=======
+                                                          'small_fc_mlp',
+                                                          'mup_small_fc_mlp',
+                                                          "velo"])
+>>>>>>> 2e211670bedbda1af1d756f8872e4574bd182213
     parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--name", type=str)
@@ -69,7 +75,7 @@ def parse_args():
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
     parser.add_argument("--train_project", type=str)
-    parser.add_argument("--tfds_data_dir", type=str, default="./") # os.getenv("SLURM_TMPDIR")
+    parser.add_argument("--tfds_data_dir", type=str, default="/network/scratch/b/benjamin.therien/data/tensorflow_datasets") # os.getenv("SLURM_TMPDIR")
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     parser.add_argument("--auto_resume", action="store_true")
     parser.add_argument("--truncation_schedule_min_length", type=int)
@@ -189,9 +195,6 @@ if __name__ == "__main__":
 
 
     if args.run_type == "benchmark":
-        
-
-        
         if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo']:
             args.meta_testing_batch_size = args.local_batch_size
             args.batch_shape = (args.local_batch_size,)
