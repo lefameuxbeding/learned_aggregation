@@ -30,17 +30,15 @@ from learned_optimization.tasks.datasets.base import Datasets, ThreadSafeIterato
 from learned_optimization.tasks.fixed.conv import _ConvTask, _cross_entropy_pool_loss
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask
 from learned_optimization.tasks.fixed.transformer_lm import _TransformerTask
-from learned_optimization.tasks.fixed.vit import (VisionTransformerTask, wide16_config, 
-            tall16_config, vit_p16_h128_m512_nh4_nl10_config, deit_tiny_config, deit_small_config)
-from learned_optimization.tasks.fixed.vit_test import VITTest
-from learned_optimization.tasks.parametric.image_resnet import ParametricImageResNet
+from learned_optimization.tasks.fixed.vit import (VisionTransformerTask, deit_tiny_config, deit_small_config)
 from learned_optimization.tasks.resnet import ResNet
 from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
 
 from mu_vit import MuVisionTransformerTask
 
 from fast_imagenet import fast_imagenet_datasets
-from custom_tasks import  _MuTransformerTask, _MuMLPImageTask
+from mu_mlp import _MuMLPImageTask
+from mu_transformer import _MuTransformerTask
 from learned_optimization.tasks.datasets.language import _make_datasets, get_32k_sentence_piece_vocab
 import functools
 
@@ -50,7 +48,6 @@ import jax.numpy as jnp
 from learned_optimization import profile
 import numpy as onp
 import tensorflow_datasets as tfds
-import warnings
 import warnings
 
 Batch = Any
@@ -325,7 +322,8 @@ def imagenet_64_datasets(
     assert image_size in [(32,32),(64,64),(128,128),(225,225)]
     h5_path = os.path.join(os.environ["TFDS_DATA_DIR"],'imagenet_{}x{}x3_JPEG.h5'.format(image_size[0],image_size[1]))
     perc = max(1, int(80 * data_fraction))
-    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
+    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[50:99%]", "validation")
+    # splits = (f"train[0:50%]", "train[50%:99%]", "train[50%:99%]", "validation")
     return custom_preload_tfds_image_classification_datasets(
         datasetname="imagenet_resized",
         h5_path=h5_path,
@@ -356,28 +354,6 @@ def mlp128x128_fastinet_32(batch_size):
     )
     return _MLPImageTask(datasets, [128, 128])
 
-
-@base.dataset_lru_cache
-@gin.configurable
-def imagenet_datasets(
-    batch_size: int,
-    image_size: Tuple[int, int] = (224, 224),
-    **kwargs,
-) -> base.Datasets:
-    splits = ("train", "validation", "validation", "test")
-    return base.tfds_image_classification_datasets(
-        datasetname="imagenet2012",
-        splits=splits,
-        batch_size=batch_size,
-        image_size=image_size,
-        stack_channels=1,
-        prefetch_batches=50,
-        shuffle_buffer_size=10000,
-        normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
-        normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
-        convert_to_black_and_white=False,
-        **kwargs,
-    )
 
 
 # @base.dataset_lru_cache
@@ -463,6 +439,22 @@ def add_transformer_lm_tasks(tasks, lm_datasets, widths, depths):
                                                 dict(cfg=cfg,name=name))
 
 
+def vit_w64_d3():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 64
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 64 * 4
+  config.transformer.num_heads = 4
+  config.transformer.num_layers = 3
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
 
 def deit_tiny_config():
   """A config based on the ViT-S_16 config but narrower."""
@@ -540,6 +532,22 @@ def get_h14_config():
   config.transformer.mlp_dim = 5120
   config.transformer.num_heads = 16
   config.transformer.num_layers = 32
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.1
+  config.classifier = 'token'
+  config.representation_size = None
+  return config
+
+def get_h14_config_small():
+  """Returns the ViT-H/14 configuration."""
+  config = ml_collections.ConfigDict()
+  config.model_name = 'ViT-H_14'
+  config.patches = ml_collections.ConfigDict({'size': (14, 14)})
+  config.hidden_size = 1280
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 5120
+  config.transformer.num_heads = 16
+  config.transformer.num_layers = 8
   config.transformer.attention_dropout_rate = 0.0
   config.transformer.dropout_rate = 0.1
   config.classifier = 'token'
@@ -628,6 +636,31 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
                                         ds,
                                         dict(cfg=get_h14_config()))
         
+
+        w=1280
+        d=8
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        VisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=get_h14_config_small()))
+        
+        w=64
+        d=3
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        VisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w64_d3()))
+        
+        w=64
+        d=3
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w64_d3()))
+        
         
         
 
@@ -689,7 +722,7 @@ def get_task(args, is_test=False):
             prefetch_batches = (2,1,1,2)
         else:
             if args.meta_loss_split is not None:
-                batch_size = (args.meta_training_batch_size,1,4096,1,)
+                batch_size = (args.meta_training_batch_size,1,args.meta_training_batch_size,1,)
                 prefetch_batches = (args.prefetch_batches,1,args.prefetch_batches,1)
             else:
                 batch_size = (args.meta_training_batch_size,1,1,1,)
@@ -738,7 +771,7 @@ def get_task(args, is_test=False):
 
         add_transformer_lm_tasks(tasks, 
                                 lm_datasets=LANGUAGE_DATASET_REGISTY,
-                                widths=[(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
+                                widths=[(64,2),(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
                                 depths=[3,6,12])
         
         add_vision_transformer_tasks(tasks,

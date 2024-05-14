@@ -20,13 +20,23 @@ implementation is very minimal and thus will not achive peak performance.
 It is, however, relatively simple and can be implemented in <200 LOC.
 """
 
-from typing import Optional
+from typing import Any, Mapping, Tuple, Callable, Optional
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as onp
+from typing import Any, Mapping
 
+import chex
+from learned_optimization.tasks import base
+from mu_task_base import MuTask
+
+State = Any
+Params = Any
+ModelState = Any
+PRNGKey = jnp.ndarray
+Batch = Any
 
 class MuCausalSelfAttention(hk.Module):
   """Multi-headed attention mechanism.
@@ -205,10 +215,8 @@ class MuTransformer(hk.Module):
     assert d_model % num_heads == 0, "Number of heads must divide model size."
 
 
-  def get_mup_lrs(self,params):
-    jax.tree_map(lambda x: x, params)
-
-
+  # def get_mup_lrs(self,params):
+  #   jax.tree_map(lambda x: x, params)
 
   def __call__(self, h: jnp.ndarray, mask: Optional[jnp.ndarray],
                is_training: bool) -> jnp.ndarray:
@@ -275,3 +283,60 @@ class MuTransformer(hk.Module):
                      name='linear_out')(h) * self._output_mult
 
 
+
+class _MuTransformerTask(base.Task, MuTask):
+  """Tranformer from a dictionary configuration."""
+
+  def __init__(self, datasets, cfg: Mapping[str, Any], name: str = '__TransformerTask'):
+    self.datasets = datasets
+    self._cfg = cfg
+    self._net = hk.transform_with_state(self._hk_forward)
+    self._name = name
+
+    self.mup_state = None
+    self.init_mup_state()
+
+  @property
+  def name(self):
+    return self._name
+
+  def _hk_forward(self, batch):
+    vocab_size = self.datasets.extra_info['vocab_size']
+    mod = MuTransformer(
+        num_heads=self._cfg['num_heads'],
+        num_layers=self._cfg['num_layers'],
+        d_model=self._cfg['d_model'],
+        dropout_rate=self._cfg['dropout_rate'],
+        vocab_size=vocab_size)
+    mask = (batch['image'] != 0)
+    logits = mod(batch['image'], mask=mask, is_training=True)
+    loss = base.softmax_cross_entropy(
+        logits=logits, labels=jax.nn.one_hot(batch['label'], vocab_size))
+    return jnp.sum(loss * mask) / jnp.sum(mask)
+
+  def init(self, key: chex.PRNGKey) -> base.Params:
+    batch = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape, x.dtype),
+                                   self.datasets.abstract_batch)
+    return self._net.init(key, batch)
+
+  def init_with_state(self, key: chex.PRNGKey) -> base.Params:
+    batch = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape, x.dtype),
+                                   self.datasets.abstract_batch)
+    params, state = self._net.init(key, batch)
+    return params, self.get_mup_state(state)
+
+  def loss(self, params, key, data):
+    return self._net.apply(params, key, data)
+
+  def loss_with_state(self, params, state, key, data):
+    params, state = self._net.apply(params, state, key, data)
+    return params, self.get_mup_state(state)
+  
+
+
+  def loss_with_state_and_aux(
+      self, params: Params, state: ModelState, key: PRNGKey,
+      data: Batch) -> Tuple[jnp.ndarray, ModelState, Mapping[str, jnp.ndarray]]:
+    aux = {}
+    loss, state = self.loss_with_state(params, state, key, data)
+    return loss, state, aux

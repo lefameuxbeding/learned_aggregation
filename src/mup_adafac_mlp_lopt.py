@@ -452,6 +452,9 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
         # print(model_state)
 
         # print('grad',jax.tree_map(lambda x: x.shape, grad))
+
+
+
         
         # if self.mup_lrs is None:
         #   lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
@@ -462,10 +465,18 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
         #   self.mup_lrs = lrs
 
         # lrs = self.mup_lrs
-        lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
-                        prefix='')
-        if lrs == {}:
-          lrs = model_state
+
+
+
+        # lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
+        #                 prefix='')
+        # if lrs == {}:
+        #   lrs = model_state
+
+
+        lrs = model_state['mup_lrs_to_use']
+
+
 
 
         # assert parent.mup_lrs != None, "mup_lrs not registered"

@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Optional, Tuple, Type
+from typing import Any, Callable, Optional, Tuple, Type, Mapping
 
 import flax.linen as nn
 import jax.numpy as jnp
 
 from vit_jax import models_resnet
+from mu_task_base import MuTask
 
+State = Any
+Params = Any
+ModelState = Any
+PRNGKey = jnp.ndarray
+Batch = Any
 
 Array = Any
 PRNGKey = Any
@@ -381,7 +387,7 @@ def multi_batch_forward(module, params, data, key):
   return jnp.concatenate( # pylint: disable=g-complex-comprehension
           [module.apply(params, chunk, train=False, rngs={"dropout": key}) for chunk in data["image"]])
 
-class MuVisionTransformerTask(base.Task):
+class MuVisionTransformerTask(base.Task, MuTask):
   """Vision Transformer task."""
 
   def __init__(self, datasets, cfg):
@@ -389,6 +395,9 @@ class MuVisionTransformerTask(base.Task):
     self.flax_module = MuVisionTransformer(num_classes=num_c, **cfg)
     self.datasets = datasets
     self.mup_lrs = None
+
+    self.mup_state = None
+    self.init_mup_state()
 
   def init(self, key: chex.PRNGKey):
     batch = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape, x.dtype),
@@ -435,29 +444,38 @@ class MuVisionTransformerTask(base.Task):
     params = self.init(key)
     if self.mup_lrs == None:
       self.mup_lrs = self.mup_lrs_from_params(params)
-    state = self.mup_lrs
+    state = {'flax_mup_lrs':self.mup_lrs}
+    return params, self.get_mup_state(state)
 
-    # print(jax.tree_map(lambda x: x.shape, params))
-    # print(jax.tree_map(lambda x: 1.0 ,params))
-    # exit(0)
-    return params, state
-
+  
+  @functools.partial(jax.jit, static_argnums=(0,))
   def loss(self, params: Any, key: chex.PRNGKey, data: Any):
     logits = self.flax_module.apply(
         params, data["image"], train=True, rngs={"dropout": key})
     labels_onehot = jax.nn.one_hot(data["label"], logits.shape[1])
     loss_vec = base.softmax_cross_entropy(logits=logits, labels=labels_onehot)
     return jnp.mean(loss_vec)
+
   
-
-
+  @functools.partial(jax.jit, static_argnums=(0,))
   def loss_with_state(self, params: Any, state: Any, key: chex.PRNGKey, data: Any):
     logits = self.flax_module.apply(
         params, data["image"], train=True, rngs={"dropout": key})
     labels_onehot = jax.nn.one_hot(data["label"], logits.shape[1])
     loss_vec = base.softmax_cross_entropy(logits=logits, labels=labels_onehot)
-    return jnp.mean(loss_vec), state
+    return jnp.mean(loss_vec), self.get_mup_state(state)
   
+
+  @functools.partial(jax.jit, static_argnums=(0,))
+  def loss_with_state_and_aux(
+      self, params: Params, state: ModelState, key: PRNGKey,
+      data: Batch) -> Tuple[jnp.ndarray, ModelState, Mapping[str, jnp.ndarray]]:
+    aux = {}
+    loss, state = self.loss_with_state(params, state, key, data)
+    return loss, state, aux
+  
+
+  @functools.partial(jax.jit, static_argnums=(0,))
   def loss_and_accuracy(self, params: Params, key: PRNGKey, data: Any) -> Tuple[jnp.ndarray, jnp.ndarray]:  # pytype: disable=signature-mismatch  # jax-ndarray
     num_classes = self.datasets.extra_info["num_classes"]
 

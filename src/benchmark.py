@@ -40,7 +40,6 @@ def rename_batch(batch):
     
     return {label_map[k]:v for k,v in batch.items()}
 
-
 def count_parameters(params):
     return sum(jnp.size(param) for param in jax.tree_util.tree_leaves(params))
 
@@ -166,7 +165,8 @@ def benchmark(args):
 
             with Timing('test',testl):
                 #test loss and accuracy if implemented
-                if not args.skip_test and iteration % args.test_interval == 0:
+                if not args.skip_test and iteration % args.test_interval == 0 or iteration == 8:
+                    print('testing iter ',iteration)
                     try:
                         test_batch = rename_batch(next(task.datasets.test))
                         key, key1 = jax.random.split(key)

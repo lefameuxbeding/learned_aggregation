@@ -1,4 +1,3 @@
-import pickle
 import os.path as osp
 from tqdm import tqdm
 import numpy as np
@@ -9,155 +8,8 @@ from learned_optimization import checkpoints
 from meta_trainers import get_meta_trainer
 import globals
 
-from glob import glob
-import os
-import shutil
-import re
 
-
-def natural_sort(l):
-    convert = lambda text: int(text) if text.isdigit() else text.lower()
-    alphanum_key = lambda key: [convert(c) for c in re.split("([0-9]+)", key)]
-    return sorted(l, key=alphanum_key)
-
-
-def delete_old_checkpoints(save_dir, n_to_keep):
-    ckpt_dir_regex = r"global_step[\d]*"
-    if save_dir.endswith("/"):
-        save_dir = save_dir.strip("/")
-    all_ckpts = natural_sort(
-        [
-            i
-            for i in glob(f"{save_dir}/*")
-            if i.endswith(".ckpt") and re.search(ckpt_dir_regex, i)
-        ]
-    )
-    all_pkl = natural_sort(
-        [
-            i
-            for i in glob(f"{save_dir}/*")
-            if i.endswith(".pickle") and re.search(ckpt_dir_regex, i)
-        ]
-    )
-
-    n_to_delete = len(all_ckpts) - n_to_keep
-    if n_to_delete > 0:
-        to_delete_ckpt = all_ckpts[:n_to_delete]
-        to_delete_pkl = all_pkl[:n_to_delete]
-        print(
-            f"WARNING: Deleting old checkpoints: \n\t{', '.join(to_delete_ckpt + to_delete_pkl)}"
-        )
-        for ckpt in to_delete_ckpt + to_delete_pkl:
-            try:
-                os.remove(ckpt)
-            except FileNotFoundError:
-                pass
-
-
-def save_checkpoint(
-    prefix, i, args, outer_trainer_state
-):  # Checkpoint every 1000th iteration
-    save_dir = osp.join("checkpoints", prefix + args.meta_train_name)
-    checkpoints.save_state(
-        osp.join(
-            save_dir,
-            "global_step{}.ckpt".format(i + 1),
-        ),
-        outer_trainer_state,
-    )
-    pickle_filename = osp.join(
-        save_dir,
-        "global_step{}.pickle".format(i + 1),
-    )
-    with open(
-        pickle_filename,
-        "wb",
-    ) as f:
-        pickle.dump(
-            outer_trainer_state.gradient_learner_state.theta_opt_state.params, f
-        )
-
-    with open(osp.join(save_dir, "latest"), "w") as f:
-        f.write("global_step{}".format(i + 1))
-
-    delete_old_checkpoints(
-        save_dir=save_dir,
-        n_to_keep=args.checkpoints_to_keep,
-    )
-
-    return pickle_filename
-
-
-def get_ckpt_dirs(ckpt_dir, meta_train_name):
-    a = os.listdir(ckpt_dir)
-    keep = []
-    for x in a:
-        if osp.isdir(osp.join(ckpt_dir, x)) and x[8:] == meta_train_name:
-            keep.append(x)
-    return keep
-
-
-def get_ckpt_to_load(ckpt_dir, dirs):
-    def nat_sort(l):
-        convert = lambda text: int(text) if text.isdigit() else text.lower()
-        alphanum_key = lambda key: [convert(c) for c in re.split("([0-9]+)", key[1])]
-        return sorted(l, key=alphanum_key)
-
-    sortable = []
-    for x in dirs:
-        if osp.isfile(osp.join(ckpt_dir, x, "latest")):
-            ckpt = open(osp.join(ckpt_dir, x, "latest"), "r").readline().strip()
-            sortable.append(
-                (
-                    osp.join(ckpt_dir, x, ckpt),
-                    ckpt,
-                )
-            )
-    sortable = nat_sort(sortable)
-
-    keep = []
-    for x in sortable:
-        if x[1] == sortable[-1][1]:
-            keep.append(x)
-    if len(keep) > 1:
-        print(
-            "[Warning] multiple directories contain a checkpoint at the same latest iteration. Selecting one arbitrarily."
-        )
-
-    return keep[0]
-
-
-def get_resume_ckpt(ckpt_dir, meta_train_name):
-    dirs = get_ckpt_dirs(ckpt_dir, meta_train_name)
-    if len(dirs) == 0:
-        print("[Info] No existing checkpoint found. Starting from scratch.")
-        return None
-    ckpt_path, suffix = get_ckpt_to_load(ckpt_dir, dirs)
-    print("[Info] Loading checkpoint from {}".format(ckpt_path))
-    return ckpt_path
-
-
-import csv
-
-def save_timings_to_csv(timings, filename, column_name):
-    """
-    Saves the timings to a CSV file.
-
-    :param timings: List of execution times.
-    :param filename: Name of the file to save the data.
-    :param column_name: Name of the column under which timings are saved.
-    """
-    # Calculate and print the average timing
-    average_timing = sum(timings) / len(timings)
-    print(f"Average timing: {average_timing} seconds")
-
-    # Save the timings to a CSV file
-    with open(filename, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([column_name])  # Write the header
-        for timing in timings:
-            writer.writerow([timing])
-
+from helpers import get_resume_ckpt, save_checkpoint
 
 def meta_train(args):
     meta_trainer, meta_opt = get_meta_trainer(args)
@@ -166,11 +18,6 @@ def meta_train(args):
     key, key1 = jax.random.split(key)
     outer_trainer_state = meta_trainer.init(key1)
 
-    # import pprint
-    # pprint.pprint(jax.tree_map(lambda x:x.shape if type(x) != int else x,outer_trainer_state.__dict__))
-    # exit(0)
-
-    # Set up globals used in truncated step for meta-training
     globals.needs_state = args.needs_state
     globals.num_grads = args.num_grads
     globals.num_local_steps = args.num_local_steps
@@ -198,8 +45,6 @@ def meta_train(args):
             outer_trainer_state = checkpoints.load_state(
                 "{}.ckpt".format(ckpt), outer_trainer_state
             )
-        # print('resume ckpt', ckpt)
-        # exit(0)
         run = wandb.init(
             project=args.train_project,
             group=args.meta_train_name,
@@ -207,13 +52,16 @@ def meta_train(args):
             resume='must',
             id=ckpt.split('/')[1][:8]
         )
-        # print(run)
     else:
         run = wandb.init(
             project=args.train_project,
             group=args.meta_train_name,
             config=vars(args),
         )
+
+    # import pdb
+    # pdb.set_trace()
+    # outer_trainer_state.gradient_estimator_states[0].pos_state.inner_opt_state.state
 
     iteration = int(
         outer_trainer_state.gradient_learner_state.theta_opt_state.iteration

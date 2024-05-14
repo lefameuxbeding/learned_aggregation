@@ -40,7 +40,7 @@ def parse_args():
                                                           "fedlagg", 
                                                           "fedlagg-wavg", 
                                                           "fedlagg-adafac",
-                                                          'small_fc_mlp',
+                                                          'small_fc_mlp', 'velo',
                                                           'mup_small_fc_mlp'])
     parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")
@@ -148,11 +148,11 @@ if __name__ == "__main__":
     print(jax.devices())
 
 
-
     args = parse_args()
 
     sys.path.append(os.getcwd())
     # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = '.999'
     # os.environ["WANDB_DIR"] = args.wandb_dir
 
     cfg = Config.fromfile(args.config)
@@ -192,7 +192,7 @@ if __name__ == "__main__":
         
 
         
-        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw']:
+        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo']:
             args.meta_testing_batch_size = args.local_batch_size
             args.batch_shape = (args.local_batch_size,)
             args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))

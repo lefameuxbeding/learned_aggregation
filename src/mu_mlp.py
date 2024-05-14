@@ -1,199 +1,23 @@
-from mu_transformer import MuTransformer
-
-
-import functools
-from typing import Any, Mapping
-
-import chex
-import gin
 import haiku as hk
 import jax
 import jax.numpy as jnp
 from learned_optimization.tasks import base
-from learned_optimization.tasks.datasets import language
 
 from collections.abc import Iterable
-from typing import Any, Mapping, Tuple
-
-from typing import Callable, Optional
-import gin
-import haiku as hk
-import jax
-import jax.numpy as jnp
+from typing import Any, Mapping, Tuple, Callable, Optional
 from learned_optimization.tasks import base
-from learned_optimization.tasks.datasets import image
-import numpy as onp
-
 from learned_optimization.tasks.fixed.image_mlp import _MLPImageTask, find_smallest_divisor
+from haiku._src.typing import Initializer
+
+from helpers import MupVarianceScaling
+import globals
+from mu_task_base import MuTask
 
 State = Any
 Params = Any
 ModelState = Any
 PRNGKey = jnp.ndarray
-
-from collections.abc import Sequence
-from typing import Any, Union
-
-from haiku._src.typing import Initializer
-import jax
-import jax.numpy as jnp
-import numpy as np
-import haiku
-from haiku.initializers import * 
-
-def _compute_fans(shape, fan_in_axes=None):
-  """Computes the number of input and output units for a weight shape."""
-  if len(shape) < 1:
-    fan_in = fan_out = 1
-  elif len(shape) == 1:
-    fan_in = fan_out = shape[0]
-  elif len(shape) == 2:
-    fan_in, fan_out = shape
-  else:
-    if fan_in_axes is not None:
-      # Compute fan-in using user-specified fan-in axes.
-      fan_in = np.prod([shape[i] for i in fan_in_axes])
-      fan_out = np.prod([s for i, s in enumerate(shape)
-                         if i not in fan_in_axes])
-    else:
-      # If no axes specified, assume convolution kernels (2D, 3D, or more.)
-      # kernel_shape: (..., input_depth, depth)
-      receptive_field_size = np.prod(shape[:-2])
-      fan_in = shape[-2] * receptive_field_size
-      fan_out = shape[-1] * receptive_field_size
-  return fan_in, fan_out
-
-class MupVarianceScaling(hk.initializers.Initializer):
-  """Initializer which adapts its scale to the shape of the initialized array.
-
-  The initializer first computes the scaling factor ``s = scale / n``, where n
-  is:
-
-    - Number of input units in the weight tensor, if ``mode = fan_in``.
-    - Number of output units, if ``mode = fan_out``.
-    - Average of the numbers of input and output units, if ``mode = fan_avg``.
-
-  Then, with ``distribution="truncated_normal"`` or ``"normal"``,
-  samples are drawn from a distribution with a mean of zero and a standard
-  deviation (after truncation, if used) ``stddev = sqrt(s)``.
-
-  With ``distribution=uniform``, samples are drawn from a uniform distribution
-  within ``[-limit, limit]``, with ``limit = sqrt(3 * s)``.
-
-  The variance scaling initializer can be configured to generate other standard
-  initializers using the scale, mode and distribution arguments. Here are some
-  example configurations:
-
-  ==============  ==============================================================
-  Name            Parameters
-  ==============  ==============================================================
-  glorot_uniform  VarianceScaling(1.0, "fan_avg", "uniform")
-  glorot_normal   VarianceScaling(1.0, "fan_avg", "truncated_normal")
-  lecun_uniform   VarianceScaling(1.0, "fan_in",  "uniform")
-  lecun_normal    VarianceScaling(1.0, "fan_in",  "truncated_normal")
-  he_uniform      VarianceScaling(2.0, "fan_in",  "uniform")
-  he_normal       VarianceScaling(2.0, "fan_in",  "truncated_normal")
-  ==============  ==============================================================
-  """
-
-  def __init__(self, scale=1.0, mode='fan_in', distribution='truncated_normal',
-               fan_in_axes=None):
-    """Constructs the :class:`VarianceScaling` initializer.
-
-    Args:
-      scale: Scale to multiply the variance by.
-      mode: One of ``fan_in``, ``fan_out``, ``fan_avg``
-      distribution: Random distribution to use. One of ``truncated_normal``,
-        ``normal`` or ``uniform``.
-      fan_in_axes: Optional sequence of int specifying which axes of the shape
-        are part of the fan-in. If none provided, then the weight is assumed
-        to be like a convolution kernel, where all leading dimensions are part
-        of the fan-in, and only the trailing dimension is part of the fan-out.
-        Useful if instantiating multi-headed attention weights.
-    """
-    if scale < 0.0:
-      raise ValueError('`scale` must be a positive float.')
-    if mode not in {'fan_in', 'fan_out', 'fan_avg'}:
-      raise ValueError('Invalid `mode` argument:', mode)
-    distribution = distribution.lower()
-    if distribution not in {'normal', 'truncated_normal', 'uniform'}:
-      raise ValueError('Invalid `distribution` argument:', distribution)
-    self.scale = scale
-    self.mode = mode
-    self.distribution = distribution
-    self.fan_in_axes = fan_in_axes
-
-  def __call__(self, shape: Sequence[int], dtype: Any) -> jax.Array:
-    scale = self.scale
-    fan_in, fan_out = _compute_fans(shape, self.fan_in_axes)
-    if self.mode == 'fan_in':
-      scale /= max(1.0, fan_in)
-    elif self.mode == 'fan_out':
-      scale /= max(1.0, fan_out)
-    else:
-      scale /= max(1.0, (fan_in + fan_out) / 2.0)
-
-    if self.distribution == 'truncated_normal':
-      stddev = np.sqrt(scale)
-      # Adjust stddev for truncation.
-      # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
-      # distribution_stddev = np.asarray(.87962566103423978, dtype=dtype)
-      # stddev = stddev / distribution_stddev
-      return TruncatedNormal(stddev=stddev)(shape, dtype)
-    elif self.distribution == 'normal':
-      stddev = np.sqrt(scale)
-      return RandomNormal(stddev=stddev)(shape, dtype)
-    else:
-      limit = np.sqrt(3.0 * scale)
-      return RandomUniform(minval=-limit, maxval=limit)(shape, dtype)
-    
-
-
-class _MuTransformerTask(base.Task):
-  """Tranformer from a dictionary configuration."""
-
-  def __init__(self, datasets, cfg: Mapping[str, Any], name: str = '__TransformerTask'):
-    self.datasets = datasets
-    self._cfg = cfg
-    self._net = hk.transform_with_state(self._hk_forward)
-    self._name = name
-
-  @property
-  def name(self):
-    return self._name
-
-  def _hk_forward(self, batch):
-    vocab_size = self.datasets.extra_info['vocab_size']
-    mod = MuTransformer(
-        num_heads=self._cfg['num_heads'],
-        num_layers=self._cfg['num_layers'],
-        d_model=self._cfg['d_model'],
-        dropout_rate=self._cfg['dropout_rate'],
-        vocab_size=vocab_size)
-    mask = (batch['image'] != 0)
-    logits = mod(batch['image'], mask=mask, is_training=True)
-    loss = base.softmax_cross_entropy(
-        logits=logits, labels=jax.nn.one_hot(batch['label'], vocab_size))
-    return jnp.sum(loss * mask) / jnp.sum(mask)
-
-  def init(self, key: chex.PRNGKey) -> base.Params:
-    batch = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape, x.dtype),
-                                   self.datasets.abstract_batch)
-    return self._net.init(key, batch)
-
-  def init_with_state(self, key: chex.PRNGKey) -> base.Params:
-    batch = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape, x.dtype),
-                                   self.datasets.abstract_batch)
-    return self._net.init(key, batch)
-
-  def loss(self, params, key, data):
-    return self._net.apply(params, key, data)
-
-  def loss_with_state(self, params, state, key, data):
-    return self._net.apply(params, state, key, data)
-  
-  
-
+Batch = Any
 
 class MuMLP(hk.Module):
   """A multi-layer perceptron module."""
@@ -275,7 +99,7 @@ class MuMLP(hk.Module):
     assert len(output_sizes) >= 2, "need more than one layer for MuMLP"
     
     self.output_mul =  output_mult * 1 / output_sizes[-2]
-    hk.set_state("mup_lrs",self.get_adam_mup_lr_mul)
+    hk.set_state("mup_lrs", self.get_adam_mup_lr_mul)
 
   @property
   def mup_lrs(self):
@@ -312,7 +136,7 @@ class MuMLP(hk.Module):
       elif i < (num_layers - 1):
         out = out * self.hidden_mult
 
-      hk.set_state("layer_%d_act_l1" % i, jnp.mean(jnp.abs(out)))
+      # hk.set_state("layer_%d_act_l1" % i, jnp.mean(jnp.abs(out)))
       if i < (num_layers - 1) or self.activate_final:
         # Only perform dropout if we are activating the output.
         if dropout_rate is not None:
@@ -377,11 +201,9 @@ class MuMLP(hk.Module):
         activate_final=activate_final,
         name=name,
     )
-  
 
 
-
-class _MuMLPImageTask(_MLPImageTask):
+class _MuMLPImageTask(_MLPImageTask, MuTask):
   """MLP based image task."""
 
   def __init__(self,
@@ -400,6 +222,7 @@ class _MuMLPImageTask(_MLPImageTask):
     num_classes = datasets.extra_info["num_classes"]
     sizes = list(hidden_sizes) + [num_classes]
     self.datasets = datasets
+    self.mup_state = None
 
     def _forward(inp):
       inp = jnp.reshape(inp, [inp.shape[0], -1])
@@ -412,19 +235,23 @@ class _MuMLPImageTask(_MLPImageTask):
               rng=hk.next_rng_key())
 
     self._mod = hk.transform_with_state(_forward)
+    
+    self.mup_state = None
+    self.init_mup_state()
 
   def loss_with_state(self, params, state, key, data):
     num_classes = self.datasets.extra_info["num_classes"]
     logits, state = self._mod.apply(params, state, key, data["image"])
     labels = jax.nn.one_hot(data["label"], num_classes)
     vec_loss = base.softmax_cross_entropy(logits=logits, labels=labels)
-    return jnp.mean(vec_loss), state
+    return jnp.mean(vec_loss), self.get_mup_state(state)
 
   def init_with_state(self, key: PRNGKey) -> base.Params:
     batch = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape, x.dtype),
                                    self.datasets.abstract_batch)
-    return self._mod.init(key, batch["image"])
-  
+    params, state = self._mod.init(key, batch["image"])
+    return params, self.get_mup_state(state)
+
   def loss_and_accuracy_with_state(self, params: Params, state: State, key: PRNGKey, data: Any) -> Tuple[jnp.ndarray, jnp.ndarray]:
     num_classes = self.datasets.extra_info["num_classes"]
 
@@ -457,5 +284,17 @@ class _MuMLPImageTask(_MLPImageTask):
     accuracy = jnp.mean(correct_predictions.astype(jnp.float32))
     
     return loss, accuracy
+  
+
+
+  def loss_with_state_and_aux(
+      self, params: Params, state: ModelState, key: PRNGKey,
+      data: Batch) -> Tuple[jnp.ndarray, ModelState, Mapping[str, jnp.ndarray]]:
+    # if state is not None:
+      # raise ValueError("Define a custom loss_with_state_and_aux when using a"
+      #                  " state!")
+    aux = {}
+    loss, state = self.loss_with_state(params, state, key, data)
+    return loss, state, aux
   
 
