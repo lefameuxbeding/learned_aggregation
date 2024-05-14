@@ -303,7 +303,7 @@ class MuVisionTransformer(nn.Module):
         bias_init=jax.nn.initializers.normal(1))(
             x )
 
-    print(x.shape,'after conv')
+    # print(x.shape,'after conv')
     # exit(0)
 
     # Here, x is a grid of embeddings.

@@ -322,7 +322,7 @@ def imagenet_64_datasets(
     assert image_size in [(32,32),(64,64),(128,128),(225,225)]
     h5_path = os.path.join(os.environ["TFDS_DATA_DIR"],'imagenet_{}x{}x3_JPEG.h5'.format(image_size[0],image_size[1]))
     perc = max(1, int(80 * data_fraction))
-    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[50:99%]", "validation")
+    splits = (f"train[0:{perc}%]", "train[97%:98%]", "train[98:99%]", "validation")
     # splits = (f"train[0:50%]", "train[50%:99%]", "train[50%:99%]", "validation")
     return custom_preload_tfds_image_classification_datasets(
         datasetname="imagenet_resized",
@@ -472,6 +472,21 @@ def deit_tiny_config():
   config.representation_size = None
   return config
 
+def vit_w192_d3():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 192
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 768
+  config.transformer.num_heads = 3
+  config.transformer.num_layers = 3
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
 
 def deit_small_config():
   """A config based on the ViT-S_16 config but narrower."""
@@ -600,7 +615,17 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         tasks[name] = functools.partial(func_create_func, 
                                         MuVisionTransformerTask, 
                                         ds,
-                                        dict(cfg=deit_tiny_config()))
+                                        dict(cfg=vit_w192_d3()))
+        
+        
+
+        w=192
+        d=3
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d3()))
         
 
         w=2048
@@ -747,13 +772,13 @@ def get_task(args, is_test=False):
         }
 
         LANGUAGE_DATASET_REGISTY = {
-            'lm1b-s2048-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=2048)),
-            'lm1b-s1024-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=1024)),
-            'lm1b-s512-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=512)),
-            'lm1b-s256-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=256)),
-            'lm1b-s128-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=128)),
-            'lm1b-s64-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=64)),
-            'lm1b-s32-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=32)),
+            'lm1b-s2048-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=2048, **ds_kwargs)),
+            'lm1b-s1024-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=1024, **ds_kwargs)),
+            'lm1b-s512-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=512, **ds_kwargs)),
+            'lm1b-s256-v32k': dict(fun=_make_datasets,args=['lm1b',],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=256, **ds_kwargs)),
+            'lm1b-s128-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=128, **ds_kwargs)),
+            'lm1b-s64-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=64, **ds_kwargs)),
+            'lm1b-s32-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=32, **ds_kwargs)),
         }
         
         tasks = {}

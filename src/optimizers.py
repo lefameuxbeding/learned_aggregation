@@ -21,6 +21,7 @@ import globals
 from learned_optimization.learned_optimizers.adafac_mlp_lopt import AdafacMLPLOpt
 from learned_optimization.research.general_lopt import prefab
 from mup_adafac_mlp_lopt import MuAdafacMLPLOpt
+import mmengine
 
 @gin.configurable
 class AdamWLinearCosine(OptaxOptimizer):
@@ -53,6 +54,143 @@ class AdamWLinearCosine(OptaxOptimizer):
             opt = optax.adamw(self.schedule_)
 
         super().__init__(opt)
+
+@gin.configurable
+class MuAdamWLinearCosine(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        init_value=3e-10,
+        peak_value=3e-4,
+        warmup_steps=300,
+        decay_steps=9700,
+        end_value=3e-5,
+        exponent=1.0,
+        clip=1.0,
+        mup_lrs=None,
+    ):
+        assert mup_lrs is not None, "must provide mup_lrs"
+
+        self.schedule_ = optax.warmup_cosine_decay_schedule(
+            init_value=init_value,
+            peak_value=peak_value,
+            warmup_steps=warmup_steps,
+            decay_steps=decay_steps,
+            end_value=end_value,
+            exponent=exponent,
+        )
+
+        def init_fn(params):
+            del params
+            return optax.EmptyState()
+        
+        def update_fn(updates, state, params=None):
+            del params
+            # print(updates)
+            # print(mup_lrs)
+            # import pdb; pdb.set_trace()
+            updates = jax.tree_map(
+                lambda update, scale: update * scale,
+                updates,
+                mup_lrs
+            )
+            # jax.tree_map(lambda update, scale: update * scale, updates, dict(mup_lrs))
+            return updates, state
+        
+        opt = optax.chain(
+            optax.adamw(self.schedule_),
+            optax.GradientTransformation(init_fn, update_fn),
+            optax.clip_by_global_norm(clip),
+        )
+
+        super().__init__(opt)
+
+@gin.configurable
+class MuAdam(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        learning_rate,
+        mup_lrs=None,
+    ):
+        assert mup_lrs is not None, "must provide mup_lrs"
+        self.learning_rate = learning_rate
+
+        def init_fn(params):
+            del params
+            return optax.EmptyState()
+        
+        def update_fn(updates, state, params=None):
+            del params
+            # print(updates)
+            # print(mup_lrs)
+            # import pdb; pdb.set_trace()
+            updates = jax.tree_map(
+                lambda update, scale: update * scale,
+                updates,
+                mup_lrs
+            )
+            # jax.tree_map(lambda update, scale: update * scale, updates, dict(mup_lrs))
+            return updates, state
+        
+        opt = optax.chain(
+            optax.adam(self.learning_rate),
+            optax.GradientTransformation(init_fn, update_fn),
+        )
+
+        super().__init__(opt)
+
+def _muadamw_schedule(args):
+
+    def fix_dict(d):
+        d = dict(d)
+        for k,v in d.items():
+            if isinstance(v, mmengine.config.config.ConfigDict):
+                d[k] = fix_dict(v)
+
+        return dict(d)
+    # import pdb; pdb.set_trace()
+
+    opt = MuAdam(**fix_dict(args.muadamw_schedule_kwargs))
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(params, state, key, batch)
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
+
+    return opt, update
+
+def _muadam(args):
+    opt = MuAdam(args.learning_rate,args.runtime_mup_lrs)
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
+
+    return opt, update
 
 
 @gin.configurable

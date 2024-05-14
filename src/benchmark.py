@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import wandb
 from tqdm import tqdm
 
+import pprint
 from optimizers import get_optimizer
 from tasks import get_task
 import globals
@@ -95,31 +96,17 @@ def benchmark(args):
 
     key, key1 = jax.random.split(key)
     params, state = get_params_and_state(args.needs_state, task, key1)
+    print("Model parameters (M): ", count_parameters(params)/1e6)
     
     if state is not None:
-        import pprint
-        # print('params')
-        # pprint.pprint(jax.tree_map(lambda x: x.shape if (type(x) != int and type(x) != float) else x, params))
-        print('state')
-        pprint.pprint(jax.tree_map(lambda x: x, state))
-        print("Model parameters (M): ", count_parameters(params)/1e6)
-        # exit()
-
-        lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in state.items() if 'mup_lrs'in v.keys()}, 
-                        prefix='')
-        pprint.pprint(jax.tree_map(lambda x: x, lrs))
-        # exit(0)
-        print(args.task)
-        if 'muvit' in args.task[0]:
-            args.runtime_mup_lrs = state
-        else:
+        try:
+            lrs = state['mup_lrs_to_use']
             assert len(lrs) == len(params), "Number of learning rates should be equal to number of parameters"
             assert set(lrs.keys()) == set(params.keys()), "Learning rates should have the same keys as parameters"
             args.runtime_mup_lrs = lrs
+        except KeyError as e:
+            print("No mup_lrs_to_use in state, for task "+args.task[0])
 
-    # print(state)
-    # print(jax.tree_map(lambda x:1.0 ,params))
-    # exit(0)
 
     opt, update = get_optimizer(args)
 

@@ -40,14 +40,9 @@ def parse_args():
                                                           "fedlagg", 
                                                           "fedlagg-wavg", 
                                                           "fedlagg-adafac",
-<<<<<<< HEAD
-                                                          'small_fc_mlp', 'velo',
-                                                          'mup_small_fc_mlp'])
-=======
                                                           'small_fc_mlp',
                                                           'mup_small_fc_mlp',
                                                           "velo"])
->>>>>>> 2e211670bedbda1af1d756f8872e4574bd182213
     parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--name", type=str)
