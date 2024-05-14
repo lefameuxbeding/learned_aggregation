@@ -36,7 +36,7 @@ from learned_optimization.tasks.fixed.resnet import _ResnetTaskDataset
 
 from mu_vit import MuVisionTransformerTask
 
-from fast_imagenet import fast_imagenet_datasets
+# from fast_imagenet import fast_imagenet_datasets
 from mu_mlp import _MuMLPImageTask
 from mu_transformer import _MuTransformerTask
 from learned_optimization.tasks.datasets.language import _make_datasets, get_32k_sentence_piece_vocab
@@ -341,18 +341,18 @@ def imagenet_64_datasets(
     )
 
 
-@gin.configurable
-def mlp128x128_fastinet_32(batch_size):
-    """A 2 hidden layer, 128 hidden unit MLP designed for 28x28 fashion mnist."""
-    h5_path = "/mnt/raid0/imagenet_hdf5/ilsvrc2012.hdf5"
-    datasets = fast_imagenet_datasets(h5_path, 
-        batch_size, 
-        workers=48, 
-        distributed=False,
-        image_size=(32,32,),
-        output_channel=(3,)
-    )
-    return _MLPImageTask(datasets, [128, 128])
+# @gin.configurable
+# def mlp128x128_fastinet_32(batch_size):
+#     """A 2 hidden layer, 128 hidden unit MLP designed for 28x28 fashion mnist."""
+#     h5_path = "/mnt/raid0/imagenet_hdf5/ilsvrc2012.hdf5"
+#     datasets = fast_imagenet_datasets(h5_path, 
+#         batch_size, 
+#         workers=48, 
+#         distributed=False,
+#         image_size=(32,32,),
+#         output_channel=(3,)
+#     )
+#     return _MLPImageTask(datasets, [128, 128])
 
 
 
