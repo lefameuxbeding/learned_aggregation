@@ -9,7 +9,8 @@ import re
 import csv
 import numpy as np
 from functools import reduce
-
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
 
 # CHECKPOINT SAVING HELPERS
 
@@ -321,3 +322,43 @@ class MupVarianceScaling(hk.initializers.Initializer):
     else:
       limit = np.sqrt(3.0 * scale)
       return RandomUniform(minval=-limit, maxval=limit)(shape, dtype)
+
+
+
+
+
+def set_non_hashable_args(args):
+    if args.run_type in ["benchmark", "sweep"]:
+        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo', 'muadam']:
+            args.meta_testing_batch_size = args.local_batch_size
+            args.batch_shape = (args.local_batch_size,)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices,1,1,1)))
+        else:
+            args.batch_shape = (args.num_grads * args.num_local_steps * args.local_batch_size,)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices,1,1,1))) 
+
+            args.meta_testing_batch_size = args.num_grads \
+                                            * args.num_local_steps \
+                                            * args.local_batch_size
+    else:
+        
+        if args.optimizer == 'small_fc_mlp' or args.optimizer == 'mup_small_fc_mlp':
+            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.local_batch_size)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+            args.meta_training_batch_size = args.local_batch_size \
+                                            * args.num_tasks \
+                                            * args.steps_per_jit
+        else:
+            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.num_grads * args.num_local_steps * args.local_batch_size)
+            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+
+            args.meta_training_batch_size = args.num_grads \
+                                            * args.num_local_steps \
+                                            * args.local_batch_size \
+                                            * args.num_tasks \
+                                            * args.steps_per_jit
+    return args

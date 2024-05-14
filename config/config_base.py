@@ -38,6 +38,14 @@ test_interval = 50
 adafac_step_mult=0.001
 
 
+
+
+#MuP
+mup_input_mult = 1.0
+mup_output_mult = 1.0
+mup_hidden_lr_mult = 1.0
+
+
 # sweeps only
 sweep_config = dict()
 sweep_id = None

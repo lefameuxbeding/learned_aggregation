@@ -16,8 +16,7 @@ import tensorflow as tf
 
 from mmengine.config import Config
 
-from jax.experimental import mesh_utils
-from jax.sharding import PositionalSharding
+
 
 def comma_separated_strings(string):
     # This function will be used to parse the comma-separated string into a list
@@ -32,7 +31,9 @@ def parse_args():
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--run_type", type=str, choices=["benchmark", "meta-train","sweep"])
     parser.add_argument("--optimizer", type=str, choices=["sgd",
-                                                          "adam", "adamw",
+                                                          "adam", 
+                                                          'muadam',
+                                                          "adamw",
                                                           "fedavg", 
                                                           "fedavg-slowmo", 
                                                           "fedlopt", 
@@ -81,6 +82,9 @@ def parse_args():
     parser.add_argument("--test_interval", type=int)
     parser.add_argument("--prefetch_batches", type=int)
     parser.add_argument("--adafac_step_mult", type=float)
+    parser.add_argument("--mup_input_mult", type=float)
+    parser.add_argument("--mup_output_mult", type=float)
+    parser.add_argument("--mup_hidden_lr_mult", type=float)
     # fmt: on
 
     return parser.parse_args()
@@ -189,42 +193,12 @@ if __name__ == "__main__":
         jax.config.update('jax_default_matmul_precision', 'bfloat16')
 
 
-    if args.run_type == "benchmark":
-        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo']:
-            args.meta_testing_batch_size = args.local_batch_size
-            args.batch_shape = (args.local_batch_size,)
-            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
-            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices,1,1,1)))
-        else:
-            args.batch_shape = (args.num_grads * args.num_local_steps * args.local_batch_size,)
-            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))
-            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices,1,1,1))) 
 
-            args.meta_testing_batch_size = args.num_grads \
-                                            * args.num_local_steps \
-                                            * args.local_batch_size
-    else:
-        
-        if args.optimizer == 'small_fc_mlp' or args.optimizer == 'mup_small_fc_mlp':
-            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.local_batch_size)
-            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
-            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
-            args.meta_training_batch_size = args.local_batch_size \
-                                            * args.num_tasks \
-                                            * args.steps_per_jit
-        else:
-            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.num_grads * args.num_local_steps * args.local_batch_size)
-            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
-            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
-
-            args.meta_training_batch_size = args.num_grads \
-                                            * args.num_local_steps \
-                                            * args.local_batch_size \
-                                            * args.num_tasks \
-                                            * args.steps_per_jit
 
     
-    run_types = {"benchmark": benchmark, "meta-train": meta_train, "sweep": sweep}
+    run_types = {"benchmark": benchmark, 
+                 "meta-train": meta_train, 
+                 "sweep": sweep}
     run_types[args.run_type](args)
 
 

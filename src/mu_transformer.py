@@ -53,6 +53,7 @@ class MuCausalSelfAttention(hk.Module):
       value_size: Optional[int] = None,
       model_size: Optional[int] = None,
       name: Optional[str] = None,
+      hidden_lr_mult: float = 1.0,
   ):
     super().__init__(name=name)
     self.num_heads = num_heads
@@ -71,7 +72,7 @@ class MuCausalSelfAttention(hk.Module):
 
     # the bias is an input weight whose input dimension is always 1
     self._b_init = hk.initializers.RandomNormal(stddev=1., mean=0.)
-    adam_lr_mul = {'w': 1 / (self.key_size * self.num_heads), 'b': 1}
+    adam_lr_mul = {'w': hidden_lr_mult / (self.key_size * self.num_heads), 'b': 1}
     hk.set_state("mup_lrs",{'linear': adam_lr_mul,
                             'query': adam_lr_mul,
                             'key':adam_lr_mul,
@@ -148,7 +149,8 @@ class MuDenseBlock(hk.Module):
                widening_factor: int = 4,
                w_init: Optional[hk.initializers.Initializer] = None,
                b_init: Optional[hk.initializers.Initializer] = None,
-               name: Optional[str] = None):
+               name: Optional[str] = None,
+               hidden_lr_mult: float = 1.0,):
     super().__init__(name=name)
 
     #hidden layer init
@@ -156,8 +158,8 @@ class MuDenseBlock(hk.Module):
     self._b_init = b_init
     self._widening_factor = widening_factor
 
-    hk.set_state("mup_lrs",{'linear':  {'w': 1 / d_model, 'b': 1},
-                            'linear_1':  {'w': 1 / (4 * d_model), 'b': 1},})
+    hk.set_state("mup_lrs",{'linear':  {'w': hidden_lr_mult / d_model, 'b': 1},
+                            'linear_1':  {'w': hidden_lr_mult / (4 * d_model), 'b': 1},})
 
   def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
     hiddens = x.shape[-1]
@@ -181,14 +183,19 @@ class MuTransformer(hk.Module):
                d_model: int,
                vocab_size: int,
                dropout_rate: float,
-               name: Optional[str] = None):
+               name: Optional[str] = None,
+               input_mult: float = 1.0,
+               output_mult: float = 1.0,
+               hidden_lr_mult: float = 1.0,):
     super().__init__(name=name)
     self._num_layers = num_layers
     self._num_heads = num_heads
     self._dropout_rate = dropout_rate
     self._d_model = d_model
     self._vocab_size = vocab_size
-    self._output_mult = 1 / d_model
+    self._output_mult = output_mult / d_model
+    self._input_mult = input_mult
+    self._hidden_lr_mult = hidden_lr_mult
 
     self._imput_w_init = hk.initializers.VarianceScaling(1.0, "fan_in",  "normal")
     self._hidden_w_init = hk.initializers.VarianceScaling(1.0, "fan_in",  "normal")
@@ -235,6 +242,10 @@ class MuTransformer(hk.Module):
                  w_init=self._imput_w_init,
                  name='embed_in'
                  )(h)
+    
+    #apply MuP input Multiplier
+    if self._input_mult != 1.0:
+      h = h * self._input_mult
 
     init_scale = 2. / self._num_layers
 
@@ -253,7 +264,8 @@ class MuTransformer(hk.Module):
           num_heads=self._num_heads,
           key_size=self._d_model // self._num_heads,
           model_size=h.shape[-1],
-          name=f"h{i}_attn")(
+          name=f"h{i}_attn",
+          hidden_lr_mult=self._hidden_lr_mult)(
             h_norm, mask=mask)
       
       h_attn = hk.dropout(hk.next_rng_key(), dropout_rate, h_attn)
@@ -267,7 +279,8 @@ class MuTransformer(hk.Module):
       h_dense = MuDenseBlock(d_model=self._d_model,
                              name=f"h{i}_mlp",
                              w_init=self._hidden_w_init,
-                             b_init=self._b_init)(h_norm)
+                             b_init=self._b_init,
+                             hidden_lr_mult=self._hidden_lr_mult)(h_norm)
       
       h_dense = hk.dropout(hk.next_rng_key(), dropout_rate, h_dense)
 
@@ -287,7 +300,11 @@ class MuTransformer(hk.Module):
 class _MuTransformerTask(base.Task, MuTask):
   """Tranformer from a dictionary configuration."""
 
-  def __init__(self, datasets, cfg: Mapping[str, Any], name: str = '__TransformerTask'):
+  def __init__(self, datasets, cfg: Mapping[str, Any], name: str = '__TransformerTask',
+               mup_multipliers=dict(input_mult=1.0,
+                                    output_mult=1.0,
+                                    hidden_mult=1.0)):
+    self.mup_multipliers = mup_multipliers
     self.datasets = datasets
     self._cfg = cfg
     self._net = hk.transform_with_state(self._hk_forward)
@@ -307,7 +324,8 @@ class _MuTransformerTask(base.Task, MuTask):
         num_layers=self._cfg['num_layers'],
         d_model=self._cfg['d_model'],
         dropout_rate=self._cfg['dropout_rate'],
-        vocab_size=vocab_size)
+        vocab_size=vocab_size,
+        **self.mup_multipliers)
     mask = (batch['image'] != 0)
     logits = mod(batch['image'], mask=mask, is_training=True)
     loss = base.softmax_cross_entropy(

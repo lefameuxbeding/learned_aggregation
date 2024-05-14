@@ -10,8 +10,11 @@ from optimizers import get_optimizer
 from tasks import get_task
 import globals
 import time
-from functools import reduce
+from functools import reduce, partial
 import numpy as np
+
+from helpers import set_non_hashable_args
+
 is_leaf = lambda x : reduce(np.logical_and, [type(x1) != dict for x1 in x.values()])
 
 def add_prefix(prefix,s):
@@ -80,8 +83,12 @@ class Timing:
         self.list.append(self.duration)
         # print(f"[{self.name}] Block took {self.duration:.6f} seconds")
 
-def benchmark(args):    
+def benchmark(args, sweep=False):
+    if sweep:
+        run = wandb.init(project=args.test_project, group=args.name, config=vars(args))   
+        args = argparse.Namespace(**run.config)
     
+    args = set_non_hashable_args(args)
     # Set up globals used in truncated step for benchmarking
     globals.needs_state = args.needs_state
     globals.num_grads = args.num_grads
@@ -115,8 +122,11 @@ def benchmark(args):
 
 
     
+    
+    print('\nstarting loop')
     for _ in tqdm(range(args.num_runs), ascii=True, desc="Outer Loop"):
-        run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
+        if not sweep:
+            run = wandb.init(project=args.test_project, group=args.name, config=vars(args))
         
         if _ > 0:
             params, state = get_params_and_state(args.needs_state, task, key1)
@@ -153,7 +163,6 @@ def benchmark(args):
             with Timing('test',testl):
                 #test loss and accuracy if implemented
                 if not args.skip_test and iteration % args.test_interval == 0 or iteration == 8:
-                    print('testing iter ',iteration)
                     try:
                         test_batch = rename_batch(next(task.datasets.test))
                         key, key1 = jax.random.split(key)
@@ -279,9 +288,22 @@ def sweep(args):
 
         run.finish()
 
+    # if args.sweep_id is None:
+    #     args.sweep_id = wandb.sweep(
+    #         sweep=args.sweep_config, project="learned_aggregation_meta_test"
+    #     )
+    import os
+    os.environ['WANDB_LOG_LEVEL'] = 'debug'
+    # wandb.agent(args.sweep_id, sweep_fn, project="learned_aggregation_meta_test")
+    for k,v in args.__dict__.items():
+        if type(v) == list:
+            print(k,type(v))
+
+    print(args.sweep_config)
     if args.sweep_id is None:
         args.sweep_id = wandb.sweep(
-            sweep=args.sweep_config, project="learned_aggregation_meta_test"
+            sweep=args.sweep_config, project="mup-meta-testing"
         )
 
-    wandb.agent(args.sweep_id, sweep_fn, project="learned_aggregation_meta_test")
+    print('\n[info] in sweep before creating agent')
+    wandb.agent(args.sweep_id, partial(benchmark, args, True), project="mup-meta-testing")

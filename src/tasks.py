@@ -385,10 +385,12 @@ def imagenet_64_datasets(
 def func_create_func(task_fun, ds_args, model_args):
     ds_fun = ds_args['fun']
     # model_fun = model_args['fun']
+    print('[func_create_func]',model_args)
+    print('[func_create_func]',ds_args)
     return task_fun(ds_fun(*ds_args['args'],**ds_args['kwargs']),**model_args)
 
 
-def add_MLP_tasks(tasks, image_datasets, widths, depths):
+def add_MLP_tasks(tasks, image_datasets, widths, depths, mup_muls):
     for k,ds in image_datasets.items():
         for mlp_width in widths:
             for mlp_depth in depths:
@@ -398,9 +400,10 @@ def add_MLP_tasks(tasks, image_datasets, widths, depths):
                 tasks['mumlp-w{}-d{}_{}'.format(mlp_width,mlp_depth,k)] = functools.partial(func_create_func, 
                                                                                             _MuMLPImageTask, 
                                                                                             ds,
-                                                                                            dict(hidden_sizes=[mlp_width] * mlp_depth))
+                                                                                            dict(hidden_sizes=[mlp_width] * mlp_depth,
+                                                                                                 mup_multipliers=mup_muls))
 
-def add_sweepable_MLP_tasks(tasks, image_datasets, widths, depths):
+def add_sweepable_MLP_tasks(tasks, image_datasets, widths, depths, mup_muls):
     for k,ds in image_datasets.items():
         for mlp_width in widths:
             for mlp_depth in depths:
@@ -416,7 +419,7 @@ def add_sweepable_MLP_tasks(tasks, image_datasets, widths, depths):
                                                                                                                                         input_mult=input_mult,
                                                                                                                                         hidden_mult=hidden_mult))
                 
-def add_transformer_lm_tasks(tasks, lm_datasets, widths, depths):
+def add_transformer_lm_tasks(tasks, lm_datasets, widths, depths, mup_muls):
     for k,ds in lm_datasets.items():
         for w,heads in widths:
             for d in depths:
@@ -436,7 +439,8 @@ def add_transformer_lm_tasks(tasks, lm_datasets, widths, depths):
                 tasks[name] = functools.partial(func_create_func, 
                                                 _MuTransformerTask, 
                                                 ds,
-                                                dict(cfg=cfg,name=name))
+                                                dict(cfg=cfg,name=name,
+                                                     mup_multipliers=mup_muls))
 
 
 def vit_w64_d3():
@@ -569,7 +573,7 @@ def get_h14_config_small():
   config.representation_size = None
   return config
 
-def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
+def add_vision_transformer_tasks(tasks, image_datasets, widths, depths, mup_muls):
     for k,ds in image_datasets.items():
         # for w,heads in widths:
         #     for d in depths:
@@ -615,7 +619,8 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         tasks[name] = functools.partial(func_create_func, 
                                         MuVisionTransformerTask, 
                                         ds,
-                                        dict(cfg=vit_w192_d3()))
+                                        dict(cfg=vit_w192_d3(),
+                                             mup_multipliers=mup_muls))
         
         
 
@@ -634,7 +639,8 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         tasks[name] = functools.partial(func_create_func, 
                                         MuVisionTransformerTask, 
                                         ds,
-                                        dict(cfg=vit_w2048_d3()))
+                                        dict(cfg=vit_w2048_d3(),
+                                             mup_multipliers=mup_muls))
         
 
         w=1024
@@ -643,7 +649,8 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         tasks[name] = functools.partial(func_create_func, 
                                         MuVisionTransformerTask, 
                                         ds,
-                                        dict(cfg=vit_w1024_d3()))
+                                        dict(cfg=vit_w1024_d3(),
+                                             mup_multipliers=mup_muls))
         
         w=1280
         d=32
@@ -651,7 +658,8 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         tasks[name] = functools.partial(func_create_func, 
                                         MuVisionTransformerTask, 
                                         ds,
-                                        dict(cfg=get_h14_config()))
+                                        dict(cfg=get_h14_config(),
+                                             mup_multipliers=mup_muls))
         
         w=1280
         d=32
@@ -684,13 +692,14 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths):
         tasks[name] = functools.partial(func_create_func, 
                                         MuVisionTransformerTask, 
                                         ds,
-                                        dict(cfg=vit_w64_d3()))
+                                        dict(cfg=vit_w64_d3(),
+                                             mup_multipliers=mup_muls))
         
         
         
 
 
-def add_resnet_tasks(tasks, image_datasets, widths, depths):
+def add_resnet_tasks(tasks, image_datasets, widths, depths, mup_muls):
     for k,ds in image_datasets.items():
         # for w,heads in widths:
         #     for d in depths:
@@ -738,11 +747,16 @@ def get_test_batch_size(task):
                 
 def get_task(args, is_test=False):
 
-    created_tasks = []
+    mup_multipliers = dict(
+        input_mult=args.mup_input_mult,
+        output_mult=args.mup_output_mult,
+        hidden_lr_mult=args.mup_hidden_lr_mult
+    )
 
+    created_tasks = []
     for chosen_task in args.task:
 
-        if args.run_type == 'benchmark':
+        if args.run_type in ['benchmark','sweep']:
             batch_size = (args.meta_testing_batch_size,1,1,get_test_batch_size(chosen_task),)
             prefetch_batches = (2,1,1,2)
         else:
@@ -784,27 +798,35 @@ def get_task(args, is_test=False):
         tasks = {}
 
         add_MLP_tasks(tasks, 
-                    image_datasets=IMAGE_DATASET_REGISTY, 
-                    widths=[2**i for i in range(16)], 
-                    depths=[3,6,12])
+                      image_datasets=IMAGE_DATASET_REGISTY, 
+                      widths=[2**i for i in range(16)], 
+                      depths=[3,6,12],
+                      mup_muls=mup_multipliers)
         
         add_sweepable_MLP_tasks(tasks, 
                                 image_datasets=IMAGE_DATASET_REGISTY, 
                                 widths=[128,512], 
-                                depths=[3])
-        # print(tasks.keys())
+                                depths=[3],
+                                 mup_muls=mup_multipliers)
 
         add_transformer_lm_tasks(tasks, 
-                                lm_datasets=LANGUAGE_DATASET_REGISTY,
-                                widths=[(64,2),(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
-                                depths=[3,6,12])
+                                 lm_datasets=LANGUAGE_DATASET_REGISTY,
+                                 widths=[(64,2),(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
+                                 depths=[3,6,12],
+                                 mup_muls=mup_multipliers)
         
         add_vision_transformer_tasks(tasks,
-                                    image_datasets=IMAGE_DATASET_REGISTY, widths=[], depths=[])
+                                     image_datasets=IMAGE_DATASET_REGISTY, 
+                                     widths=[], 
+                                     depths=[],
+                                     mup_muls=mup_multipliers)
 
 
         add_resnet_tasks(tasks, 
-                        image_datasets=IMAGE_DATASET_REGISTY, widths=[], depths=[])
+                         image_datasets=IMAGE_DATASET_REGISTY, 
+                         widths=[], 
+                         depths=[],
+                         mup_muls=mup_multipliers)
         
         created_tasks.append(tasks[chosen_task]())
     

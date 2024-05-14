@@ -29,7 +29,7 @@ class MuMLP(hk.Module):
       b_init: Optional[hk.initializers.Initializer] = None,
       input_mult=1.0,
       output_mult=1.0,
-      hidden_mult=1.0,
+      hidden_lr_mult=1.0,
       with_bias: bool = True,
       activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
       activate_final: bool = False,
@@ -58,9 +58,6 @@ class MuMLP(hk.Module):
     self.with_bias = with_bias
     self.w_init = w_init
     self.b_init = b_init
-    self.input_mult = input_mult
-    self.hidden_mult = hidden_mult
-    # self.output_mult = output_mult
     self.activation = activation
     self.activate_final = activate_final
     self.get_adam_mup_lr_mul = {}
@@ -91,13 +88,16 @@ class MuMLP(hk.Module):
                                 b_init=hk.initializers.RandomNormal(stddev=1., mean=0.),
                                 with_bias=with_bias,
                                 name="linear_%d" % index))
-        self.get_adam_mup_lr_mul["~/linear_%d"  % index] = {'w':1.0/output_sizes[index-1],'b':1.0}
+        self.get_adam_mup_lr_mul["~/linear_%d"  % index] = {'w': hidden_lr_mult / output_sizes[index-1] ,'b':1.0}
         
     self.layers = tuple(layers)
     self.output_size = output_sizes[-1] if output_sizes else None
     
     assert len(output_sizes) >= 2, "need more than one layer for MuMLP"
     
+
+    self.input_mult = input_mult
+    self.hidden_mult = 1.0
     self.output_mul =  output_mult * 1 / output_sizes[-2]
     hk.set_state("mup_lrs", self.get_adam_mup_lr_mul)
 
@@ -211,9 +211,9 @@ class _MuMLPImageTask(_MLPImageTask, MuTask):
                hidden_sizes,
                act_fn=jax.nn.relu,
                dropout_rate=0.0,
-               input_mult=1.0,
-               output_mult=1.0,
-               hidden_mult=1.0):
+               mup_multipliers=dict(input_mult=1.0,
+                                    output_mult=1.0,
+                                    hidden_lr_mult=1.0),):
     super().__init__(
                datasets,
                hidden_sizes,
@@ -228,9 +228,7 @@ class _MuMLPImageTask(_MLPImageTask, MuTask):
       inp = jnp.reshape(inp, [inp.shape[0], -1])
       return MuMLP( #hk.nets.MLP(
           sizes, activation=act_fn,
-              input_mult=input_mult, 
-              output_mult=output_mult,
-              hidden_mult=hidden_mult)(
+              **mup_multipliers)(
               inp, dropout_rate=dropout_rate, 
               rng=hk.next_rng_key())
 

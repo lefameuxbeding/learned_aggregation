@@ -188,7 +188,7 @@ def _muadam(args):
             l, grad = jax.value_and_grad(task.loss)(params, key, batch)
             s = None
 
-        return opt.update(opt_state, grad, loss=l, model_state=s), l
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, grad
 
     return opt, update
 
@@ -743,6 +743,7 @@ def get_optimizer(args):
         "small_fc_mlp":_default_lopt,
         "mup_small_fc_mlp":_default_lopt,
         "velo": _velo,
+        'muadam':_muadam,
     }
 
     return optimizers[args.optimizer](args)  # TODO Find better way to do this

@@ -251,6 +251,8 @@ class MuVisionTransformer(nn.Module):
   head_bias_init: float = 0.
   encoder: Type[nn.Module] = Encoder
   model_name: Optional[str] = None
+  input_mult: float = 1.0
+  output_mult: float = 1.0
 
   @nn.compact
   def __call__(self, inputs, *, train):
@@ -300,11 +302,11 @@ class MuVisionTransformer(nn.Module):
         name='embedding',
         # MuP input layer init
         kernel_init=jax.nn.initializers.truncated_normal(1/jnp.sqrt(self.hidden_size)),
-        bias_init=jax.nn.initializers.normal(1))(
-            x )
-
-    # print(x.shape,'after conv')
-    # exit(0)
+        bias_init=jax.nn.initializers.normal(1))(x)
+    
+    # apply MuP input multiplier
+    if self.input_mult != 1.0:
+      x = x * self.input_mult
 
     # Here, x is a grid of embeddings.
 
@@ -345,7 +347,7 @@ class MuVisionTransformer(nn.Module):
           bias_init=jax.nn.initializers.normal(1)
           )(x)
       
-    return x * (1 / self.hidden_size) # MuP ouput multiplier
+    return x * (self.output_mult / self.hidden_size) # MuP ouput multiplier
 
 
 
@@ -390,7 +392,13 @@ def multi_batch_forward(module, params, data, key):
 class MuVisionTransformerTask(base.Task, MuTask):
   """Vision Transformer task."""
 
-  def __init__(self, datasets, cfg):
+  def __init__(self, datasets, cfg,
+               mup_multipliers=dict(input_mult=1.0,
+                                    output_mult=1.0,
+                                    hidden_lr_mult=1.0)):
+    cfg['input_mult'] = mup_multipliers['input_mult']
+    cfg['output_mult'] = mup_multipliers['output_mult']
+    self.hidden_lr_mult = mup_multipliers['hidden_lr_mult']
     num_c = datasets.extra_info["num_classes"]
     self.flax_module = MuVisionTransformer(num_classes=num_c, **cfg)
     self.datasets = datasets
@@ -416,8 +424,8 @@ class MuVisionTransformerTask(base.Task, MuTask):
       if 'encoderblock' in k:
           for kk,v in d['params']['Transformer'][k].items():
               if 'MlpBlock' in kk:
-                  mup_lrs['params']['Transformer'][k][kk]['Dense_0']['kernel'] = 1/v['Dense_0']['kernel'][0]
-                  mup_lrs['params']['Transformer'][k][kk]['Dense_1']['kernel'] =  1/v['Dense_1']['kernel'][0]
+                  mup_lrs['params']['Transformer'][k][kk]['Dense_0']['kernel'] = self.hidden_lr_mult/v['Dense_0']['kernel'][0]
+                  mup_lrs['params']['Transformer'][k][kk]['Dense_1']['kernel'] =  self.hidden_lr_mult/v['Dense_1']['kernel'][0]
                   # print(kk, d['params']['Transformer'][k][kk].keys())
                   # for key in d['params']['Transformer'][k][kk].keys():
                   #     print(key, d['params']['Transformer'][k][kk][key].keys())
@@ -428,10 +436,10 @@ class MuVisionTransformerTask(base.Task, MuTask):
                       
               
               elif 'MultiHeadDotProductAttention' in kk:
-                  mup_lrs['params']['Transformer'][k][kk]['key']['kernel'] = 1/v['key']['kernel'][0]
-                  mup_lrs['params']['Transformer'][k][kk]['value']['kernel'] = 1/v['value']['kernel'][0]
-                  mup_lrs['params']['Transformer'][k][kk]['query']['kernel'] = 1/v['query']['kernel'][0]
-                  mup_lrs['params']['Transformer'][k][kk]['out']['kernel'] = 1/v['out']['kernel'][1] # input weight is in second dim
+                  mup_lrs['params']['Transformer'][k][kk]['key']['kernel'] = self.hidden_lr_mult/v['key']['kernel'][0]
+                  mup_lrs['params']['Transformer'][k][kk]['value']['kernel'] = self.hidden_lr_mult/v['value']['kernel'][0]
+                  mup_lrs['params']['Transformer'][k][kk]['query']['kernel'] = self.hidden_lr_mult/v['query']['kernel'][0]
+                  mup_lrs['params']['Transformer'][k][kk]['out']['kernel'] = self.hidden_lr_mult/v['out']['kernel'][1] # input weight is in second dim
                   # print(kk, d['params']['Transformer'][k][kk].keys())
                   # for key in d['params']['Transformer'][k][kk].keys():
                   #     print(key, d['params']['Transformer'][k][kk][key].keys())

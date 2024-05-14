@@ -9,9 +9,10 @@ from meta_trainers import get_meta_trainer
 import globals
 
 
-from helpers import get_resume_ckpt, save_checkpoint
+from helpers import get_resume_ckpt, save_checkpoint, set_non_hashable_args
 
 def meta_train(args):
+    args = set_non_hashable_args(args)
     meta_trainer, meta_opt = get_meta_trainer(args)
 
     key = jax.random.PRNGKey(0)
