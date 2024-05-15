@@ -8,6 +8,8 @@ import time
 import gin
 import jax
 import jax.numpy as jnp
+import numpy as np
+from functools import partial
 
 from jax.sharding import Mesh, PartitionSpec as P
 from jax.experimental import mesh_utils
@@ -403,6 +405,22 @@ class Timer:
         self.interval = self.end - self.start
         print(f"{self.name} took {self.interval} seconds to complete.")
 
+
+@functools.partial(jax.jit)
+def shuffle_batch(batch, key):
+    return jax.tree_map(partial(reshape_permute_reshape, key), batch)
+
+def reshape_idx_reshape(idx, x):
+    old_shape = x.shape
+    new_shape = (np.prod(old_shape[:3]),) + old_shape[3:]
+    return x.reshape(new_shape)[idx].reshape(old_shape)
+
+@functools.partial(jax.jit)
+def reshape_permute_reshape(key, x):
+    old_shape = x.shape
+    new_shape = (np.prod(old_shape[:3]),) + old_shape[3:]
+    return jax.random.permutation(key,x.reshape(new_shape),axis=0).reshape(old_shape)
+
 @gin.configurable
 class VectorizedFedLOptTruncatedStep(
     truncated_step.VectorizedTruncatedStep, full_es.OverrideStepVectorizedTruncatedStep
@@ -425,6 +443,7 @@ class VectorizedFedLOptTruncatedStep(
         task_name: Optional[str] = None,
         local_learning_rate: float = 1e-1,
         num_local_steps: int = 4,
+        keep_batch_in_gpu_memory = False,
     ):
         """Initializer.
         Args:
@@ -459,6 +478,12 @@ class VectorizedFedLOptTruncatedStep(
         self._task_name = task_name
         self.local_learning_rate = local_learning_rate
         self.num_local_steps = num_local_steps
+
+        # for in memory batch
+        self.keep_batch_in_gpu_memory = keep_batch_in_gpu_memory
+        self.batch = None
+        self.idx = None
+
         # self.data_shape = jax.tree_util.tree_map(
         #     lambda x: jax.core.ShapedArray(shape=x.shape, dtype=x.dtype),
         #     training.vec_get_batch(task_family, num_tasks, split="train", numpy=True)
@@ -515,13 +540,25 @@ class VectorizedFedLOptTruncatedStep(
             result = func(*args, **kwargs)
             end_time = time.time()
             diff = end_time - start_time
-            # print(f"{func.__name__} took {diff} seconds to complete.")
+            print(f"{func.__name__} took {diff} seconds to complete.")
             args[0].timings.append(diff)
             return result
 
         return wrapper
 
+    def shuffle_batch(self):
 
+        assert self.batch != None, 'self.batch is None, cannot shuffle None'
+
+        self.batch = jax.tree_map(partial(reshape_permute_reshape, jax.random.key()), self.batch)
+        return self.batch
+
+
+        # if self.idx == None:
+        #     self.idx = jnp.arange(np.prod(self.batch['label'].shape))
+        # self.idx = jax.random.permutation(jax.random.key(0),self.idx)
+
+        # return jax.tree_map(partial(reshape_idx_reshape, self.idx), self.batch)
 
     @timing_decorator
     def get_batch(self, steps: Optional[int] = None):
@@ -532,7 +569,17 @@ class VectorizedFedLOptTruncatedStep(
         else:
             data_shape = (self.num_tasks,)
 
-        tr_batch = next(self.task_family.datasets.split("train"))
+        if self.keep_batch_in_gpu_memory:
+            
+            if self.batch is None:
+                tr_batch = next(self.task_family.datasets.split("train"))
+                self.batch = tr_batch
+            else:
+                self.batch = shuffle_batch(self.batch, jax.random.key(0))
+                tr_batch = self.batch
+        else:
+            tr_batch = next(self.task_family.datasets.split("train"))
+
 
         if self.meta_loss_split == "same_data" or self.meta_loss_split is None:
             return tr_batch

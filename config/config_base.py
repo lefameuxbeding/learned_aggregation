@@ -49,3 +49,7 @@ mup_hidden_lr_mult = 1.0
 # sweeps only
 sweep_config = dict()
 sweep_id = None
+
+
+
+keep_batch_in_gpu_memory = False

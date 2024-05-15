@@ -29,6 +29,7 @@ def meta_train(args):
     if args.use_pmap:
         assert args.num_grads % args.num_devices == 0, "The number of devices for parallelism should be a divisor of the number of clients (gradients)"
 
+    run = None
     if args.from_checkpoint:
         dirname = osp.join("checkpoints", args.meta_train_name)
         ckpt = open(osp.join(dirname, "latest"), "r").readline().strip()
@@ -46,14 +47,15 @@ def meta_train(args):
             outer_trainer_state = checkpoints.load_state(
                 "{}.ckpt".format(ckpt), outer_trainer_state
             )
-        run = wandb.init(
-            project=args.train_project,
-            group=args.meta_train_name,
-            config=vars(args),
-            resume='must',
-            id=ckpt.split('/')[1][:8]
-        )
-    else:
+            run = wandb.init(
+                project=args.train_project,
+                group=args.meta_train_name,
+                config=vars(args),
+                resume='must',
+                id=ckpt.split('/')[1][:8]
+            )
+    
+    if run == None:
         run = wandb.init(
             project=args.train_project,
             group=args.meta_train_name,

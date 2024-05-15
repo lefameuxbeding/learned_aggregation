@@ -85,6 +85,7 @@ def parse_args():
     parser.add_argument("--mup_input_mult", type=float)
     parser.add_argument("--mup_output_mult", type=float)
     parser.add_argument("--mup_hidden_lr_mult", type=float)
+    parser.add_argument("--keep_batch_in_gpu_memory", action="store_true")
     # fmt: on
 
     return parser.parse_args()
@@ -158,6 +159,7 @@ if __name__ == "__main__":
     sys.path.append(os.getcwd())
     # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = '.999'
+    
     # os.environ["WANDB_DIR"] = args.wandb_dir
 
     cfg = Config.fromfile(args.config)

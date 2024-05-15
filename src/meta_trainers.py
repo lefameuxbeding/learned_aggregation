@@ -68,6 +68,7 @@ def _fedlagg_meta_trainer(args):
             local_learning_rate=args.local_learning_rate,
             task_name=task_family.datasets.extra_info['name'],
             num_local_steps=args.num_local_steps,
+            keep_batch_in_gpu_memory=args.keep_batch_in_gpu_memory,
         )
 
         return truncated_pes.TruncatedPES(
