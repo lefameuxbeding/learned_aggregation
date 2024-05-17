@@ -71,7 +71,7 @@ def parse_args():
     parser.add_argument("--meta_loss_split", type=str)
     parser.add_argument("--test_project", type=str)
     parser.add_argument("--train_project", type=str)
-    parser.add_argument("--tfds_data_dir", type=str, default="/network/scratch/b/benjamin.therien/data/tensorflow_datasets") # os.getenv("SLURM_TMPDIR")
+    parser.add_argument("--tfds_data_dir", type=str, default="./") # os.getenv("SLURM_TMPDIR") "/network/scratch/b/benjamin.therien/data/tensorflow_datasets"
     parser.add_argument("--wandb_dir", type=str, default=os.getenv("SCRATCH"))
     parser.add_argument("--auto_resume", action="store_true")
     parser.add_argument("--truncation_schedule_min_length", type=int)
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     sys.path.append(os.getcwd())
-    # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = '.999'
     
     # os.environ["WANDB_DIR"] = args.wandb_dir
