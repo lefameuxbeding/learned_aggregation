@@ -793,6 +793,7 @@ def get_task(args, is_test=False):
             'lm1b-s128-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=128, **ds_kwargs)),
             'lm1b-s64-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=64, **ds_kwargs)),
             'lm1b-s32-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=32, **ds_kwargs)),
+            'lm1b-s16-v32k': dict(fun=_make_datasets,args=['lm1b', ],kwargs=dict(vocab='sentencepiece', batch_size=batch_size, sequence_length=16, **ds_kwargs)),
         }
         
         tasks = {}
@@ -811,7 +812,7 @@ def get_task(args, is_test=False):
 
         add_transformer_lm_tasks(tasks, 
                                  lm_datasets=LANGUAGE_DATASET_REGISTY,
-                                 widths=[(64,2),(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
+                                 widths=[(64,2),(128,2),(192,12),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], # TODO Replace (192,12) by (192,3)
                                  depths=[3,6,12],
                                  mup_muls=mup_multipliers)
         
