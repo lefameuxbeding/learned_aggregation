@@ -37,7 +37,7 @@ beta = 0.99
 test_interval = 50
 adafac_step_mult=0.001
 
-
+seed=0
 
 
 #MuP

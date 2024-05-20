@@ -15,7 +15,16 @@ import numpy as np
 
 from helpers import set_non_hashable_args
 
+def cast_to_bf16(pytree):
+    """
+    Recursively cast all JAX arrays within a PyTree to BF16.
+    """
+    return jax.tree_map(lambda x: x.astype(jnp.bfloat16) if isinstance(x, jnp.ndarray) else x, pytree)
+
+
 is_leaf = lambda x : reduce(np.logical_and, [type(x1) != dict for x1 in x.values()])
+
+
 
 def add_prefix(prefix,s):
     if prefix != '':
@@ -97,12 +106,16 @@ def benchmark(args, sweep=False):
     globals.use_pmap = args.use_pmap
     globals.num_devices = args.num_devices
 
-    key = jax.random.PRNGKey(0)
+    key = jax.random.PRNGKey(args.seed)
     task = get_task(args)
     # test_task = get_task(args, is_test=True)
 
     key, key1 = jax.random.split(key)
     params, state = get_params_and_state(args.needs_state, task, key1)
+
+    if args.use_bf16:
+        params = cast_to_bf16(params)
+
     print("Model parameters (M): ", count_parameters(params)/1e6)
     
     if state is not None:
@@ -147,6 +160,8 @@ def benchmark(args, sweep=False):
             # update
             with Timing('get traing batch',train_loadl):
                 batch = rename_batch(next(task.datasets.train))
+                if args.use_bf16:
+                    batch = cast_to_bf16(batch)
 
             key, key1 = jax.random.split(key)
             # print('in benchmark',jax.tree_map(lambda x: x.shape, batch))
@@ -159,12 +174,17 @@ def benchmark(args, sweep=False):
 
             with Timing('opt',stepl):
                 params = opt.get_params(opt_state)
+                if args.use_bf16:
+                    params = cast_to_bf16(params)
+
 
             with Timing('test',testl):
                 #test loss and accuracy if implemented
                 if not args.skip_test and iteration % args.test_interval == 0 or iteration == 8:
                     try:
                         test_batch = rename_batch(next(task.datasets.test))
+                        if args.use_bf16:
+                            test_batch = cast_to_bf16(test_batch)
                         key, key1 = jax.random.split(key)
 
                         if args.needs_state:

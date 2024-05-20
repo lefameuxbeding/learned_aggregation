@@ -86,6 +86,7 @@ def parse_args():
     parser.add_argument("--mup_output_mult", type=float)
     parser.add_argument("--mup_hidden_lr_mult", type=float)
     parser.add_argument("--keep_batch_in_gpu_memory", action="store_true")
+    parser.add_argument("--seed", type=int)
     # fmt: on
 
     return parser.parse_args()
