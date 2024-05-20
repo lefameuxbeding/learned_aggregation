@@ -16,7 +16,7 @@ import jax
 import optax
 from optimizers import AdamWLinearCosine, AdamW
 from mup_adafac_mlp_lopt import MuAdafacMLPLOpt
-
+import pickle
 
 def _fedlagg_meta_trainer(args):
     lagg_class = (
@@ -133,6 +133,12 @@ def _default_meta_trainer(args):
                             make_separate_weights=False,
                             split_weights=False,
                             clip_grad=args.lo_clip_grad,)
+        
+    # if args.start_from_test_ckpt:
+    #     with open(args.test_checkpoint, "rb") as f:
+    #         meta_params = pickle.load(f)
+            
+    #     lopt = lopt.opt_fn(meta_params)
 
     if args.schedule != {}:
         print("Using learning rate scheduler")
