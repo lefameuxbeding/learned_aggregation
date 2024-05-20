@@ -492,6 +492,70 @@ def vit_w192_d3():
   config.representation_size = None
   return config
 
+def vit_w192_d8():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 192
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 768
+  config.transformer.num_heads = 3
+  config.transformer.num_layers = 8
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
+def vit_w192_d16():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 192
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 768
+  config.transformer.num_heads = 3
+  config.transformer.num_layers = 16
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
+def vit_w192_d32():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 192
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 768
+  config.transformer.num_heads = 3
+  config.transformer.num_layers = 32
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
+def vit_w192_d64():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 192
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 768
+  config.transformer.num_heads = 3
+  config.transformer.num_layers = 64
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
 def deit_small_config():
   """A config based on the ViT-S_16 config but narrower."""
   config = ml_collections.ConfigDict()
@@ -622,8 +686,6 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths, mup_muls
                                         dict(cfg=vit_w192_d3(),
                                              mup_multipliers=mup_muls))
         
-        
-
         w=192
         d=3
         name = 'vit-w{}-d{}_{}'.format(w,d,k)
@@ -631,6 +693,75 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths, mup_muls
                                         MuVisionTransformerTask, 
                                         ds,
                                         dict(cfg=vit_w192_d3()))
+        
+
+        w=192
+        d=8
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d8(),
+                                             mup_multipliers=mup_muls))
+        
+        w=192
+        d=8
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d8()))
+        
+        w=192
+        d=16
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d16(),
+                                             mup_multipliers=mup_muls))
+        
+        w=192
+        d=16
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d16()))
+        
+        w=192
+        d=32
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d32(),
+                                             mup_multipliers=mup_muls))
+        
+        w=192
+        d=32
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w192_d32()))
+        
+        w=192
+        d=64
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask,
+                                        ds,
+                                        dict(cfg=vit_w192_d64(),
+                                             mup_multipliers=mup_muls))
+        
+        w=192
+        d=64
+        name = 'vit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask,
+                                        ds,
+                                        dict(cfg=vit_w192_d64()))
         
 
         w=2048
@@ -801,7 +932,7 @@ def get_task(args, is_test=False):
         add_MLP_tasks(tasks, 
                       image_datasets=IMAGE_DATASET_REGISTY, 
                       widths=[2**i for i in range(16)], 
-                      depths=[3,6,12],
+                      depths=[3,6,8,12,16,24,32,64],
                       mup_muls=mup_multipliers)
         
         add_sweepable_MLP_tasks(tasks, 
