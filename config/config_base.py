@@ -55,3 +55,11 @@ sweep_id = None
 
 keep_batch_in_gpu_memory = False
 test_checkpoint=None
+
+
+
+#new sweeping variables
+benchmark_momentum=0.0001
+benchmark_weight_decay=0.0001
+benchmark_b1=0.9
+benchmark_b2=0.999
