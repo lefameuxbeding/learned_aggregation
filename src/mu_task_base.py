@@ -3,15 +3,22 @@ import jax
 import gc
 from helpers import get_mup_lrs_from_state
 import threading
+import pprint
 
 class MuTask(object):
+
   def get_mup_state(self,state):
     if self.mup_state is None:
       device = jax.devices()[0]
       self.mup_state = get_mup_lrs_from_state(state)
       self.mup_state = jax.tree_map(lambda x: jax.device_put(x, device), self.mup_state)
+      pprint.pprint(
+        jax.tree_map(lambda x: x.item(), self.mup_state)
+      )
+      # exit(0)
 
     state['mup_lrs_to_use'] = self.mup_state
+
     return state
   
   def init_mup_state(self): 

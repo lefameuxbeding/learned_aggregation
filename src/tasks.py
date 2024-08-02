@@ -492,6 +492,22 @@ def vit_w192_d3():
   config.representation_size = None
   return config
 
+def vit_w512_d3():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 512
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 512 * 4
+  config.transformer.num_heads = 8
+  config.transformer.num_layers = 3
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
 def vit_w192_d8():
   """A config based on the ViT-S_16 config but narrower."""
   config = ml_collections.ConfigDict()
@@ -582,6 +598,23 @@ def vit_w1024_d3():
   config.transformer.mlp_dim = 1024 * 4
   config.transformer.num_heads = 8
   config.transformer.num_layers = 3
+  config.transformer.attention_dropout_rate = 0.0
+  config.transformer.dropout_rate = 0.0
+  config.classifier = "token"
+  config.representation_size = None
+  return config
+
+
+def vit_w1024_d1():
+  """A config based on the ViT-S_16 config but narrower."""
+  config = ml_collections.ConfigDict()
+  config.model_name = "small16_config"
+  config.patches = ml_collections.ConfigDict({"size": (16, 16)})
+  config.hidden_size = 1024
+  config.transformer = ml_collections.ConfigDict()
+  config.transformer.mlp_dim = 1024 * 4
+  config.transformer.num_heads = 8
+  config.transformer.num_layers = 1
   config.transformer.attention_dropout_rate = 0.0
   config.transformer.dropout_rate = 0.0
   config.classifier = "token"
@@ -690,9 +723,17 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths, mup_muls
         d=3
         name = 'vit-w{}-d{}_{}'.format(w,d,k)
         tasks[name] = functools.partial(func_create_func, 
-                                        MuVisionTransformerTask, 
+                                        VisionTransformerTask, 
                                         ds,
                                         dict(cfg=vit_w192_d3()))
+        
+        w=512
+        d=3
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w512_d3()))
         
 
         w=192
@@ -781,6 +822,16 @@ def add_vision_transformer_tasks(tasks, image_datasets, widths, depths, mup_muls
                                         MuVisionTransformerTask, 
                                         ds,
                                         dict(cfg=vit_w1024_d3(),
+                                             mup_multipliers=mup_muls))
+        
+
+        w=1024
+        d=1
+        name = 'muvit-w{}-d{}_{}'.format(w,d,k)
+        tasks[name] = functools.partial(func_create_func, 
+                                        MuVisionTransformerTask, 
+                                        ds,
+                                        dict(cfg=vit_w1024_d1(),
                                              mup_multipliers=mup_muls))
         
         w=1280
@@ -885,24 +936,30 @@ def get_task(args, is_test=False):
     )
 
     created_tasks = []
-    for chosen_task in args.task:
+    for i,chosen_task in enumerate(args.task):
 
         if args.run_type in ['benchmark','sweep']:
             batch_size = (args.meta_testing_batch_size,1,1,get_test_batch_size(chosen_task),)
             prefetch_batches = (2,1,1,2)
+
+            ds_kwargs = dict(prefetch_batches=prefetch_batches,
+                                batch_shape=args.batch_shape,
+                                label_sharding=args.label_sharding,
+                                image_sharding=args.image_sharding,)
         else:
+            temp_bsz_args = args.meta_training_batch_args[i]
             if args.meta_loss_split is not None:
-                batch_size = (args.meta_training_batch_size,1,args.meta_training_batch_size,1,)
+                batch_size = (temp_bsz_args["meta_training_batch_size"],1,temp_bsz_args["meta_training_batch_size"],1,)
                 prefetch_batches = (args.prefetch_batches,1,args.prefetch_batches,1)
             else:
-                batch_size = (args.meta_training_batch_size,1,1,1,)
+                batch_size = (temp_bsz_args["meta_training_batch_size"],1,1,1,)
                 prefetch_batches = (args.prefetch_batches,1,1,1)
 
 
-        ds_kwargs = dict(prefetch_batches=prefetch_batches,
-                            batch_shape=args.batch_shape,
-                            label_sharding=args.label_sharding,
-                            image_sharding=args.image_sharding,)
+            ds_kwargs = dict(prefetch_batches=prefetch_batches,
+                                batch_shape=temp_bsz_args["batch_shape"],
+                                label_sharding=temp_bsz_args["label_sharding"],
+                                image_sharding=temp_bsz_args["image_sharding"],)
 
 
         IMAGE_DATASET_REGISTY = {
@@ -931,7 +988,7 @@ def get_task(args, is_test=False):
 
         add_MLP_tasks(tasks, 
                       image_datasets=IMAGE_DATASET_REGISTY, 
-                      widths=[2**i for i in range(16)], 
+                      widths=[2**i for i in range(16)] + [192], 
                       depths=[3,6,8,12,16,24,32,64],
                       mup_muls=mup_multipliers)
         
@@ -943,8 +1000,8 @@ def get_task(args, is_test=False):
 
         add_transformer_lm_tasks(tasks, 
                                  lm_datasets=LANGUAGE_DATASET_REGISTY,
-                                 widths=[(64,2),(128,2),(192,3),(384,6),(768,12),(1024,8),(2048,16),(4096,32)], 
-                                 depths=[3,6,8,12,16,24,32,64],
+                                 widths=[(64,2),(128,2),(192,3),(384,6),(768,8),(1024,8),(2048,16),(4096,32)], 
+                                 depths=[1,3,6,8,12,16,24,32,64],
                                  mup_muls=mup_multipliers)
         
         add_vision_transformer_tasks(tasks,

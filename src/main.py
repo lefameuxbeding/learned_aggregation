@@ -16,7 +16,7 @@ import tensorflow as tf
 
 from mmengine.config import Config
 
-
+from helpers import print_rank_0
 
 def comma_separated_strings(string):
     # This function will be used to parse the comma-separated string into a list
@@ -43,14 +43,16 @@ def parse_args():
                                                           "fedlagg-adafac",
                                                           'small_fc_mlp',
                                                           'mup_small_fc_mlp',
-                                                          "velo"])
+                                                          "velo","lion",
+                                                          'MuHyperV2'])
     parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")
     parser.add_argument("--name", type=str)
     parser.add_argument("--hidden_size", type=int)
     parser.add_argument("--learning_rate", type=float)
     parser.add_argument("--local_learning_rate", type=float)
-    parser.add_argument("--local_batch_size", type=int)
+    parser.add_argument("--local_batch_size", metavar='N', type=int, nargs='+',
+                        help='an integer for the list')
     parser.add_argument("--num_grads", type=int)
     parser.add_argument("--num_local_steps", type=int)
     parser.add_argument("--steps_per_jit", type=int)
@@ -87,6 +89,9 @@ def parse_args():
     parser.add_argument("--mup_hidden_lr_mult", type=float)
     parser.add_argument("--keep_batch_in_gpu_memory", action="store_true")
     parser.add_argument("--seed", type=int)
+    
+    parser.add_argument("--truncation_length", type=int)
+
     parser.add_argument("--start_from_test_ckpt", action="store_true")
     # fmt: on
 
@@ -149,7 +154,20 @@ def test_bf16_support_on_gpu():
         print(f"Failed to perform BF16 operations on GPU: {e}")
 
 
+
+
+
 if __name__ == "__main__":
+
+    # Replace 'coordinator-service' with your actual service name or IP address
+    # coordinator_address = "coordinator-service:1234"
+
+    # jax.distributed.initialize(coordinator_address=coordinator_address)
+
+
+    # Initialize the distributed environment
+    # jax.distributed.initialize(coordinator_address=) 
+
     tf.config.experimental.set_visible_devices([], "GPU")
 
     print(xla_bridge.get_backend().platform)
@@ -158,9 +176,11 @@ if __name__ == "__main__":
 
     args = parse_args()
 
+    assert len(args.local_batch_size) == len(args.task), f"local batch size and task length mismatch: {len(args.local_batch_size)} != {len(args.task)}"
+
     sys.path.append(os.getcwd())
     # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
-    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = '.999'
+    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = '.95'
     
     # os.environ["WANDB_DIR"] = args.wandb_dir
 
@@ -194,10 +214,29 @@ if __name__ == "__main__":
 
     if args.use_bf16 and test_bf16_support_on_gpu():
         print('setting bf 16 as default supported')
-        jax.config.update('jax_default_matmul_precision', 'bfloat16')
+        jax.config.update('jax_default_matmul_precision', 'bfloat16')# coordinator_address='10.0.0.1:1234', num_processes=2)
+
+   
+    # Check the rank of the current process# Check the rank of the current process
+    args.rank = jax.process_index()
+    # print(f"Process rank: {rank}")
+
+    # Get the world size
+    args.world_size = jax.process_count()
+    # print(f"World size: {world_size}")
+
+    if args.world_size > 1:
+        #setup distributed
+        assert len(args.task) % args.world_size == 0, "world size must divide the number of tasks"
+
+        args.task = np.array(args.task).reshape(args.world_size, -1)[args.rank].tolist()
+
+        args.local_batch_size = np.array(args.local_batch_size).reshape(args.world_size, -1)[args.rank].tolist()
+
+        print(args.rank, args.task)
 
 
-
+    # exit(0)
 
     
     run_types = {"benchmark": benchmark, 

@@ -16,6 +16,16 @@ from jax.sharding import PositionalSharding
 
 
 
+
+def print_rank_0(*message):
+    """If distributed is initialized print only on rank 0."""
+    if jax.distributed.is_initialized():
+        if jax.process_index() == 0:
+            print(*message, flush=True)
+    else:
+        print(*message, flush=True)
+
+
 def natural_sort(l):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
     alphanum_key = lambda key: [convert(c) for c in re.split("([0-9]+)", key)]
@@ -185,7 +195,8 @@ def get_mup_lrs_from_state(state):
     if 'flax_mup_lrs' in state:
         lrs = state['flax_mup_lrs']
     else:
-        lrs = get_mup_lrs_hk({k:{'mup_lrs':v['mup_lrs']} for k,v in state.items() if 'mup_lrs'in v.keys()}, 
+        lrs = get_mup_lrs_hk({k:{'mup_lrs':v['mup_lrs']} \
+                              for k,v in state.items() if 'mup_lrs'in v.keys()}, 
                              prefix='')
     
 
@@ -329,6 +340,8 @@ class MupVarianceScaling(hk.initializers.Initializer):
 
 def set_non_hashable_args(args):
     if args.run_type in ["benchmark", "sweep"]:
+        args.local_batch_size = args.local_batch_size[0]
+        # Meta-testing
         if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo', 'muadam']:
             args.meta_testing_batch_size = args.local_batch_size
             args.batch_shape = (args.local_batch_size,)
@@ -343,15 +356,33 @@ def set_non_hashable_args(args):
                                             * args.num_local_steps \
                                             * args.local_batch_size
     else:
-        
-        if args.optimizer == 'small_fc_mlp' or args.optimizer == 'mup_small_fc_mlp':
-            args.batch_shape = (args.steps_per_jit, args.num_tasks, args.local_batch_size)
-            args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
-            args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
-            args.meta_training_batch_size = args.local_batch_size \
-                                            * args.num_tasks \
-                                            * args.steps_per_jit
+        # Meta-training
+        if args.optimizer.lower() in ['small_fc_mlp','mup_small_fc_mlp','muhyperv2','murnnmlpopt']:
+            
+            args.meta_training_batch_args = []
+            for bsz in args.local_batch_size:
+                temp = {}
+                temp["batch_shape"] = (args.steps_per_jit, args.num_tasks, bsz)
+                temp["label_sharding"] = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+                temp["image_sharding"] = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+                temp["meta_training_batch_size"] = bsz \
+                                                    * args.num_tasks \
+                                                    * args.steps_per_jit
+                
+                args.meta_training_batch_args.append(temp)
+
+
+            # args.batch_shape = (args.steps_per_jit, args.num_tasks, args.local_batch_size)
+            # args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
+            # args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
+            # args.meta_training_batch_size = args.local_batch_size \
+            #                                 * args.num_tasks \
+            #                                 * args.steps_per_jit
+            
+
+
         else:
+            assert type(args.local_batch_size) != list, "not implemented for list"
             args.batch_shape = (args.steps_per_jit, args.num_tasks, args.num_grads * args.num_local_steps * args.local_batch_size)
             args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices)))
             args.image_sharding = PositionalSharding(mesh_utils.create_device_mesh((1,1,args.num_devices,1,1,1)))
@@ -362,3 +393,55 @@ def set_non_hashable_args(args):
                                             * args.num_tasks \
                                             * args.steps_per_jit
     return args
+
+
+
+
+
+import pprint
+
+def rounded_log_sample(a,b,num,r=3):
+   samples = np.logspace(np.log10(a),np.log10(b),num)
+   pprint.pprint([round(x,r) for x in samples])
+   
+
+import numpy as np
+from decimal import Decimal, getcontext, ROUND_HALF_UP
+import pprint
+
+def rounded_log_sample(a, b, num, r=3):
+    samples = np.logspace(np.log10(a), np.log10(b), num)
+    getcontext().prec = r  # Set the precision for Decimal
+    rounded_samples = []
+    
+    for sample in samples:
+        decimal_sample = Decimal(sample)
+        rounded_sample = decimal_sample.quantize(Decimal(f'1e-{r-1}'), rounding=ROUND_HALF_UP)
+        rounded_samples.append(float(rounded_sample))
+    
+    pprint.pprint(rounded_samples)
+
+# Example usage
+
+
+import numpy as np
+from decimal import Decimal, ROUND_HALF_UP
+import pprint
+
+def rounded_log_sample(a, b, num, r=3):
+    samples = np.logspace(np.log10(a), np.log10(b), num)
+    rounded_samples = []
+    for sample in samples:
+        if sample == 0:
+            rounded_samples.append(0.0)
+        else:
+            decimal_sample = Decimal(sample)
+            exponent = decimal_sample.adjusted()  # get exponent of the decimal
+            decimal_sample = decimal_sample.scaleb(-exponent)  # scale to [1, 10)
+            rounded_sample = decimal_sample.quantize(Decimal(f'1.{"0"*(r-1)}'), rounding=ROUND_HALF_UP)
+            rounded_sample = rounded_sample.scaleb(exponent)  # scale back
+            rounded_samples.append(float(rounded_sample))
+    pprint.pprint(rounded_samples)
+
+# Example usage
+rounded_log_sample(1, 1e-6, 20, r=3)
