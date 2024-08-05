@@ -654,6 +654,8 @@ def _default_lopt(args):
 def _velo(args):
     lopt = prefab.LearnedOptimizer(args.num_inner_steps)
 
+    import pdb; pdb.set_trace()
+
     task = get_task(args)
 
     @jax.jit
@@ -781,7 +783,8 @@ def _sgd(args):
     return opt, update
 
 
-@gin.configurable
+# @gin.configurable
+
 class Adam(OptaxOptimizer):
     """Adam with a piecewise linear learning rate schedule."""
 
@@ -792,8 +795,7 @@ class Adam(OptaxOptimizer):
         opt = optax.adamw(learning_rate=args.learning_rate, 
                           b1=args.benchmark_b1,
                           b2=args.benchmark_b2,
-                          eps=1e-08,
-                          weight_decay=args.benchmark_weight_decay,)
+                          eps=1e-08,)
         super().__init__(opt)
 
 

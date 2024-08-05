@@ -357,7 +357,7 @@ def set_non_hashable_args(args):
                                             * args.local_batch_size
     else:
         # Meta-training
-        if args.optimizer.lower() in ['small_fc_mlp','mup_small_fc_mlp','muhyperv2','murnnmlpopt']:
+        if args.optimizer.lower() in ['small_fc_mlp','mup_small_fc_mlp','muhyperv2','murnnmlplopt','RNNMLPLOpt'.lower()]:
             
             args.meta_training_batch_args = []
             for bsz in args.local_batch_size:
@@ -396,52 +396,3 @@ def set_non_hashable_args(args):
 
 
 
-
-
-import pprint
-
-def rounded_log_sample(a,b,num,r=3):
-   samples = np.logspace(np.log10(a),np.log10(b),num)
-   pprint.pprint([round(x,r) for x in samples])
-   
-
-import numpy as np
-from decimal import Decimal, getcontext, ROUND_HALF_UP
-import pprint
-
-def rounded_log_sample(a, b, num, r=3):
-    samples = np.logspace(np.log10(a), np.log10(b), num)
-    getcontext().prec = r  # Set the precision for Decimal
-    rounded_samples = []
-    
-    for sample in samples:
-        decimal_sample = Decimal(sample)
-        rounded_sample = decimal_sample.quantize(Decimal(f'1e-{r-1}'), rounding=ROUND_HALF_UP)
-        rounded_samples.append(float(rounded_sample))
-    
-    pprint.pprint(rounded_samples)
-
-# Example usage
-
-
-import numpy as np
-from decimal import Decimal, ROUND_HALF_UP
-import pprint
-
-def rounded_log_sample(a, b, num, r=3):
-    samples = np.logspace(np.log10(a), np.log10(b), num)
-    rounded_samples = []
-    for sample in samples:
-        if sample == 0:
-            rounded_samples.append(0.0)
-        else:
-            decimal_sample = Decimal(sample)
-            exponent = decimal_sample.adjusted()  # get exponent of the decimal
-            decimal_sample = decimal_sample.scaleb(-exponent)  # scale to [1, 10)
-            rounded_sample = decimal_sample.quantize(Decimal(f'1.{"0"*(r-1)}'), rounding=ROUND_HALF_UP)
-            rounded_sample = rounded_sample.scaleb(exponent)  # scale back
-            rounded_samples.append(float(rounded_sample))
-    pprint.pprint(rounded_samples)
-
-# Example usage
-rounded_log_sample(1, 1e-6, 20, r=3)

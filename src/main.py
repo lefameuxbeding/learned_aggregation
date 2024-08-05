@@ -43,7 +43,9 @@ def parse_args():
                                                           "fedlagg-adafac",
                                                           'small_fc_mlp',
                                                           'mup_small_fc_mlp',
-                                                          "velo","lion",
+                                                          "velo",
+                                                          "lion","RNNMLPLOpt",
+                                                          "MuRNNMLPLOpt",
                                                           'MuHyperV2'])
     parser.add_argument("--task", type=comma_separated_strings)
     parser.add_argument("--needs_state", action="store_true")

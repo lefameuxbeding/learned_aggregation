@@ -1,7 +1,7 @@
 _base_ = ["../config_base.py"]
 
 run_type = "meta-train"
-save_iter = 50
+save_iter = 5000
 checkpoints_to_keep = 1
 schedule = dict()
 

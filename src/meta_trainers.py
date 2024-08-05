@@ -34,10 +34,12 @@ from learned_optimization import tree_utils
 from learned_optimization.optimizers import base as opt_base
 import numpy as onp
 from mup_hyper import MuHyperV2
-
+from mup_rnn import MuRNNMLPLOpt
 from learned_optimization.outer_trainers.gradient_learner import WorkerWeights, GradientEstimator, GradientEstimatorState, \
     WorkerComputeOut, AggregatedGradient, SingleMachineState, _tree_zeros_on_device, _nan_to_num
 
+
+from learned_optimization.learned_optimizers.rnn_mlp_lopt import RNNMLPLOpt
 PRNGKey = jnp.ndarray
 
 @gin.configurable
@@ -380,7 +382,7 @@ def _default_meta_trainer(args):
         print("\n\n loading MuHyperV2 \n\n")
         lopt = MuHyperV2(
             lstm_hidden_size=128,
-            ff_hidden_size=4,
+            ff_hidden_size=args.hidden_size,
             ff_hidden_layers=2,
             initial_momentum_decays=(0.9, 0.99, 0.999),
             initial_rms_decays=(0.999,),
@@ -390,7 +392,21 @@ def _default_meta_trainer(args):
             exp_mult=0.001,
             step_mult=args.adafac_step_mult,
             validation_mode=False,
-            with_validation_feature_dim=False,)
+            with_validation_feature_dim=False,
+            use_bugged_loss_features = True,)
+        
+    elif args.optimizer.lower() == "MuRNNMLPLOpt".lower():
+        lopt = MuRNNMLPLOpt(
+            step_multiplier = args.adafac_step_mult,
+            magnitude_rate = 0.001,
+            hidden_size = 32,
+            hidden_layer = 2,
+            from_mlp_size = 16,
+            from_lstm_size = 18,
+            lstm_to_ff = 17,
+            lstm_hidden_size = 64,
+            decays = (0.5, 0.9, 0.99, 0.999, 0.9999),
+      )
     
     elif 'mup' in args.optimizer:
 
@@ -406,6 +422,19 @@ def _default_meta_trainer(args):
                             split_weights=False,
                             clip_grad=args.lo_clip_grad,)
                             # mup_lrs=args.runtime_mup_lrs)
+
+    elif args.optimizer.lower() == "RNNMLPLOpt".lower():
+        lopt = RNNMLPLOpt(
+            step_multiplier = 0.0001,
+            magnitude_rate = 0.001,
+            hidden_size = 32,
+            hidden_layer = 2,
+            from_mlp_size = 16,
+            from_lstm_size = 18,
+            lstm_to_ff = 17,
+            lstm_hidden_size = 64,
+            decays = (0.5, 0.9, 0.99, 0.999, 0.9999),
+      )
 
     else:
         
@@ -498,6 +527,8 @@ def get_meta_trainer(args):
         'small_fc_mlp': _default_meta_trainer,
         'mup_small_fc_mlp': _default_meta_trainer,
         "MuHyperV2": _default_meta_trainer,
+        "MuRNNMLPLOpt": _default_meta_trainer,
+        "RNNMLPLOpt": _default_meta_trainer,
     }
 
     return meta_trainers[args.optimizer](args)  # TODO Find better way to do this

@@ -579,14 +579,14 @@ class MuRNNMLPLOpt(lopt_base.LearnedOptimizer):
         # inputs needed for the next learned optimizer application.
         new_params = []
         from_mlp = []
-        for o, v, lrs in zip(
+        for o, v, mup_lr in zip(
             jax.tree_util.tree_leaves(outputs),
             jax.tree_util.tree_leaves(opt_state.params),
             jax.tree_util.tree_leaves(mup_lrs)):
           direction = o[:, 0:1]
           magnitude = o[:, 1:2]
           step = direction * jnp.exp(
-              magnitude * parent.magnitude_rate) * parent.step_multiplier * lrs
+              magnitude * parent.magnitude_rate) * parent.step_multiplier * mup_lr
           step = step.reshape(v.shape)
           new_params.append(v - step)
 

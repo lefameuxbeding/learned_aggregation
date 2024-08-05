@@ -971,6 +971,7 @@ def get_task(args, is_test=False):
             'cifar10-32x32x3': dict(fun=image.cifar10_datasets,args=[],kwargs=dict(batch_size=batch_size, image_size=(32, 32), **ds_kwargs)),
             'food101-32x32x3': dict(fun=image.food101_datasets,args=[],kwargs=dict(batch_size=batch_size, image_size=(32, 32), **ds_kwargs)),
             'fashionmnist-28x28x1': dict(fun=image.fashion_mnist_datasets,args=[],kwargs=dict(batch_size=batch_size, **ds_kwargs)),
+            'fashionmnist-8x8x1': dict(fun=image.fashion_mnist_datasets,args=[],kwargs=dict(batch_size=batch_size, image_size=(8, 8), **ds_kwargs)),
         }
 
         LANGUAGE_DATASET_REGISTY = {
@@ -989,7 +990,7 @@ def get_task(args, is_test=False):
         add_MLP_tasks(tasks, 
                       image_datasets=IMAGE_DATASET_REGISTY, 
                       widths=[2**i for i in range(16)] + [192], 
-                      depths=[3,6,8,12,16,24,32,64],
+                      depths=[1,2,3,6,8,12,16,24,32,64],
                       mup_muls=mup_multipliers)
         
         add_sweepable_MLP_tasks(tasks, 
@@ -1001,7 +1002,7 @@ def get_task(args, is_test=False):
         add_transformer_lm_tasks(tasks, 
                                  lm_datasets=LANGUAGE_DATASET_REGISTY,
                                  widths=[(64,2),(128,2),(192,3),(384,6),(768,8),(1024,8),(2048,16),(4096,32)], 
-                                 depths=[1,3,6,8,12,16,24,32,64],
+                                 depths=[1,2,3,6,8,12,16,24,32,64],
                                  mup_muls=mup_multipliers)
         
         add_vision_transformer_tasks(tasks,

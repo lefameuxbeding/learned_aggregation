@@ -788,7 +788,8 @@ class MuHyperV2(lopt_base.LearnedOptimizer):
           def interpolate_theta(ff_p):
             target = [ff_p.shape[0]] + [1] * (len(ff_p.shape) - 1)
             c = jnp.reshape(control_param, target)
-            return 100. * jnp.mean(ff_p * c, axis=0)
+            # return 100. * jnp.mean(ff_p * c, axis=0)
+            return jnp.mean(ff_p * c, axis=0)
 
           ff_param = jax.tree_util.tree_map(interpolate_theta,
                                             theta["ff_mod_stack"])
