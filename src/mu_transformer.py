@@ -25,6 +25,7 @@ from typing import Any, Mapping, Tuple, Callable, Optional
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import functools
 import numpy as onp
 from typing import Any, Mapping
 
@@ -72,11 +73,12 @@ class MuCausalSelfAttention(hk.Module):
 
     # the bias is an input weight whose input dimension is always 1
     self._b_init = hk.initializers.RandomNormal(stddev=1., mean=0.)
-    adam_lr_mul = {'w': hidden_lr_mult / (self.key_size * self.num_heads), 'b': 1}
-    hk.set_state("mup_lrs",{'linear': adam_lr_mul,
-                            'query': adam_lr_mul,
-                            'key':adam_lr_mul,
-                            'value': adam_lr_mul,})
+    adam_lr_mul_kqv = {'w': hidden_lr_mult / (self.model_size), 'b': 1}
+    adam_lr_mul_out = {'w': hidden_lr_mult / (self.value_size * self.num_heads), 'b': 1}
+    hk.set_state("mup_lrs",{'linear': adam_lr_mul_out,
+                            'query': adam_lr_mul_kqv,
+                            'key':adam_lr_mul_kqv,
+                            'value': adam_lr_mul_kqv,})
 
   def __call__(
       self,
@@ -343,18 +345,27 @@ class _MuTransformerTask(base.Task, MuTask):
     params, state = self._net.init(key, batch)
     return params, self.get_mup_state(state)
 
+  @functools.partial(jax.jit)
   def loss(self, params, key, data):
     return self._net.apply(params, key, data)
 
+  @functools.partial(jax.jit)
   def loss_with_state(self, params, state, key, data):
     params, state = self._net.apply(params, state, key, data)
     return params, self.get_mup_state(state)
   
 
-
+  @functools.partial(jax.jit)
   def loss_with_state_and_aux(
       self, params: Params, state: ModelState, key: PRNGKey,
       data: Batch) -> Tuple[jnp.ndarray, ModelState, Mapping[str, jnp.ndarray]]:
     aux = {}
     loss, state = self.loss_with_state(params, state, key, data)
     return loss, state, aux
+  
+  def normalizer(self, loss):
+    num_classes = 32000 #self.datasets.extra_info["num_classes"]
+    maxval = 1.5 * onp.log(num_classes)
+    loss = jnp.clip(loss, 0, maxval)
+    return jnp.nan_to_num(loss, nan=maxval, posinf=maxval, neginf=maxval)
+  

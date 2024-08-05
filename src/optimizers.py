@@ -193,64 +193,7 @@ def _muadam(args):
     return opt, update
 
 
-@gin.configurable
-class AdamW(OptaxOptimizer):
-    """Adam with a piecewise linear learning rate schedule."""
-
-    def __init__(
-        self,
-        learning_rate,
-    ):
-        opt = optax.adamw(learning_rate)
-        super().__init__(opt)
-
-
-def _sgd(args):
-    opt = optax_opts.SGD(learning_rate=args.learning_rate)
-
-    task = get_task(args)
-
-    @jax.jit
-    def update(opt_state, key, batch):
-        params = opt.get_params(opt_state)
-
-        if args.needs_state:
-            state = opt.get_state(opt_state)
-            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
-                params, state, key, batch
-            )
-        else:
-            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
-            s = None
-
-        return opt.update(opt_state, grad, loss=l, model_state=s), l
-
-    return opt, update
-
-
-def _adam(args):
-    opt = opt_base.Adam(args.learning_rate)
-
-    task = get_task(args)
-
-    @jax.jit
-    def update(opt_state, key, batch):
-        params = opt.get_params(opt_state)
-
-        if args.needs_state:
-            state = opt.get_state(opt_state)
-            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
-                params, state, key, batch
-            )
-        else:
-            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
-            s = None
-
-        return opt.update(opt_state, grad, loss=l, model_state=s), l
-
-    return opt, update
-
-def _AdamW(args):
+def _AdamW_schedule(args):
     opt = AdamWLinearCosine(**args.adamw_schedule)
 
     task = get_task(args)
@@ -271,6 +214,9 @@ def _AdamW(args):
         return opt.update(opt_state, grad, loss=l, model_state=s), l, s
 
     return opt, update
+
+
+
 
 def _fedlagg(args):
     lagg_class = (
@@ -708,6 +654,8 @@ def _default_lopt(args):
 def _velo(args):
     lopt = prefab.LearnedOptimizer(args.num_inner_steps)
 
+    import pdb; pdb.set_trace()
+
     task = get_task(args)
 
     @jax.jit
@@ -728,11 +676,160 @@ def _velo(args):
     return lopt, update
 
 
+@gin.configurable
+class Lion(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        args,
+    ):
+        opt = optax.lion(learning_rate=args.learning_rate, 
+                          b1=args.benchmark_b1,
+                          b2=args.benchmark_b2,
+                          eps=1e-08,
+                          weight_decay=args.benchmark_weight_decay,)
+        super().__init__(opt)
+
+def _Lion(args):
+    opt = Lion(args)
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, s
+
+    return opt, update
+
+@gin.configurable
+class AdamW(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        args,
+    ):
+        opt = optax.adamw(learning_rate=args.learning_rate, 
+                          b1=args.benchmark_b1,
+                          b2=args.benchmark_b2,
+                          eps=1e-08,
+                          weight_decay=args.benchmark_weight_decay,)
+        super().__init__(opt)
+
+def _AdamW(args):
+    opt = AdamW(args)
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, s
+
+    return opt, update
+
+@gin.configurable
+class SGDM(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        args,
+    ):
+        opt = optax.sgd(lr=args.learning_rate, 
+                        momentum=args.benchmark_momentum)
+        super().__init__(opt)
+
+
+def _sgd(args):
+    opt = SGDM(learning_rate=args)
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
+
+    return opt, update
+
+
+# @gin.configurable
+
+class Adam(OptaxOptimizer):
+    """Adam with a piecewise linear learning rate schedule."""
+
+    def __init__(
+        self,
+        args,
+    ):
+        opt = optax.adamw(learning_rate=args.learning_rate, 
+                          b1=args.benchmark_b1,
+                          b2=args.benchmark_b2,
+                          eps=1e-08,)
+        super().__init__(opt)
+
+
+def _adam(args):
+    opt = Adam(args)
+
+    task = get_task(args)
+
+    @jax.jit
+    def update(opt_state, key, batch):
+        params = opt.get_params(opt_state)
+
+        if args.needs_state:
+            state = opt.get_state(opt_state)
+            (l, s), grad = jax.value_and_grad(task.loss_with_state, has_aux=True)(
+                params, state, key, batch
+            )
+        else:
+            l, grad = jax.value_and_grad(task.loss)(params, key, batch)
+            s = None
+
+        return opt.update(opt_state, grad, loss=l, model_state=s), l
+
+    return opt, update
+
+
+
 def get_optimizer(args):
     optimizers = {
         "adamw": _AdamW,
         "adam": _adam,
         "sgd": _sgd,
+        "lion": _Lion,
+        
         "fedavg": _fedavg,
         "fedavg-slowmo": _fedavg_slowmo,
         "fedlopt": _fedlagg,
@@ -744,6 +841,7 @@ def get_optimizer(args):
         "mup_small_fc_mlp":_default_lopt,
         "velo": _velo,
         'muadam':_muadam,
+        'adamw_schedule':_AdamW_schedule,
     }
 
     return optimizers[args.optimizer](args)  # TODO Find better way to do this

@@ -59,18 +59,16 @@ def add_prefix(prefix,s):
     return prefix + s
 
 def get_mup_lrs(state,prefix):
-    d = {}
-    for k,v in state.items():
-        if is_leaf(v):
-            d[add_prefix(prefix,k)] = v
-        else:
-            for kk,vv in get_mup_lrs(v,k).items():
-                d[add_prefix(prefix,kk)] = vv
-    
-    d = {k.replace('/mup_lrs',''):v for k,v in d.items()}
-    return d
-# lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in state.items() if 'mup_lrs'in v.keys()}, 
-#                         prefix='')
+  d = {}
+  for k,v in state.items():
+      if is_leaf(v):
+          d[add_prefix(prefix,k)] = v
+      else:
+          for kk,vv in get_mup_lrs(v,k).items():
+              d[add_prefix(prefix,kk)] = vv
+  
+  d = {k.replace('/mup_lrs',''):v for k,v in d.items()}
+  return d
 
 
 @flax.struct.dataclass
@@ -449,37 +447,15 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
           clipping = optax.clip_by_global_norm(clip_norm)
           # Apply gradient clipping
           grad, _ = clipping.update(grad, None)
-        # print(model_state)
-
-        # print('grad',jax.tree_map(lambda x: x.shape, grad))
-
-
-
-        
-        # if self.mup_lrs is None:
-        #   lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
-        #                   prefix='')
-        #   if lrs == {}:
-        #     lrs = model_state
-
-        #   self.mup_lrs = lrs
-
-        # lrs = self.mup_lrs
-
-
-
-        # lrs = get_mup_lrs({k:{'mup_lrs':v['mup_lrs']} for k,v in model_state.items() if 'mup_lrs'in v.keys()}, 
-        #                 prefix='')
-        # if lrs == {}:
-        #   lrs = model_state
-
 
         lrs = model_state['mup_lrs_to_use']
+        # import pprint
+        # jax.debug.breakpoint()
+        # import pdb; pdb.set_trace()
 
-
-
-
-        # assert parent.mup_lrs != None, "mup_lrs not registered"
+        # # import pdb; pdb.set_trace()
+        # # jax.debug.print(lrs)
+        # exit(0)
 
         grad = jax.tree_util.tree_map(lambda x: jnp.nan_to_num(x), grad)
 
@@ -500,16 +476,11 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
 
         fun = functools.partial(mod_apply, self.theta["nn"], global_features)
 
-        # lr_pt = jax.tree_util.tree_map(lambda x: jnp.ones(x.shape), grad)
-        # for x in list(grad.keys())[1:-1]:
-        #   lr_pt[x]['w'] = lr_pt[x]['w'] * 1 / ( lr_pt[x]['w'].shape[0] / 128 )
+        # print("\n\n\n")
         # import pprint
-        # print('params')
-        # pprint.pprint(jax.tree_map(lambda x: x.shape if (type(x) != int and type(x) != float) else x, grad))
-        # print('state')
-        # pprint.pprint(jax.tree_map(lambda x: x, parent.mup_lrs))
-        # assert len(parent.mup_lrs) == len(grad), "Number of learning rates should be equal to number of parameters"
-        # assert set(parent.mup_lrs.keys()) == set(grad.keys()), "Learning rates should have the same keys as parameters"
+        # pprint.pprint(jax.tree_map(lambda x:type(x), grad))
+        # print("\n\n\n")
+        # pprint.pprint(jax.tree_map(lambda x:type(x), lrs))
         # exit(0)
 
         next_params = jax.tree_util.tree_map(fun, opt_state.params, grad,
@@ -519,8 +490,6 @@ class MuAdafacMLPLOpt(lopt_base.LearnedOptimizer):
                                              next_fac_rolling_features.v_row,
                                              next_fac_rolling_features.v_diag,
                                              lrs)
-        # print('update complete successfully')
-        # exit(0)
 
         next_opt_state = AdafacMLPLOptState(
             params=next_params,

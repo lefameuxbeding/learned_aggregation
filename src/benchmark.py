@@ -180,7 +180,10 @@ def benchmark(args, sweep=False):
 
             with Timing('test',testl):
                 #test loss and accuracy if implemented
-                if not args.skip_test and iteration % args.test_interval == 0 or iteration == 8:
+                if not args.skip_test \
+                   and (iteration % args.test_interval == 0 \
+                        or iteration == 0 \
+                        or iteration == args.num_inner_steps-1):
                     try:
                         test_batch = rename_batch(next(task.datasets.test))
                         if args.use_bf16:
@@ -192,6 +195,7 @@ def benchmark(args, sweep=False):
                             test_loss, test_acc = task.loss_and_accuracy_with_state(params, state, key1, test_batch)
                         else:
                             test_loss, test_acc = task.loss_and_accuracy(params, key1, test_batch)
+
                         test_log = {
                             "test loss": test_loss,
                             "test accuracy": test_acc,

@@ -11,6 +11,7 @@ from haiku._src.typing import Initializer
 
 from helpers import MupVarianceScaling
 import globals
+import functools
 from mu_task_base import MuTask
 
 State = Any
@@ -234,9 +235,9 @@ class _MuMLPImageTask(_MLPImageTask, MuTask):
 
     self._mod = hk.transform_with_state(_forward)
     
-    self.mup_state = None
     self.init_mup_state()
 
+  @functools.partial(jax.jit, static_argnums=(0,))
   def loss_with_state(self, params, state, key, data):
     num_classes = self.datasets.extra_info["num_classes"]
     logits, state = self._mod.apply(params, state, key, data["image"])
@@ -250,25 +251,27 @@ class _MuMLPImageTask(_MLPImageTask, MuTask):
     params, state = self._mod.init(key, batch["image"])
     return params, self.get_mup_state(state)
 
+  @functools.partial(jax.jit, static_argnums=(0,))
   def loss_and_accuracy_with_state(self, params: Params, state: State, key: PRNGKey, data: Any) -> Tuple[jnp.ndarray, jnp.ndarray]:
     num_classes = self.datasets.extra_info["num_classes"]
 
-    threshold = 10000
-    if data["image"].shape[0] > threshold:
-      # If the batch is too large, we split it into smaller chunks.
-      # This is to avoid running out of memory.
-      # This is not necessary for the task to work, but it is useful for
-      # large batch sizes.
-      data["image"] = jnp.array_split(data["image"], 
-                                      find_smallest_divisor(data["image"].shape[0],threshold), 
-                                      axis=0)
-      # print(jax.tree_map(lambda x: x.shape, data["image"]))
-      # exit(0)
-      to_cat = [self._mod.apply(params, state, key, chunk)[0] for chunk in data["image"]]
+    # threshold = 10000
+    # if data["image"].shape[0] > threshold:
+    #   # If the batch is too large, we split it into smaller chunks.
+    #   # This is to avoid running out of memory.
+    #   # This is not necessary for the task to work, but it is useful for
+    #   # large batch sizes.
+    #   data["image"] = jnp.array_split(data["image"], 
+    #                                   find_smallest_divisor(data["image"].shape[0],threshold), 
+    #                                   axis=0)
+    #   # print(jax.tree_map(lambda x: x.shape, data["image"]))
+    #   # exit(0)
+    #   to_cat = [self._mod.apply(params, state, key, chunk)[0] for chunk in data["image"]]
 
-      logits = jnp.concatenate(to_cat)
-    else:
-      logits = self._mod.apply(params, state, key, data["image"])[0]
+    #   logits = jnp.concatenate(to_cat)
+    # else:
+    
+    logits = self._mod.apply(params, state, key, data["image"])[0]
     
     # Calculate the loss as before
     labels = jax.nn.one_hot(data["label"], num_classes)
@@ -284,7 +287,7 @@ class _MuMLPImageTask(_MLPImageTask, MuTask):
     return loss, accuracy
   
 
-
+  @functools.partial(jax.jit, static_argnums=(0,))
   def loss_with_state_and_aux(
       self, params: Params, state: ModelState, key: PRNGKey,
       data: Batch) -> Tuple[jnp.ndarray, ModelState, Mapping[str, jnp.ndarray]]:

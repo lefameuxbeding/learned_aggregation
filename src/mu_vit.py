@@ -666,7 +666,18 @@ class MuVisionTransformerTask(base.Task, MuTask):
                   mup_lrs['params']['Transformer'][k][kk]['key']['kernel'] = self.hidden_lr_mult/v['key']['kernel'][0]
                   mup_lrs['params']['Transformer'][k][kk]['value']['kernel'] = self.hidden_lr_mult/v['value']['kernel'][0]
                   mup_lrs['params']['Transformer'][k][kk]['query']['kernel'] = self.hidden_lr_mult/v['query']['kernel'][0]
-                  mup_lrs['params']['Transformer'][k][kk]['out']['kernel'] = self.hidden_lr_mult/v['out']['kernel'][1] # input weight is in second dim
+
+                  value_heads = v['value']['kernel'][1]
+                  value_dim = v['value']['kernel'][2]
+                  
+                  #TODO check if this is correct, I'm not sure how this was implemented in 
+                  # in flax
+                  mup_lrs['params']['Transformer'][k][kk]['out']['kernel'] = self.hidden_lr_mult/ (value_heads * value_dim)
+                  
+                  # v['out']['kernel'][1] # input weight is in second dim
+                  # print(v['out']['kernel'])
+                  # import pprint
+                  # pprint.pprint(v)
                   # print(kk, d['params']['Transformer'][k][kk].keys())
                   # for key in d['params']['Transformer'][k][kk].keys():
                   #     print(key, d['params']['Transformer'][k][kk][key].keys())
@@ -710,26 +721,40 @@ class MuVisionTransformerTask(base.Task, MuTask):
     return loss, state, aux
   
 
+
+
+  @functools.partial(jax.jit, static_argnums=(0,))
+  def loss_and_accuracy_with_state(self, params: Any, state: Any, key: chex.PRNGKey, data: Any):
+    return self.loss_and_accuracy(params, key, data)
+    logits = self.flax_module.apply(
+        params, data["image"], train=True, rngs={"dropout": key})
+    labels_onehot = jax.nn.one_hot(data["label"], logits.shape[1])
+    loss_vec = base.softmax_cross_entropy(logits=logits, labels=labels_onehot)
+    return jnp.mean(loss_vec), self.get_mup_state(state)
+  
+
   @functools.partial(jax.jit, static_argnums=(0,))
   def loss_and_accuracy(self, params: Params, key: PRNGKey, data: Any) -> Tuple[jnp.ndarray, jnp.ndarray]:  # pytype: disable=signature-mismatch  # jax-ndarray
     num_classes = self.datasets.extra_info["num_classes"]
 
-    threshold = 25000
-    if data["image"].shape[0] > threshold:
-      # If the batch is too large, we split it into smaller chunks.
-      # This is to avoid running out of memory.
-      # This is not necessary for the task to work, but it is useful for
-      # large batch sizes.
-      data["image"] = jnp.array_split(data["image"], 
-                                      find_smallest_divisor(data["image"].shape[0],threshold), 
-                                      axis=0)
+    # threshold = 2500000000
+    # if data["image"].shape[0] > threshold:
+    #   # If the batch is too large, we split it into smaller chunks.
+    #   # This is to avoid running out of memory.
+    #   # This is not necessary for the task to work, but it is useful for
+    #   # large batch sizes.
+    #   data["image"] = jnp.array_split(data["image"], 
+    #                                   find_smallest_divisor(data["image"].shape[0],threshold), 
+    #                                   axis=0)
       
-      # logits = multi_batch_forward(self.flax_module,params, data, key)
-      # print(jax.tree_map(lambda x: x.shape, data["image"]))
-      logits = jnp.concatenate( # pylint: disable=g-complex-comprehension
-          [self.flax_module.apply(params, chunk, train=False, rngs={"dropout": key}) for chunk in data["image"]])
-    else:
-      logits = self.flax_module.apply(params, data["image"], train=False, rngs={"dropout": key})
+    #   # logits = multi_batch_forward(self.flax_module,params, data, key)
+    #   # print(jax.tree_map(lambda x: x.shape, data["image"]))
+    #   logits = jnp.concatenate( # pylint: disable=g-complex-comprehension
+    #       [self.flax_module.apply(params, chunk, train=False, rngs={"dropout": key}) for chunk in data["image"]])
+    # else:
+
+
+    logits = self.flax_module.apply(params, data["image"], train=False, rngs={"dropout": key})
     
     # Calculate the loss as before
     labels = jax.nn.one_hot(data["label"], num_classes)
@@ -743,11 +768,19 @@ class MuVisionTransformerTask(base.Task, MuTask):
     accuracy = jnp.mean(correct_predictions.astype(jnp.float32))
     
     return loss, accuracy
-
+  
   def normalizer(self, loss):
-    max_class = onp.log(2 * self.datasets.extra_info["num_classes"])
-    loss = jnp.nan_to_num(
-        loss, nan=max_class, neginf=max_class, posinf=max_class)
-    # shift to [0, 10] then clip.
-    loss = 10 * (loss / max_class)
-    return jnp.clip(loss, 0, 10)
+    num_classes = self.datasets.extra_info["num_classes"]
+    maxval = 1.5 * onp.log(num_classes)
+    loss = jnp.clip(loss, 0, maxval)
+    return jnp.nan_to_num(loss, nan=maxval, posinf=maxval, neginf=maxval)
+  
+
+  
+  # def normalizer(self, loss):
+  #   max_class = onp.log(2 * self.datasets.extra_info["num_classes"])
+  #   loss = jnp.nan_to_num(
+  #       loss, nan=max_class, neginf=max_class, posinf=max_class)
+  #   # shift to [0, 10] then clip.
+  #   loss = 10 * (loss / max_class)
+  #   return jnp.clip(loss, 0, 10)

@@ -8,8 +8,11 @@ from learned_optimization import checkpoints
 from meta_trainers import get_meta_trainer
 import globals
 
-
+import pickle
 from helpers import get_resume_ckpt, save_checkpoint, set_non_hashable_args
+
+
+
 
 def meta_train(args):
     args = set_non_hashable_args(args)
@@ -28,6 +31,21 @@ def meta_train(args):
 
     if args.use_pmap:
         assert args.num_grads % args.num_devices == 0, "The number of devices for parallelism should be a divisor of the number of clients (gradients)"
+    
+    if args.start_from_test_ckpt:
+        with open(args.test_checkpoint, "rb") as f:
+            meta_params = pickle.load(f)
+        
+        # print("meta params check")
+        # outer_trainer_state.gradient_learner_state.theta_opt_state.params = meta_params
+        # print(outer_trainer_state.gradient_learner_state.theta_opt_state.params)
+        # print(meta_params)
+        # import pdb; pdb.set_trace()
+        # lopt = lopt.opt_fn(meta_params)
+
+    
+        # jax.tree_map(lambda x: type(x), outer_trainer_state.__dict__)
+        # jax.tree_map(lambda x: x.shape if type(x)==jax.Array else x, outer_trainer_state.__dict__)
 
     run = None
     if args.from_checkpoint:
@@ -54,6 +72,7 @@ def meta_train(args):
                 resume='must',
                 id=ckpt.split('/')[1][:8]
             )
+            
     
     if run == None:
         run = wandb.init(
@@ -98,7 +117,8 @@ def meta_train(args):
                     - 1
                 ),
             }
-        
+        # import pprint
+        # pprint.pprint(metrics)
         metrics.update(more_to_log)
         run.log(
             metrics

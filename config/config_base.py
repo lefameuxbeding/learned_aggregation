@@ -31,12 +31,13 @@ num_runs = 10
 wandb_checkpoint_id = None
 gradient_accumulation_steps = 1
 test_project = "learned_aggregation_meta_test"
+
 truncation_schedule_min_length = 100
 # for slowmo
 beta = 0.99
 test_interval = 50
 adafac_step_mult=0.001
-
+truncation_length=50
 seed=0
 
 
@@ -53,3 +54,12 @@ sweep_id = None
 
 
 keep_batch_in_gpu_memory = False
+test_checkpoint=None
+
+
+
+#new sweeping variables
+benchmark_momentum=0.0001
+benchmark_weight_decay=0.0001
+benchmark_b1=0.9
+benchmark_b2=0.999

@@ -1,0 +1,32 @@
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/Adam.learning_rate = 0.0003
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/build_gradient_estimators.gradient_estimator_fn = @FullESOrPMAP
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/build_gradient_estimators.sample_task_family_fn = @april28_distribution_bigger
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/FullES.loss_type = 'last_recompute'                                                                                                                                                      opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/FullES.recompute_samples = 100
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/FullES.sign_delta_loss_scalar = 1.0
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/FullES.truncation_schedule = @LogUniformLengthSchedule()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/gradient_worker_compute.extra_metrics = False
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientAccumulator.num_average = 20
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientAccumulator.opt = @Adam()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientClipOptimizer.opt = @GradientAccumulator()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientLearner.init_theta_from_path =     'jul18_continue_on_bigger_2xbs_morestale_9264/params'
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientLearner.meta_init = @HyperV2()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientLearner.reset_outer_iteration = True
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/GradientLearner.theta_opt = @GradientClipOptimizer()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/HyperV2.lstm_hidden_size = 512
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/HyperV2.param_inits = 256
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/HyperV2.use_bugged_loss_features = False
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/LogUniformLengthSchedule.max_length = 200000
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/LogUniformLengthSchedule.min_length = 200
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/periodically_save_checkpoint.time_interval = 60
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/PMAPFullES.truncation_schedule = @LogUniformLengthSchedule()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.lopt = @HyperV2()
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.num_estimators = 8
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.num_steps = 100000
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.outer_learner_fn = @GradientLearner                                                                                                                                            opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.run_num_estimators_per_gradient = 1
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.staleness = 500
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.stochastic_resample_frequency = 200
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.summary_every_n = 25
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/run_train.trainer_batch_size = 512
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/VectorizedLOptTruncatedStep.num_tasks = 8
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/VectorizedLOptTruncatedStep.random_initial_iteration_offset = 0
+opt_from_checkpoint__6cf1d6ba_d295_4f96_88f3_ca14cdaf0da9/VectorizedLOptTruncatedStep.trunc_sched = @NeverEndingTruncationSchedule()
