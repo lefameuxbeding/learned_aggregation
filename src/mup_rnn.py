@@ -504,6 +504,7 @@ class MuRNNMLPLOpt(lopt_base.LearnedOptimizer):
             next_train_loss_accum, loss)
         valid_loss = valid_loss_normalizer.corrected_mean(
             opt_state.valid_loss_accum)
+        valid_loss = jnp.nan_to_num(valid_loss) # FIXME
         valid_loss_feat = train_loss_normalizer.weight_loss(
             next_train_loss_accum, valid_loss)
 
