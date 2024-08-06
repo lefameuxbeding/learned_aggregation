@@ -167,7 +167,7 @@ def benchmark(args, sweep=False):
             # print('in benchmark',jax.tree_map(lambda x: x.shape, batch))
 
             with Timing('fw bw',gradl):
-                opt_state, loss, grad = update(opt_state, key1, batch)
+                opt_state, loss = update(opt_state, key1, batch)
                 to_log = {
                         "train loss": loss,
                     }
@@ -326,8 +326,8 @@ def sweep(args):
     print(args.sweep_config)
     if args.sweep_id is None:
         args.sweep_id = wandb.sweep(
-            sweep=args.sweep_config, project="mup-meta-testing"
+            sweep=args.sweep_config, project=args.test_project
         )
 
     print('\n[info] in sweep before creating agent')
-    wandb.agent(args.sweep_id, partial(benchmark, args, True), project="mup-meta-testing")
+    wandb.agent(args.sweep_id, partial(benchmark, args, True), project=args.test_project)
