@@ -95,6 +95,13 @@ def parse_args():
     parser.add_argument("--truncation_length", type=int)
 
     parser.add_argument("--start_from_test_ckpt", action="store_true")
+
+
+
+    parser.add_argument("--benchmark_momentum", type=float)
+    parser.add_argument("--benchmark_b1", type=float)
+    parser.add_argument("--benchmark_b2", type=float)
+    parser.add_argument("--benchmark_weight_decay", type=float)
     # fmt: on
 
     return parser.parse_args()

@@ -732,7 +732,6 @@ class Lion(OptaxOptimizer):
         opt = optax.lion(learning_rate=args.learning_rate, 
                           b1=args.benchmark_b1,
                           b2=args.benchmark_b2,
-                          eps=1e-08,
                           weight_decay=args.benchmark_weight_decay,)
         super().__init__(opt)
 
@@ -753,7 +752,7 @@ def _Lion(args):
             l, grad = jax.value_and_grad(task.loss)(params, key, batch)
             s = None
 
-        return opt.update(opt_state, grad, loss=l, model_state=s), l, s
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, grad
 
     return opt, update
 
@@ -768,7 +767,6 @@ class AdamW(OptaxOptimizer):
         opt = optax.adamw(learning_rate=args.learning_rate, 
                           b1=args.benchmark_b1,
                           b2=args.benchmark_b2,
-                          eps=1e-08,
                           weight_decay=args.benchmark_weight_decay,)
         super().__init__(opt)
 
@@ -789,7 +787,7 @@ def _AdamW(args):
             l, grad = jax.value_and_grad(task.loss)(params, key, batch)
             s = None
 
-        return opt.update(opt_state, grad, loss=l, model_state=s), l, s
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, grad
 
     return opt, update
 
@@ -801,13 +799,13 @@ class SGDM(OptaxOptimizer):
         self,
         args,
     ):
-        opt = optax.sgd(lr=args.learning_rate, 
+        opt = optax.sgd(learning_rate=args.learning_rate, 
                         momentum=args.benchmark_momentum)
         super().__init__(opt)
 
 
 def _sgd(args):
-    opt = SGDM(learning_rate=args)
+    opt = SGDM(args)
     task = get_task(args)
 
     @jax.jit
@@ -823,7 +821,7 @@ def _sgd(args):
             l, grad = jax.value_and_grad(task.loss)(params, key, batch)
             s = None
 
-        return opt.update(opt_state, grad, loss=l, model_state=s), l
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, grad
 
     return opt, update
 
@@ -837,10 +835,9 @@ class Adam(OptaxOptimizer):
         self,
         args,
     ):
-        opt = optax.adamw(learning_rate=args.learning_rate, 
+        opt = optax.adam(learning_rate=args.learning_rate, 
                           b1=args.benchmark_b1,
-                          b2=args.benchmark_b2,
-                          eps=1e-08,)
+                          b2=args.benchmark_b2,)
         super().__init__(opt)
 
 
@@ -862,7 +859,7 @@ def _adam(args):
             l, grad = jax.value_and_grad(task.loss)(params, key, batch)
             s = None
 
-        return opt.update(opt_state, grad, loss=l, model_state=s), l
+        return opt.update(opt_state, grad, loss=l, model_state=s), l, grad
 
     return opt, update
 
