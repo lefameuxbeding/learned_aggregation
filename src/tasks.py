@@ -23,7 +23,7 @@ import ml_collections
 from typing import Tuple
 from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Tuple
 from learned_optimization import profile
-
+from helpers import cast_to_bf16
 from learned_optimization.tasks.datasets import image
 from learned_optimization.tasks.datasets import base
 from learned_optimization.tasks.datasets.base import Datasets, ThreadSafeIterator, LazyIterator, _image_map_fn
@@ -223,9 +223,9 @@ def custom_preload_tfds_image_classification_datasets(
       dataset = PreloadImageNetDatasetH5(split, h5_path=h5_path, num_workers=24)
       dataset = dataset.preload()
     data = tfds.as_numpy(_image_map_fn(cfg, dataset))
-
-    # import pdb; pdb.set_trace()
+    data = jax.tree_map(lambda x: jnp.array(x), data)
     print(jax.tree_map(lambda x:x.shape if type(x) != int else x, data))
+
 
     # use a python iterator as this is faster than TFDS.
     def generator_fn():
@@ -309,36 +309,36 @@ def custom_preload_tfds_image_classification_datasets(
       abstract_batch=abstract_batch)
 
 
-# @base.dataset_lru_cache
-# @gin.configurable
-# def imagenet_64_datasets(
-#     batch_size: int,
-#     image_size: Tuple[int, int] = (64, 64),
-#     # prefetch_batches=[20,1,1,1],
-#     data_fraction=1.0,
-#     **kwargs,
-# ) -> base.Datasets:
+@base.dataset_lru_cache
+@gin.configurable
+def imagenet_64_datasets(
+    batch_size: int,
+    image_size: Tuple[int, int] = (64, 64),
+    # prefetch_batches=[20,1,1,1],
+    data_fraction=1.0,
+    **kwargs,
+) -> base.Datasets:
 
-#     assert image_size in [(32,32),(64,64),(128,128),(225,225)]
-#     h5_path = os.path.join(os.environ["TFDS_DATA_DIR"],'imagenet_{}x{}x3_JPEG.h5'.format(image_size[0],image_size[1]))
-#     perc = max(1, int(80 * data_fraction))
-#     splits = (f"train[0:{perc}%]", "train[97%:98%]", "train[98:99%]", "validation")
-#     # splits = (f"train[0:50%]", "train[50%:99%]", "train[50%:99%]", "validation")
-#     return custom_preload_tfds_image_classification_datasets(
-#         datasetname="imagenet_resized",
-#         h5_path=h5_path,
-#         splits=splits,
-#         batch_size=batch_size,
-#         image_size=image_size,
-#         stack_channels=1,
-#         # prefetch_batches=prefetch_batches,
-#         # shuffle_buffer_size=10000,
-#         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
-#         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
-#         convert_to_black_and_white=False,
-#         # cache=True,
-#         **kwargs,
-#     )
+    assert image_size in [(32,32),(64,64),(128,128),(225,225)]
+    h5_path = os.path.join(os.environ["TFDS_DATA_DIR"],'imagenet_{}x{}x3_JPEG.h5'.format(image_size[0],image_size[1]))
+    perc = max(1, int(80 * data_fraction))
+    splits = (f"train[0:{perc}%]", "train[97%:98%]", "train[98:99%]", "validation")
+    # splits = (f"train[0:50%]", "train[50%:99%]", "train[50%:99%]", "validation")
+    return custom_preload_tfds_image_classification_datasets(
+        datasetname="imagenet_resized",
+        h5_path=h5_path,
+        splits=splits,
+        batch_size=batch_size,
+        image_size=image_size,
+        stack_channels=1,
+        # prefetch_batches=prefetch_batches,
+        # shuffle_buffer_size=10000,
+        normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
+        normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
+        convert_to_black_and_white=False,
+        # cache=True,
+        **kwargs,
+    )
 
 
 # @gin.configurable
@@ -356,31 +356,31 @@ def custom_preload_tfds_image_classification_datasets(
 
 
 
-@base.dataset_lru_cache
-@gin.configurable
-def imagenet_64_datasets(
-    batch_size: int,
-    image_size: Tuple[int, int] = (64, 64),
-    # prefetch_batches=[20,1,1,1],
-    data_fraction=1.0,
-    **kwargs,
-) -> base.Datasets:
-    perc = max(1, int(80 * data_fraction))
-    splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
-    return base.preload_tfds_image_classification_datasets(
-        datasetname="imagenet_resized",
-        splits=splits,
-        batch_size=batch_size,
-        image_size=image_size,
-        stack_channels=1,
-        # prefetch_batches=prefetch_batches,
-        # shuffle_buffer_size=10000,
-        normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
-        normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
-        convert_to_black_and_white=False,
-        # cache=True,
-        **kwargs,
-    )
+# @base.dataset_lru_cache
+# @gin.configurable
+# def imagenet_64_datasets(
+#     batch_size: int,
+#     image_size: Tuple[int, int] = (64, 64),
+#     # prefetch_batches=[20,1,1,1],
+#     data_fraction=1.0,
+#     **kwargs,
+# ) -> base.Datasets:
+#     perc = max(1, int(80 * data_fraction))
+#     splits = (f"train[0:{perc}%]", "train[80%:90%]", "train[90%:]", "validation")
+#     return base.preload_tfds_image_classification_datasets(
+#         datasetname="imagenet_resized",
+#         splits=splits,
+#         batch_size=batch_size,
+#         image_size=image_size,
+#         stack_channels=1,
+#         # prefetch_batches=prefetch_batches,
+#         # shuffle_buffer_size=10000,
+#         normalize_mean=(0.485 * 255, 0.456 * 255, 0.406 * 255),
+#         normalize_std=(0.229 * 255, 0.224 * 255, 0.225 * 255),
+#         convert_to_black_and_white=False,
+#         # cache=True,
+#         **kwargs,
+#     )
 
 def func_create_func(task_fun, ds_args, model_args):
     ds_fun = ds_args['fun']

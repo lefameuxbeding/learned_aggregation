@@ -14,6 +14,8 @@ import globals
 import functools
 from mu_task_base import MuTask
 
+from helpers import cast_to_bf16
+
 State = Any
 Params = Any
 ModelState = Any
@@ -100,6 +102,9 @@ class MuMLP(hk.Module):
     self.input_mult = input_mult
     self.hidden_mult = 1.0
     self.output_mul =  output_mult * 1 / output_sizes[-2]
+    # device = jax.devices()[0]
+    # self.get_adam_mup_lr_mul = jax.tree_map(lambda x: jax.device_put(x, device), self.get_adam_mup_lr_mul)
+    # self.get_adam_mup_lr_mul = cast_to_bf16(self.get_adam_mup_lr_mul)
     hk.set_state("mup_lrs", self.get_adam_mup_lr_mul)
 
   @property

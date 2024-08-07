@@ -9,7 +9,7 @@ from meta_trainers import get_meta_trainer
 import globals
 
 import pickle
-from helpers import get_resume_ckpt, save_checkpoint, set_non_hashable_args
+from helpers import get_resume_ckpt, save_checkpoint, set_non_hashable_args, cast_to_bf16
 
 
 
@@ -80,10 +80,13 @@ def meta_train(args):
             group=args.meta_train_name,
             config=vars(args),
         )
-
+        
     # import pdb
     # pdb.set_trace()
     # outer_trainer_state.gradient_estimator_states[0].pos_state.inner_opt_state.state
+    if args.use_bf16:
+        outer_trainer_state = cast_to_bf16(outer_trainer_state)
+        
 
     iteration = int(
         outer_trainer_state.gradient_learner_state.theta_opt_state.iteration

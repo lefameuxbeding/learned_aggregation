@@ -21,6 +21,9 @@ import globals
 from learned_optimization.learned_optimizers.adafac_mlp_lopt import AdafacMLPLOpt
 from learned_optimization.research.general_lopt import prefab
 from mup_adafac_mlp_lopt import MuAdafacMLPLOpt
+from mup_hyper import MuHyperV2
+from mup_rnn import MuRNNMLPLOpt
+from learned_optimization.learned_optimizers.rnn_mlp_lopt import RNNMLPLOpt
 import mmengine
 
 @gin.configurable
@@ -557,7 +560,49 @@ def _fedavg_slowmo(args):
 
 
 def _default_lopt(args):
-    if 'mup' in args.optimizer:
+    if args.optimizer.lower() == "MuHyperV2".lower():
+        print("\n\n loading MuHyperV2 \n\n")
+        lopt = MuHyperV2(
+            lstm_hidden_size=128,
+            ff_hidden_size=args.hidden_size,
+            ff_hidden_layers=2,
+            initial_momentum_decays=(0.9, 0.99, 0.999),
+            initial_rms_decays=(0.999,),
+            initial_adafactor_decays=(0.9, 0.99, 0.999),
+            param_inits=64,
+            mix_layers=True,
+            exp_mult=0.001,
+            step_mult=args.adafac_step_mult,
+            validation_mode=False,
+            with_validation_feature_dim=False,
+            use_bugged_loss_features = True,)
+        
+    elif args.optimizer.lower() == "MuRNNMLPLOpt".lower():
+        lopt = MuRNNMLPLOpt(
+            step_multiplier = args.adafac_step_mult,
+            magnitude_rate = 0.001,
+            hidden_size = 32,
+            hidden_layer = 2,
+            from_mlp_size = 16,
+            from_lstm_size = 18,
+            lstm_to_ff = 17,
+            lstm_hidden_size = 64,
+            decays = (0.5, 0.9, 0.99, 0.999, 0.9999),
+        )
+    elif args.optimizer.lower() == "RNNMLPLOpt".lower():
+        lopt = RNNMLPLOpt(
+            step_multiplier = 0.001,
+            magnitude_rate = 0.001,
+            hidden_size = 32,
+            hidden_layer = 2,
+            from_mlp_size = 16,
+            from_lstm_size = 18,
+            lstm_to_ff = 17,
+            lstm_hidden_size = 64,
+            decays = (0.5, 0.9, 0.99, 0.999, 0.9999),
+      )
+    
+    elif 'mup' in args.optimizer:
         lopt = MuAdafacMLPLOpt(exp_mult=0.001,
                         step_mult=args.adafac_step_mult,
                         hidden_size=args.hidden_size,
@@ -842,6 +887,9 @@ def get_optimizer(args):
         "velo": _velo,
         'muadam':_muadam,
         'adamw_schedule':_AdamW_schedule,
+        "murnnmlplopt":_default_lopt,
+        'RNNMLPLOpt'.lower():_default_lopt,
+        'muhyperv2':_default_lopt,
     }
 
-    return optimizers[args.optimizer](args)  # TODO Find better way to do this
+    return optimizers[args.optimizer.lower()](args)  # TODO Find better way to do this

@@ -125,6 +125,7 @@ def download_wandb_checkpoint(cfg):
     if len(ckpts) == 0:
         return None
 
+    print("Downloading checkpoint", ckpts[0].name)
     ckpts[0].download("/tmp", replace=True)
     return osp.join("/tmp", ckpts[0].name)
 
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     assert len(args.local_batch_size) == len(args.task), f"local batch size and task length mismatch: {len(args.local_batch_size)} != {len(args.task)}"
 
     sys.path.append(os.getcwd())
-    os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
+    # os.environ["TFDS_DATA_DIR"] = args.tfds_data_dir
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = '.999'
     os.environ["WANDB_DIR"] = args.wandb_dir
 

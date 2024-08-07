@@ -148,6 +148,11 @@ def get_resume_ckpt(ckpt_dir, meta_train_name):
     return ckpt_path
 
 
+def cast_to_bf16(pytree):
+    """
+    Recursively cast all JAX arrays within a PyTree to BF16.
+    """
+    return jax.tree_map(lambda x: x.astype(jnp.bfloat16) if isinstance(x, jnp.ndarray) and x.dtype == jnp.float32 else x, pytree)
 
 
 def save_timings_to_csv(timings, filename, column_name):
@@ -342,7 +347,7 @@ def set_non_hashable_args(args):
     if args.run_type in ["benchmark", "sweep"]:
         args.local_batch_size = args.local_batch_size[0]
         # Meta-testing
-        if args.optimizer in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo', 'muadam']:
+        if args.optimizer.lower() in ['small_fc_mlp', 'mup_small_fc_mlp', 'adamw', 'velo', 'muadam','muhyperv2','murnnmlplopt','RNNMLPLOpt'.lower()]:
             args.meta_testing_batch_size = args.local_batch_size
             args.batch_shape = (args.local_batch_size,)
             args.label_sharding = PositionalSharding(mesh_utils.create_device_mesh((args.num_devices)))

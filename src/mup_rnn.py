@@ -33,7 +33,7 @@ from learned_optimization.learned_optimizers import base as lopt_base
 from learned_optimization.learned_optimizers import common
 from learned_optimization.optimizers import base as opt_base
 import numpy as onp
-
+from helpers import cast_to_bf16
 PRNGKey = jnp.ndarray
 
 

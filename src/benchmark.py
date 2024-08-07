@@ -13,13 +13,8 @@ import time
 from functools import reduce, partial
 import numpy as np
 
-from helpers import set_non_hashable_args
+from helpers import set_non_hashable_args, cast_to_bf16
 
-def cast_to_bf16(pytree):
-    """
-    Recursively cast all JAX arrays within a PyTree to BF16.
-    """
-    return jax.tree_map(lambda x: x.astype(jnp.bfloat16) if isinstance(x, jnp.ndarray) else x, pytree)
 
 
 is_leaf = lambda x : reduce(np.logical_and, [type(x1) != dict for x1 in x.values()])
@@ -167,7 +162,7 @@ def benchmark(args, sweep=False):
             # print('in benchmark',jax.tree_map(lambda x: x.shape, batch))
 
             with Timing('fw bw',gradl):
-                opt_state, loss = update(opt_state, key1, batch)
+                opt_state, loss, grad = update(opt_state, key1, batch)
                 to_log = {
                         "train loss": loss,
                     }

@@ -1,7 +1,7 @@
 
 import jax
 import gc
-from helpers import get_mup_lrs_from_state
+from helpers import get_mup_lrs_from_state, cast_to_bf16
 import threading
 import pprint
 
@@ -12,6 +12,7 @@ class MuTask(object):
       device = jax.devices()[0]
       self.mup_state = get_mup_lrs_from_state(state)
       self.mup_state = jax.tree_map(lambda x: jax.device_put(x, device), self.mup_state)
+      # self.mup_state = cast_to_bf16(self.mup_state)
       pprint.pprint(
         jax.tree_map(lambda x: x.item(), self.mup_state)
       )
