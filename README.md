@@ -1,5 +1,19 @@
 # Welcome to Learned Aggregation!
 
+# Citation 
+If you found this code useful for your research, please consider citing our paper:
+```bibtex
+@article{
+joseph2025metalearning,
+title={Meta-learning Optimizers for Communication-Efficient Learning},
+author={Charles-{\'E}tienne Joseph and Benjamin Th{\'e}rien and Abhinav Moudgil and Boris Knyazev and Eugene Belilovsky},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2025},
+url={https://openreview.net/forum?id=uRbf9ANAns},
+}
+```
+
 # Installation
 
 Run the following code:
@@ -60,3 +74,18 @@ The ```checkpoints_to_keep``` and ```save_iter``` config variables control the n
 
 # Loading from a checkpoint during meta training
 When a checkpoint is logged, it is saved under ```checkpoints/<meta-train-dir>``` where ```<meta-train-dir>``` is the dynamically assigned meta-train-name. Whenever a new checkpoint is logged, a file called ```latest``` is updated with the name of the most recent checkpoint. When resuming from a checkpoint the user simply has to set the ```--from_checkpoint``` flag and meta training will automatically resume to the checkpoint specified in the ```latest``` file.
+
+
+# Citation 
+If you found this code useful for your research, please consider citing our paper:
+```bibtex
+@article{
+joseph2025metalearning,
+title={Meta-learning Optimizers for Communication-Efficient Learning},
+author={Charles-{\'E}tienne Joseph and Benjamin Th{\'e}rien and Abhinav Moudgil and Boris Knyazev and Eugene Belilovsky},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2025},
+url={https://openreview.net/forum?id=uRbf9ANAns},
+}
+```
